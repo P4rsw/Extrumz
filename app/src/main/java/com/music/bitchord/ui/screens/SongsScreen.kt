@@ -137,6 +137,17 @@ fun SongsScreen(
             )
         }
 
+        // A scan that ended empty (chats never loaded) says so here rather
+        // than leaving the empty-state hint below to imply there is no music.
+        if (!scan.isRunning && scan.lastError != null) {
+            Text(
+                stringResource(R.string.tg_scan_failed),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error,
+                modifier = Modifier.padding(horizontal = 16.dp),
+            )
+        }
+
         Spacer(Modifier.height(8.dp))
 
         if (songs.isEmpty()) {

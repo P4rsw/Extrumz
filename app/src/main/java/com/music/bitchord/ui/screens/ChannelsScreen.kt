@@ -97,6 +97,17 @@ fun ChannelsScreen(
             )
         }
 
+        // Surfaced rather than swallowed: a scan that ended with nothing
+        // loaded has to say so, or the empty list below reads as "no music".
+        if (!scan.isRunning && scan.lastError != null) {
+            Text(
+                stringResource(R.string.tg_scan_failed),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+            )
+        }
+
         if (chats.isEmpty()) {
             Column(
                 modifier = Modifier

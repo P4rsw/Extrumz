@@ -1,11 +1,13 @@
 package com.music.bitchord.data.telegram
 
+import com.music.bitchord.data.TrackLog
 import com.music.bitchord.data.db.TelegramDb
 import com.music.bitchord.data.db.dao.ChatDao
 import com.music.bitchord.data.db.dao.TrackDao
 import com.music.bitchord.data.db.entity.ChatSource
 import com.music.bitchord.data.db.entity.ChatType
 import com.music.bitchord.data.db.entity.Track
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -36,7 +38,20 @@ class LibraryScanner(
         if (_progress.value.isRunning) return
         _progress.value = ScanProgress(isRunning = true)
         try {
-            val chats = client.listTrackedCandidateChats()
+            // Right after Ready, TDLib is still pulling dialogs through the
+            // proxy ("Save chat to database…" for minutes on a big account):
+            // GetChats answers 0 there, and without the wait this scan would
+            // end in silence with an empty list and no banner.
+            val chats = awaitCandidateChats()
+            if (chats.isEmpty()) {
+                // lastError is what the tabs surface as the failure line — a
+                // silent zero here is what made the first-run auto-scan look
+                // like it had never run.
+                _progress.value = ScanProgress(
+                    lastError = "no candidate chats after ${CHATS_LOAD_TIMEOUT_MS}ms",
+                )
+                return
+            }
             _progress.value = _progress.value.copy(totalChats = chats.size)
 
             chats.forEach { info ->
@@ -63,10 +78,44 @@ class LibraryScanner(
             }
             _progress.value = _progress.value.copy(isRunning = false)
         } catch (e: Exception) {
+            TrackLog.w(TAG, "fullScan failed: ${e::class.simpleName}: ${e.message}")
             _progress.value = _progress.value.copy(
                 isRunning = false,
                 lastError = e.message ?: e::class.simpleName
             )
+        }
+    }
+
+    /**
+     * Waits for TDLib to finish loading dialogs after authorization: right
+     * after Ready, GetChats answers 0 while "Save chat to database…" is still
+     * running ([fullScan]'s note), and a scan started against that answers
+     * with nothing. Retries every [CHATS_RETRY_DELAY_MS] until a dialog shows
+     * up or [CHATS_LOAD_TIMEOUT_MS] runs out, then returns the (possibly
+     * empty) list for the caller to surface.
+     */
+    private suspend fun awaitCandidateChats(): List<ChatInfo> {
+        val deadline = timeSource() + CHATS_LOAD_TIMEOUT_MS
+        var attempt = 0
+        while (true) {
+            attempt++
+            val chats = client.listTrackedCandidateChats()
+            if (chats.isNotEmpty()) {
+                if (attempt > 1) {
+                    TrackLog.d(TAG, "candidate chats loaded after $attempt attempts")
+                }
+                return chats
+            }
+            if (timeSource() >= deadline) {
+                TrackLog.w(TAG, "candidate chats still empty after $attempt attempts")
+                return emptyList()
+            }
+            TrackLog.d(
+                TAG,
+                "candidate chats not loaded yet (attempt $attempt); " +
+                    "retrying in ${CHATS_RETRY_DELAY_MS}ms",
+            )
+            delay(CHATS_RETRY_DELAY_MS)
         }
     }
 
@@ -122,6 +171,14 @@ class LibraryScanner(
     }
 
     companion object {
+        private const val TAG = "TelegramScan"
+
+        /** How long to wait for TDLib's dialogs to load before giving up. */
+        private const val CHATS_LOAD_TIMEOUT_MS = 120_000L
+
+        /** Pause between GetChats attempts while dialogs are still loading. */
+        private const val CHATS_RETRY_DELAY_MS = 8_000L
+
         /** App-wide scanner bound to the shared client and database. */
         fun create(): LibraryScanner =
             LibraryScanner(
