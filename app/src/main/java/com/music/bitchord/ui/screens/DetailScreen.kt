@@ -3,7 +3,6 @@ package com.music.bitchord.ui.screens
 import com.music.bitchord.R
 
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -76,7 +75,6 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -103,7 +101,6 @@ import com.music.bitchord.data.model.HomeShelf
 import com.music.bitchord.data.model.ShelfItem
 import com.music.bitchord.data.settings.SongSort
 import com.music.bitchord.data.model.Song
-import com.music.bitchord.data.model.SubscriptionState
 import com.music.bitchord.data.model.UiState
 import com.music.bitchord.data.model.artworkAt
 import com.music.bitchord.data.model.isSameTrackAs
@@ -160,7 +157,6 @@ private const val SEARCH_ITEM_INDEX = 1
 private val HEADER_GUTTER = PAGE_GUTTER + 14.dp
 
 /** Extra breathing room for the editorial copy on album and artist pages. */
-private val ABOUT_GUTTER = PAGE_GUTTER + 12.dp
 
 /**
  * How far past the foot of the artwork the title block is allowed to hang.
@@ -206,7 +202,6 @@ fun DetailScreen(
     onShuffle: (List<Song>) -> Unit,
     onSectionItemClick: (ShelfItem) -> Unit,
     onArtistClick: (String, String) -> Unit,
-    onAddSuggested: (Song) -> Unit,
     contentPadding: PaddingValues,
     modifier: Modifier = Modifier,
     listState: LazyListState = rememberLazyListState(),
@@ -225,21 +220,6 @@ fun DetailScreen(
      * Null on the pages with no list to act on.
      */
     onMore: ((List<Song>) -> Unit)? = null,
-    /**
-     * Saves this release to the account's library, or takes it out —
-     * [DetailPage.library] says which way round. Null hides the control
-     * entirely, which is the answer for a guest and for the pages YouTube never
-     * offers to save; there is nothing to show a signed-out user here that
-     * wouldn't just be refused.
-     */
-    onToggleLibrary: (() -> Unit)? = null,
-    /**
-     * Subscribes to this artist's channel, or unsubscribes —
-     * [DetailPage.subscription] says which way round. The artist page's answer
-     * to [onToggleLibrary], and null in the same circumstances: a guest, or a
-     * page whose header never offered the button.
-     */
-    onToggleSubscription: (() -> Unit)? = null,
     /**
      * How the track list is ordered — the release's own running order by
      * default, or alphabetical. Owned by the caller rather than this page
@@ -287,9 +267,6 @@ fun DetailScreen(
     // list. When no filter is active, matches contains the full running order
     // and plays the complete release/playlist from the tapped position.
     val queue = remember(matches) { matches.map { it.value } }
-    val suggested = remember(page.suggestedSongs, query) {
-        page.suggestedSongs.matching(query).map { it.value }
-    }
 
     // What marks a row as already downloaded, tinted from the sleeve like the
     // rest of the page. Null on any page that is itself a reading of this
@@ -403,17 +380,6 @@ fun DetailScreen(
                         },
                         onMore = onMore,
                         onArtistClick = onArtistClick,
-                        onToggleLibrary = onToggleLibrary,
-                    )
-                }
-            }
-
-            if (isArtist && (page.subscriberCountText != null || page.monthlyListenerCount != null)) {
-                item(key = "artist-stats") {
-                    ArtistStatsRow(
-                        subscriberCountText = page.subscriberCountText,
-                        monthlyListenerCount = page.monthlyListenerCount,
-                        palette = palette,
                     )
                 }
             }
@@ -438,29 +404,6 @@ fun DetailScreen(
                         palette = palette,
                         onPlay = { onSongClick(songs, 0) },
                         onShuffle = { onShuffle(songs) },
-                        subscription = page.subscription?.takeIf { onToggleSubscription != null },
-                        onToggleSubscription = onToggleSubscription,
-                        // Halved when an About section follows directly — see
-                        // [AboutSection]'s own top inset, which makes up the
-                        // rest of that shorter gap.
-                        bottomSpace = if (page.description.isNullOrBlank()) 22.dp else 11.dp,
-                    )
-                }
-            }
-
-            // YouTube's own editorial blurb — an album or an artist only, per
-            // [DetailPage.description]. A playlist never carries one, and the
-            // section is skipped for it even on the rare response that does.
-            if (!page.description.isNullOrBlank() &&
-                (page.type == BrowseType.ALBUM || isArtist)
-            ) {
-                item(key = "about") {
-                    AboutSection(
-                        title = stringResource(
-                            if (isArtist) R.string.about_artist else R.string.about_album,
-                        ),
-                        text = page.description,
-                        palette = palette,
                     )
                 }
             }
@@ -544,34 +487,6 @@ fun DetailScreen(
                 }
             }
 
-            // Tracks YouTube offers to round the playlist out, never folded
-            // into the list above — see [DetailPage.suggestedSongs].
-            if (suggested.isNotEmpty()) {
-                item(key = "suggested-heading") {
-                    SectionHeading(stringResource(R.string.suggested), palette)
-                }
-                itemsIndexed(
-                    suggested,
-                    key = { _, song -> "suggested-${song.videoId}" },
-                ) { index, song ->
-                    SuggestedSongRow(
-                        song = song,
-                        palette = palette,
-                        onClick = { onSongClick(suggested, index) },
-                        onLongPress = { onSongLongPress(song) },
-                        onAdd = { onAddSuggested(song) },
-                        downloadedTint = downloadedTint,
-                    )
-                    if (index < suggested.lastIndex) {
-                        HorizontalDivider(
-                            modifier = Modifier.padding(start = ROW_DIVIDER_INSET),
-                            thickness = 0.5.dp,
-                            color = palette.divider,
-                        )
-                    }
-                }
-            }
-
             // Albums / Singles & EPs carousels (artist pages).
             items(page.sections) { shelf ->
                 val canShowAll = shelf.items.size > ARTIST_ROW_MAX_ITEMS
@@ -636,7 +551,6 @@ private fun ReleaseHeader(
     onSearch: () -> Unit,
     onMore: ((List<Song>) -> Unit)?,
     onArtistClick: (String, String) -> Unit,
-    onToggleLibrary: (() -> Unit)?,
 ) {
     val (credit, meta) = page.headerLines(trackCount)
     // Every row on a release carries the same credit — see [pageCredit] — so
@@ -707,13 +621,10 @@ private fun ReleaseHeader(
             // Action buttons — live inside the header so there is zero gap
             // between the cover zone and the first song row.
             if (songs.isNotEmpty()) {
-                // Only where YouTube said the release can be saved and the
-                // caller is willing to take the write — see [onToggleLibrary].
-                val library = page.library?.takeIf { onToggleLibrary != null }
                 // All release actions are circles. On a 360dp screen a full
                 // five-control row comes down 4dp so it stays inside the shared
                 // header gutter instead of running off the edge.
-                val circles = listOfNotNull(library, onMore).size + 2 // + Shuffle, Search
+                val circles = listOfNotNull(onMore).size + 2 // + Shuffle, Search
                 val full = circles >= 4
                 val circleSize = if (full) 46.dp else 50.dp
                 Spacer(Modifier.height(14.dp))
@@ -727,22 +638,6 @@ private fun ReleaseHeader(
                     ),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    if (library != null) {
-                        CircleIconButton(
-                            // A tick, not a filled-in plus: the pair reads as
-                            // "not yet / done", which is what the state is.
-                            icon = if (library.saved) BitChordIcons.Check else BitChordIcons.Plus,
-                            contentDescription = if (library.saved) {
-                                stringResource(R.string.remove_from_library)
-                            } else {
-                                stringResource(R.string.add_to_library)
-                            },
-                            palette = palette,
-                            onClick = { onToggleLibrary?.invoke() },
-                            haptic = if (library.saved) Haptic.ToggleOff else Haptic.ToggleOn,
-                            size = circleSize,
-                        )
-                    }
                     CircleIconButton(
                         icon = BitChordIcons.Shuffle,
                         contentDescription = stringResource(R.string.shuffle),
@@ -1144,9 +1039,6 @@ private fun ActionRow(
     onPlay: () -> Unit,
     onShuffle: () -> Unit,
     bottomSpace: Dp = 22.dp,
-    /** The artist header's subscribe state, or null where it isn't offered. */
-    subscription: SubscriptionState? = null,
-    onToggleSubscription: (() -> Unit)? = null,
 ) {
     Row(
         modifier = Modifier
@@ -1155,20 +1047,6 @@ private fun ActionRow(
         horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        // Subscribing sits where saving does on a release — first circle, left
-        // of Play — and says the same thing with the same pair of icons.
-        if (subscription != null) {
-            CircleIconButton(
-                icon = if (subscription.subscribed) BitChordIcons.Check else BitChordIcons.Plus,
-                contentDescription = stringResource(
-                    if (subscription.subscribed) R.string.unsubscribe else R.string.subscribe,
-                ),
-                palette = palette,
-                onClick = { onToggleSubscription?.invoke() },
-                haptic = if (subscription.subscribed) Haptic.ToggleOff else Haptic.ToggleOn,
-            )
-        }
-
         PlayPill(
             onClick = onPlay,
         )
@@ -1278,118 +1156,6 @@ private fun ReleaseFooter(songs: List<Song>, palette: ArtworkPalette) {
     )
 }
 
-/** "1.2M subscribers" and "3.4M monthly listeners", off the artist header. */
-@Composable
-private fun ArtistStatsRow(
-    subscriberCountText: String?,
-    monthlyListenerCount: String?,
-    palette: ArtworkPalette,
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            // Top padding is left to the header's own bottom inset (7.dp).
-            .padding(start = PAGE_GUTTER, end = PAGE_GUTTER, bottom = 14.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
-    ) {
-        // YouTube's own count text already reads "1.2M subscribers" in full,
-        // so only the number is kept and the label re-said in the app's own
-        // words — the one way to fit both stats on one line on a narrow
-        // screen without either wrapping into two.
-        subscriberCountText?.let {
-            StatChip(
-                icon = Icons.Rounded.Person,
-                text = stringResource(R.string.subscribers, it.substringBefore(' ')),
-                palette = palette,
-            )
-        }
-        monthlyListenerCount?.let {
-            StatChip(
-                icon = Icons.Rounded.GraphicEq,
-                text = stringResource(R.string.monthly_listeners, it.substringBefore(' ')),
-                palette = palette,
-            )
-        }
-    }
-}
-
-@Composable
-private fun StatChip(icon: ImageVector, text: String, palette: ArtworkPalette) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier
-            .lightweightLiquidGlass(
-                shape = CircleShape,
-                fallbackColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.6f),
-            )
-            .padding(horizontal = 12.dp, vertical = 6.dp),
-    ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            tint = palette.onBackgroundVariant,
-            modifier = Modifier.size(15.dp),
-        )
-        Spacer(Modifier.width(6.dp))
-        Text(
-            text = text,
-            style = MaterialTheme.typography.labelMedium,
-            color = palette.onBackgroundVariant,
-        )
-    }
-}
-
-/**
- * YouTube's own editorial note for a release or an artist, collapsed to a
- * few lines with a tap to read the rest — the same "About" block Apple
- * Music and YouTube Music itself show under the header.
- *
- * Whether there's anything to expand is only knowable once the text has
- * been laid out at the collapsed line count, so the "More" toggle is held
- * back until that measurement says the clipped text actually lost
- * something — otherwise a two-line bio would show a toggle with nothing
- * behind it to reveal.
- */
-@Composable
-private fun AboutSection(title: String, text: String, palette: ArtworkPalette) {
-    var expanded by remember(text) { mutableStateOf(false) }
-    var clipped by remember(text) { mutableStateOf(false) }
-    Column {
-        Text(
-            text = title,
-            style = MaterialTheme.typography.titleMedium,
-            color = palette.onBackground,
-            modifier = Modifier.padding(
-                start = ABOUT_GUTTER, end = ABOUT_GUTTER, top = 2.dp, bottom = 6.dp,
-            ),
-        )
-        Text(
-            text = text,
-            style = MaterialTheme.typography.bodyLarge,
-            fontWeight = FontWeight.Medium,
-            color = palette.onBackgroundVariant,
-            maxLines = if (expanded) Int.MAX_VALUE else 3,
-            overflow = TextOverflow.Ellipsis,
-            onTextLayout = { result -> if (!expanded) clipped = result.hasVisualOverflow },
-            modifier = Modifier
-                .fillMaxWidth()
-                .animateContentSize()
-                .padding(horizontal = ABOUT_GUTTER)
-                .let { m -> if (clipped || expanded) m.clickable { expanded = !expanded } else m },
-        )
-        if (clipped || expanded) {
-            Text(
-                text = stringResource(if (expanded) R.string.less else R.string.more),
-                style = MaterialTheme.typography.labelLarge,
-                color = palette.accent,
-                modifier = Modifier
-                    .padding(horizontal = ABOUT_GUTTER, vertical = 4.dp)
-                    .clickable { expanded = !expanded },
-            )
-        }
-    }
-}
-
 @Composable
 private fun SectionHeading(
     title: String,
@@ -1478,76 +1244,6 @@ private fun CompactSongRow(
                 Icons.Rounded.MoreVert,
                 contentDescription = stringResource(R.string.more),
                 tint = palette.onBackgroundVariant,
-                modifier = Modifier.size(20.dp),
-            )
-        }
-    }
-}
-
-/**
- * A row under "Suggested" — a track YouTube offers to round the playlist
- * out but that was never added. [onAdd] is the point of the row, so it gets
- * the trailing spot a track already on the playlist spends on "more"; the
- * long-press sheet is still one gesture away for anything else.
- */
-@OptIn(ExperimentalFoundationApi::class)
-@Composable
-private fun SuggestedSongRow(
-    song: Song,
-    palette: ArtworkPalette,
-    onClick: () -> Unit,
-    onLongPress: () -> Unit,
-    onAdd: () -> Unit,
-    downloadedTint: Color? = null,
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .combinedClickable(onClick = onClick, onLongClick = onLongPress)
-            .padding(horizontal = PAGE_GUTTER, vertical = 4.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        AsyncImage(
-            model = song.artworkAt(ROW_ART_PX),
-            contentDescription = null,
-            modifier = Modifier
-                .size(52.dp)
-                .clip(RoundedCornerShape(8.dp))
-                .thumbnailBorder(RoundedCornerShape(8.dp))
-                .background(palette.elevated),
-        )
-        Spacer(Modifier.width(14.dp))
-        Column(Modifier.weight(1f)) {
-            ExplicitSongTitle(
-                song = song,
-                style = MaterialTheme.typography.titleMedium,
-                color = palette.onBackground,
-            )
-            Spacer(Modifier.height(2.dp))
-            Text(
-                text = song.artist,
-                style = MaterialTheme.typography.bodyMedium,
-                color = palette.onBackgroundVariant,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-        }
-        if (downloadedTint != null) {
-            DownloadedBadge(song.videoId, downloadedTint)
-        }
-        Spacer(Modifier.width(8.dp))
-        Box(
-            modifier = Modifier
-                .size(36.dp)
-                .clip(CircleShape)
-                .background(palette.accent.copy(alpha = 0.16f))
-                .clickable(onClick = onAdd),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(
-                Icons.Rounded.Add,
-                contentDescription = stringResource(R.string.add_to_playlist),
-                tint = palette.accent,
                 modifier = Modifier.size(20.dp),
             )
         }

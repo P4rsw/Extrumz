@@ -40,7 +40,6 @@ import com.music.bitchord.R
 import com.music.bitchord.data.model.BrowseType
 import com.music.bitchord.data.model.ROW_ART_PX
 import com.music.bitchord.data.model.Song
-import com.music.bitchord.data.model.UserPlaylist
 import com.music.bitchord.data.model.artworkAt
 import com.music.bitchord.download.DownloadState
 import com.music.bitchord.download.Downloads
@@ -75,27 +74,15 @@ data class BrowseTarget(
      */
     val songs: List<Song> = emptyList(),
     /**
-     * Set when this is one of the account's own playlists, which is the only
-     * case where renaming and deleting are things that can be done to it.
-     *
-     * Filled in where the sheet is raised rather than by whatever built the
-     * target: only the playlist's own page states who made it, so for a card
-     * this has to be sent for and arrives after the sheet is already up. Left
-     * null by every caller, and null is also the honest answer while the
-     * question is still out.
-     */
-    val playlist: UserPlaylist? = null,
-    /**
      * False when the menu was opened from the page it would otherwise navigate
      * to — the release page's own overflow. Play, Shuffle and Open are already
      * on that page, so there they are left off the sheet.
      */
     val fromCard: Boolean = true,
     /**
-     * The id this release is recorded under in [com.music.bitchord.download.Downloads.collections],
-     * when it was downloaded whole — set so [onDelete] in the caller can offer
-     * "Delete download" alongside (or instead of) deleting the account's own
-     * copy.
+     * The id this release was recorded under in
+     * [com.music.bitchord.download.Downloads.collections], when it was
+     * downloaded whole, so the caller can offer "Delete download".
      *
      * Left for the caller to resolve rather than derived here: a card off the
      * Local Music screen has no browse id to derive it from at all (see
@@ -137,13 +124,6 @@ fun BrowseActionsSheet(
     onOpen: (() -> Unit)? = null,
     onDownloadAll: (() -> Unit)? = null,
     /**
-     * Shares the release's own YouTube Music link — the album/playlist
-     * counterpart to a track's own Share row in [SongActionsSheet]. Null for
-     * anything with no such link to share: an artist card, or a page built
-     * from something other than a real browse id (a Local Music grouping).
-     */
-    onShare: (() -> Unit)? = null,
-    /**
      * Set whenever [target] is a playlist, regardless of who owns it — pinning
      * doesn't touch the account, only what sits at the top of this device's
      * Library tab. Null everywhere else (albums, artists), where "pin" has
@@ -151,31 +131,13 @@ fun BrowseActionsSheet(
      */
     isPinned: Boolean = false,
     onTogglePin: (() -> Unit)? = null,
-    onRename: ((String) -> Unit)? = null,
-    onDelete: (() -> Unit)? = null,
     /**
      * Removes the files this release was downloaded as, when it was downloaded
-     * whole — see [BrowseTarget.downloadId]. Independent of [onDelete]: that one
-     * deletes the playlist from the account, this one only ever touches what's
-     * on the device, so both can be offered together for an owned playlist that
-     * also happens to be downloaded.
+     * whole — see [BrowseTarget.downloadId].
      */
     onDeleteDownload: (() -> Unit)? = null,
 ) {
-    var renaming by remember { mutableStateOf(false) }
-    var confirmingDelete by remember { mutableStateOf(false) }
     var confirmingDeleteDownload by remember { mutableStateOf(false) }
-
-    val playlist = target.playlist
-    if (renaming && playlist != null && onRename != null) {
-        RenamePlaylistForm(
-            playlist = playlist,
-            onBack = { renaming = false },
-            onRename = onRename,
-            modifier = modifier,
-        )
-        return
-    }
 
     Column(modifier.fillMaxWidth()) {
         BrowseSheetHeader(target)
@@ -241,30 +203,12 @@ fun BrowseActionsSheet(
                 onClick = it,
             )
         }
-        onShare?.let {
-            ActionRow(Icons.Rounded.Share, stringResource(R.string.share), onClick = it)
-        }
         onTogglePin?.let {
             ActionRow(
                 BitChordIcons.Pin,
                 stringResource(if (isPinned) R.string.unpin else R.string.pin),
                 onClick = it,
             )
-        }
-        if (onRename != null) {
-            ActionRow(Icons.Rounded.Edit, stringResource(R.string.rename)) { renaming = true }
-        }
-        if (onDelete != null) {
-            if (confirmingDelete) {
-                ActionRow(
-                    icon = Icons.Rounded.DeleteForever,
-                    label = stringResource(R.string.delete_playlist_confirmation, target.title),
-                    tint = MaterialTheme.colorScheme.error,
-                    onClick = onDelete,
-                )
-            } else {
-                ActionRow(Icons.Rounded.Delete, stringResource(R.string.delete_playlist)) { confirmingDelete = true }
-            }
         }
         if (onDeleteDownload != null) {
             if (confirmingDeleteDownload) {

@@ -41,7 +41,6 @@ import androidx.compose.material.icons.rounded.HighQuality
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.Radio
 import androidx.compose.material.icons.rounded.PlaylistRemove
-import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material.icons.rounded.ThumbDown
 import androidx.compose.material.icons.rounded.ThumbDownOffAlt
 import androidx.compose.material.icons.rounded.Tune
@@ -98,11 +97,11 @@ import java.util.Locale
  * Everything that writes to the account is hidden outright when [signedIn] is
  * false rather than shown and refused. The same goes for a track that is
  * playing from a local file or a finished download (`song.localUri != null`):
- * rating, playlists, downloading it again and sharing all assume a YouTube
+ * rating, playlists and downloading it again all assume a YouTube
  * identity the file doesn't carry, so those rows drop out regardless of
  * [signedIn].
  *
- * [showSleepTimer] and [onShare] are the player's extras: a sleep timer isn't a
+ * [showSleepTimer] is the player's extra: a sleep timer isn't a
  * property of some row in a list, so it only appears where it means something.
  *
  * [onDownload] is only the *start* of a download — cancelling one and deleting
@@ -127,11 +126,9 @@ fun SongActionsSheet(
     onDownload: () -> Unit,
     onToggleLike: () -> Unit,
     onToggleDislike: () -> Unit,
-    onAddToPlaylist: () -> Unit,
     onOpenAlbum: (String) -> Unit,
     onOpenArtist: (String) -> Unit,
     modifier: Modifier = Modifier,
-    onRemoveFromPlaylist: (() -> Unit)? = null,
     showSleepTimer: Boolean = false,
     /**
      * Sends the playing track back to YouTube's own upload, and keeps it there.
@@ -159,7 +156,6 @@ fun SongActionsSheet(
     onToggleAudioVersion: (() -> Unit)? = null,
     /** Which cut is playing now, so the row can offer the other one. */
     isAudioVersion: Boolean = false,
-    onShare: (() -> Unit)? = null,
     /**
      * Copies what the app logged while starting this track. Null everywhere
      * except the player, where "this track" means something.
@@ -261,20 +257,6 @@ fun SongActionsSheet(
                 accent = palette.accent,
                 onClick = onToggleDislike,
             )
-            ActionRow(
-                icon = Icons.AutoMirrored.Rounded.PlaylistAdd,
-                label = stringResource(R.string.add_to_playlist),
-                accent = palette.accent,
-                onClick = onAddToPlaylist,
-            )
-            onRemoveFromPlaylist?.let {
-                ActionRow(
-                    icon = Icons.Rounded.PlaylistRemove,
-                    label = stringResource(R.string.remove_from_playlist),
-                    accent = palette.accent,
-                    onClick = it,
-                )
-            }
             HorizontalDivider(
                 modifier = Modifier.padding(vertical = 6.dp),
                 thickness = 0.5.dp,
@@ -340,11 +322,6 @@ fun SongActionsSheet(
                 accent = palette.accent,
                 onClick = it,
             )
-        }
-        if (!isOffline) {
-            onShare?.let {
-                ActionRow(Icons.Rounded.Share, stringResource(R.string.share), accent = palette.accent, onClick = it)
-            }
         }
         // Last, and only from the player: it is about the track playing right
         // now rather than about the song as a thing in a library, and it is

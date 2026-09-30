@@ -93,7 +93,6 @@ fun SearchScreen(
     onSongLongPress: (Song) -> Unit,
     onSongSwipe: (Song) -> Unit,
     onTopResultPlay: (Song) -> Unit,
-    onTopResultPlaylist: (Song) -> Unit,
     onBrowseClick: (BrowseItem) -> Unit,
     /**
      * Holding an album or playlist hit rather than tapping it — the same menu
@@ -223,7 +222,6 @@ fun SearchScreen(
                             TopResultCard(
                                 song = topResult.song,
                                 onPlay = { onTopResultPlay(topResult.song) },
-                                onPlaylist = { onTopResultPlaylist(topResult.song) },
                                 onLongPress = { onSongLongPress(topResult.song) },
                             )
                         }
@@ -312,7 +310,6 @@ private fun searchSections(rows: List<SearchResult>, filter: SearchFilter): List
 private fun TopResultCard(
     song: Song,
     onPlay: () -> Unit,
-    onPlaylist: () -> Unit,
     onLongPress: () -> Unit,
 ) {
     Column(
@@ -368,14 +365,6 @@ private fun TopResultCard(
                 Icon(Icons.Rounded.PlayArrow, contentDescription = null)
                 Spacer(Modifier.width(6.dp))
                 Text(stringResource(R.string.play))
-            }
-            OutlinedButton(
-                onClick = onPlaylist,
-                colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.onSurface),
-            ) {
-                Icon(Icons.AutoMirrored.Rounded.PlaylistAdd, contentDescription = null)
-                Spacer(Modifier.width(6.dp))
-                Text(stringResource(R.string.playlist_action))
             }
         }
     }

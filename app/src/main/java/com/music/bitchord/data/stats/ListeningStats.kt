@@ -321,6 +321,44 @@ object ListeningStats {
             .getOrNull()
     }
 
+    /**
+     * The most recently played tracks, newest first, each as it would play.
+     *
+     * The only reading of this data that is *ordered* — Replay ranks by time
+     * played, which is a different question — so it is merged across every month
+     * on disk and then sorted by when each track was last heard. The open month
+     * is flushed first, or a song played in the last thirty seconds would be
+     * missing from the page about what was just played.
+     *
+     * At most [limit] rows: the list is read in full either way, so the cap is
+     * what keeps a page whose subject is recency from carrying years of it.
+     */
+    suspend fun recentTracks(limit: Int): List<Song> = withContext(Dispatchers.IO) {
+        if (!ready || limit <= 0) return@withContext emptyList()
+        flushAndAwait()
+        val merged = HashMap<String, TrackEntry>()
+        months().forEach { month ->
+            read(month.toString())?.tracks?.forEach { entry ->
+                merged.merge(entry.id, entry.copy()) { a, b -> a.also { it.absorb(b) } }
+            }
+        }
+        merged.values
+            .filter { it.last > 0L }
+            .sortedByDescending { it.last }
+            .take(limit)
+            .map {
+                Song(
+                    videoId = it.id,
+                    title = it.title,
+                    artist = it.artist,
+                    thumbnailUrl = it.art,
+                    artistId = it.artistId,
+                    albumId = it.albumId,
+                    albumName = it.album,
+                )
+            }
+    }
+
     // ── Housekeeping ────────────────────────────────────────────────────────
 
     /**

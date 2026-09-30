@@ -7,41 +7,24 @@ import com.music.bitchord.R
 import com.music.bitchord.auth.AuthStore
 import com.music.bitchord.auth.GoogleAccountSession
 import com.music.bitchord.auth.YouTubeProfile
-import com.music.bitchord.auth.profileId
-import com.music.bitchord.auth.sessionId
 import com.music.bitchord.auth.adjacentProfile
 import com.music.bitchord.data.LocalMediaRepository
 import com.music.bitchord.data.LikeState
-import com.music.bitchord.data.YtMusicRepository
+import com.music.bitchord.data.stats.ListeningStats
 import com.music.bitchord.data.lyrics.EmbeddedLyrics
 import com.music.bitchord.data.lyrics.LyricLine
 import com.music.bitchord.data.lyrics.LyricsRepository
 import com.music.bitchord.data.lyrics.LyricsSource
 import com.music.bitchord.data.settings.AppSettings
-import com.music.bitchord.data.innertube.Innertube
-import com.music.bitchord.data.innertube.PlaybackTracker
 import com.music.bitchord.data.innertube.StreamResolver
-import com.music.bitchord.auth.CapturedSession
-import com.music.bitchord.auth.WebSessionMode
 import com.music.bitchord.data.model.Account
-import com.music.bitchord.data.model.AccountChannel
 import com.music.bitchord.data.model.BrowseType
 import com.music.bitchord.data.model.DetailPage
-import com.music.bitchord.data.model.HomeShelf
-import com.music.bitchord.data.model.LibraryPage
-import com.music.bitchord.data.model.LibraryState
 import com.music.bitchord.data.model.LikeStatus
-import com.music.bitchord.data.model.MoodGenre
-import com.music.bitchord.data.model.MoodGenreSection
-import com.music.bitchord.data.model.PlaylistPrivacy
 import com.music.bitchord.data.model.SearchFilter
 import com.music.bitchord.data.model.SearchResult
-import com.music.bitchord.data.model.ShelfItem
 import com.music.bitchord.data.model.Song
-import com.music.bitchord.data.model.SongMenu
-import com.music.bitchord.data.model.SubscriptionState
 import com.music.bitchord.data.model.UiState
-import com.music.bitchord.data.model.UserPlaylist
 import com.music.bitchord.data.model.SearchHistoryEntity
 import com.music.bitchord.data.model.EntityType
 import com.music.bitchord.data.settings.SearchHistory
@@ -49,32 +32,23 @@ import com.music.bitchord.download.Downloads
 import android.util.LruCache
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.async
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withTimeout
-import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.drop
-import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.sync.Semaphore
-import kotlinx.coroutines.sync.withPermit
 import com.music.bitchord.data.sources.SourceKind
 import com.music.bitchord.data.sources.SourceRegistry
 import com.music.bitchord.data.sources.SourceResolver
 import com.music.bitchord.data.sources.TrackMatcher
 import com.music.bitchord.playback.StreamChoice
-import java.util.Locale
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicLong
 
@@ -92,48 +66,6 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     private val _signedIn = MutableStateFlow(authStore.isSignedIn)
     val signedIn: StateFlow<Boolean> = _signedIn.asStateFlow()
-
-    private val _home = MutableStateFlow<UiState<List<HomeShelf>>>(UiState.Loading)
-    val home: StateFlow<UiState<List<HomeShelf>>> = _home.asStateFlow()
-
-    /**
-     * Token for the next page of Home shelves; null once there's nothing
-     * more. Declared here rather than by [loadMoreHome] because [init] calls
-     * [loadHome] synchronously up to its first suspension point — a property
-     * declared after [init] would still be null when that runs.
-     */
-    private var homeContinuation: String? = null
-
-    /** Titles already on screen, so a later page can't repeat a shelf. */
-    private val homeSeenTitles = mutableSetOf<String>()
-
-    private val _homeLoadingMore = MutableStateFlow(false)
-
-    /**
-     * Requests still filling out the first Play page. The core feed and each
-     * supplement browse run in parallel and publish as they land, so the list
-     * goes Success while several shelves are still on the wire — counted here
-     * so the feed can say more is coming instead of just ending mid-load.
-     */
-    private val _homePendingShelves = MutableStateFlow(0)
-
-    /** True whenever shelves are still due at the end of the feed, from either source. */
-    val homeLoadingMore: StateFlow<Boolean> =
-        combine(_homeLoadingMore, _homePendingShelves) { paging, pending -> paging || pending > 0 }
-            .stateIn(viewModelScope, SharingStarted.Eagerly, false)
-
-    private val _homeRecentlyPlayedLoading = MutableStateFlow(false)
-    val homeRecentlyPlayedLoading: StateFlow<Boolean> = _homeRecentlyPlayedLoading.asStateFlow()
-    private val homeLoadGeneration = AtomicLong(0L)
-
-    private val _explore = MutableStateFlow<UiState<List<MoodGenreSection>>>(UiState.Loading)
-    val explore: StateFlow<UiState<List<MoodGenreSection>>> = _explore.asStateFlow()
-
-    private val _selectedMoodGenre = MutableStateFlow<MoodGenre?>(null)
-    val selectedMoodGenre: StateFlow<MoodGenre?> = _selectedMoodGenre.asStateFlow()
-
-    private val _moodGenreShelves = MutableStateFlow<UiState<List<HomeShelf>>>(UiState.Loading)
-    val moodGenreShelves: StateFlow<UiState<List<HomeShelf>>> = _moodGenreShelves.asStateFlow()
 
     private val _query = MutableStateFlow("")
     val query: StateFlow<String> = _query.asStateFlow()
@@ -472,19 +404,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     val account: StateFlow<Account?> = _account.asStateFlow()
 
     /**
-     * The channels this login can act as. Empty until the picker asks for
-     * them — it is one more request per sign-in and nothing else on the
-     * settings page needs the answer.
-     */
-    private val _channels = MutableStateFlow<List<AccountChannel>>(emptyList())
-    val channels: StateFlow<List<AccountChannel>> = _channels.asStateFlow()
-
-    private val _channelsLoading = MutableStateFlow(false)
-    val channelsLoading: StateFlow<Boolean> = _channelsLoading.asStateFlow()
-
-    /**
-     * The chosen channel's [AccountChannel.key], or null while the app is
-     * acting as whichever channel YouTube Music serves by default.
+     * The chosen channel's page id, or null while the app is acting as
+     * whichever channel the session serves by default.
      */
     private val _selectedChannelKey = MutableStateFlow(
         authStore.activeSession?.activeProfileId ?: authStore.channelPageId ?: authStore.channelDataSyncId,
@@ -508,17 +429,6 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     private val _history = MutableStateFlow<UiState<List<Song>>>(UiState.Loading)
     val history: StateFlow<UiState<List<Song>>> = _history.asStateFlow()
 
-    private val _library = MutableStateFlow<UiState<LibraryPage>>(UiState.Loading)
-    val library: StateFlow<UiState<LibraryPage>> = _library.asStateFlow()
-
-    /** In-memory cache is partitioned by account and profile; it is never shared. */
-    private data class ListenerSnapshot(
-        val account: Account?, val library: UiState<LibraryPage>,
-        val history: UiState<List<Song>>, val playlists: List<UserPlaylist>,
-        val owned: Map<String, Boolean>,
-    )
-    private val listenerCache = mutableMapOf<String, ListenerSnapshot>()
-
     /**
      * Album / artist / playlist pages, as a stack — opening an artist from an
      * album page and pressing back returns to the album, not to search.
@@ -526,26 +436,15 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     private val _detailStack = MutableStateFlow<List<DetailPage>>(emptyList())
     val detailStack: StateFlow<List<DetailPage>> = _detailStack.asStateFlow()
 
-    // ---- Ratings, library and playlists -------------------------------------
+    // ---- Ratings ---------------------------------------------------------
 
     /**
-     * Ratings this session has set, which win over whatever the library feed
-     * last said.
-     *
-     * Kept apart from the library rather than folded into it because the two
-     * answer different questions: Liked Music is what YouTube knew when the
-     * page was fetched, and this is what the user has done since. Layering
-     * them ([likeStatuses]) means a tap shows immediately without the library
-     * having to be re-fetched, and a later refresh can't undo it.
+     * Every rating known for this session. Local only: the ratings live in
+     * [LikeState] for as long as the process runs, shared with the playback
+     * service so a notification tap and a player-screen tap paint the same
+     * result immediately.
      */
-    /** Every rating known for this account: the library's, then this session's. */
-    val likeStatuses: StateFlow<Map<String, LikeStatus>> =
-        combine(_library, LikeState.overrides) { library, overrides ->
-            val liked = (library as? UiState.Success)?.data?.likedSongs
-                ?.associate { it.videoId to LikeStatus.LIKE }
-                .orEmpty()
-            liked + overrides
-        }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyMap())
+    val likeStatuses: StateFlow<Map<String, LikeStatus>> = LikeState.overrides
 
     fun likeStatusOf(videoId: String): LikeStatus =
         likeStatuses.value[videoId] ?: LikeStatus.INDIFFERENT
@@ -553,89 +452,14 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     /**
      * Sets (or clears) the thumbs rating on [videoId].
      *
-     * Written to the screen first and rolled back if YouTube refuses. A rating
-     * is a one-tap, low-stakes action taken while a song is playing; waiting
-     * on a round trip before the heart fills reads as the tap not having
-     * registered, and people tap again.
+     * Written straight through: there is no remote account to refuse it, so
+     * there is nothing to roll back. A rating is a one-tap, low-stakes action
+     * taken while a song is playing, and the heart has to answer the tap.
      */
     fun setLike(videoId: String, status: LikeStatus) {
         if (!requireSignIn()) return
-        val previous = likeStatusOf(videoId)
-        if (previous == status) return
+        if (likeStatusOf(videoId) == status) return
         LikeState.set(videoId, status)
-        viewModelScope.launch {
-            YtMusicRepository.rate(videoId, status).fold(
-                onSuccess = {
-                    // Liked Music is now out of date either way.
-                    libraryStale = true
-                    if (status != LikeStatus.LIKE) dropFromLikedLists(videoId)
-                    // Clearing the heart means forgetting the song, not
-                    // demoting it — see [forgetFromLibrary].
-                    val unliked = previous == LikeStatus.LIKE &&
-                        status == LikeStatus.INDIFFERENT
-                    if (unliked) forgetFromLibrary(videoId)
-                },
-                onFailure = {
-                    LikeState.set(videoId, previous)
-                },
-            )
-        }
-    }
-
-    /**
-     * Takes an un-liked track out of the library as well, and reports whether
-     * it did.
-     *
-     * Liking and saving are two independent flags on YouTube's side, and
-     * clearing only the first leaves the song saved — still feeding the
-     * Library tab's Artists shelf, still in the library feeds, with nowhere
-     * left in this app to reach it and finish the job. Clearing the heart
-     * reads as "forget this song", so it clears both.
-     *
-     * The token is fetched here rather than taken from [songMenu] because the
-     * heart in the player never opens a menu, so there is often nothing
-     * cached to take. One extra request, on an action nobody performs in bulk.
-     * A song that was never saved has no removal token and this is a no-op.
-     */
-    private suspend fun forgetFromLibrary(videoId: String): Boolean {
-        val menu = YtMusicRepository.songMenu(videoId).getOrNull() ?: return false
-        val token = menu.removeFromLibraryToken?.takeIf { menu.inLibrary } ?: return false
-        if (YtMusicRepository.setLibraryStatus(token).isFailure) return false
-        // The menu may be the one on screen; don't leave it offering a
-        // removal that has already happened.
-        _songMenu.value = _songMenu.value?.copy(inLibrary = false)
-        return true
-    }
-
-    /**
-     * Takes an un-liked track out of the lists that exist *because* it was
-     * liked — the Library tab's Liked Music section, and the Liked Music page
-     * itself if it happens to be open.
-     *
-     * Marking the library stale isn't enough on its own: that only acts when
-     * the tab is next opened, and un-liking is nearly always done from inside
-     * one of these two lists, looking straight at the row. Leaving it there
-     * reads as the tap not having worked — the menu says "Like" again while
-     * the song sits in Liked Music.
-     *
-     * Only ever removes. A track liked from somewhere else doesn't get spliced
-     * into a list that YouTube orders for itself; the next fetch places it.
-     */
-    private fun dropFromLikedLists(videoId: String) {
-        val library = (_library.value as? UiState.Success)?.data
-        if (library != null && library.likedSongs.any { it.videoId == videoId }) {
-            _library.value = UiState.Success(
-                library.copy(likedSongs = library.likedSongs.filterNot { it.videoId == videoId }),
-            )
-        }
-        _detailStack.value = _detailStack.value.map { page ->
-            val songs = (page.songs as? UiState.Success)?.data
-            if (page.browseId != YtMusicRepository.LIKED_MUSIC || songs == null) {
-                page
-            } else {
-                page.copy(songs = UiState.Success(songs.filterNot { it.videoId == videoId }))
-            }
-        }
     }
 
     /** The heart: liked becomes neutral, anything else becomes liked. */
@@ -660,522 +484,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     /**
-     * Saves the album or playlist [browseId] to the library, or takes it out.
-     *
-     * Written to the screen first and rolled back if YouTube refuses, for the
-     * same reason [setLike] is: it is one tap on a page the user is looking at,
-     * and a control that waits on a round trip before it changes reads as a tap
-     * that missed.
-     *
-     * A page with no [DetailPage.library] is one YouTube never offered to save
-     * — a local page, an auto-playlist, a generated mix — and the UI has no
-     * control on it to have been tapped, so this is a no-op rather than a guess.
-     */
-    fun toggleLibrary(browseId: String) {
-        if (!requireSignIn()) return
-        val current = _detailStack.value.firstOrNull { it.browseId == browseId }?.library ?: return
-        val target = !current.saved
-        setSavedOnPage(browseId, target)
-        viewModelScope.launch {
-            if (YtMusicRepository.setSaved(current.playlistId, target).isSuccess) {
-                // The Library tab's Albums/Playlists shelf is now out of date.
-                libraryStale = true
-            } else {
-                setSavedOnPage(browseId, current.saved)
-            }
-        }
-    }
-
-    /**
-     * Subscribes to the artist page [browseId]'s channel, or unsubscribes.
-     *
-     * The release equivalent is [toggleLibrary], and this behaves the same way:
-     * optimistic, rolled back on refusal, and a no-op on a page whose header
-     * never offered a subscribe button — a signed-out response among them.
-     */
-    fun toggleSubscription(browseId: String) {
-        if (!requireSignIn()) return
-        val current = _detailStack.value
-            .firstOrNull { it.browseId == browseId }?.subscription ?: return
-        val target = !current.subscribed
-        setSubscribedOnPage(browseId, target)
-        viewModelScope.launch {
-            if (YtMusicRepository.setSubscribed(current.channelId, target).isSuccess) {
-                // The Library tab's Subscriptions shelf is now out of date.
-                libraryStale = true
-            } else {
-                setSubscribedOnPage(browseId, current.subscribed)
-            }
-        }
-    }
-
-    /** As [setSavedOnPage], for the artist header's subscribe button. */
-    private fun setSubscribedOnPage(browseId: String, subscribed: Boolean) {
-        _detailStack.value = _detailStack.value.map { page ->
-            val subscription = page.subscription
-            if (page.browseId != browseId || subscription == null) {
-                page
-            } else {
-                page.copy(subscription = subscription.copy(subscribed = subscribed))
-            }
-        }
-    }
-
-    /**
-     * Restates whether a page is saved. By id rather than by index: the user may
-     * have pushed or popped pages while the write was in flight.
-     */
-    private fun setSavedOnPage(browseId: String, saved: Boolean) {
-        _detailStack.value = _detailStack.value.map { page ->
-            val library = page.library
-            if (page.browseId != browseId || library == null) {
-                page
-            } else {
-                page.copy(library = library.copy(saved = saved))
-            }
-        }
-    }
-
-    /**
      * The open track menu's account state, or null while it is still being
      * fetched. Only one menu can be open at a time, so one slot is enough.
      */
-    private val _songMenu = MutableStateFlow<SongMenu?>(null)
-    val songMenu: StateFlow<SongMenu?> = _songMenu.asStateFlow()
-
-    private var songMenuJob: Job? = null
-
-    /** In-flight liked-library continuation sync — see [syncLikedMusic]. */
-    private var likedSyncJob: Job? = null
-
-    /**
-     * Loads the account state behind an opening track menu — the library
-     * tokens, and any rating the response happens to state.
-     *
-     * The rating is only ever taken when it *adds* something: a LIKE or a
-     * DISLIKE the library couldn't have told us, such as a disliked track or
-     * one liked past the tenth page of Liked Music. An INDIFFERENT is
-     * discarded.
-     *
-     * That asymmetry is not fussiness. This lookup reads a watch queue, and a
-     * watch queue routinely renders a liked track with no rating on it at all;
-     * believing that silence downgraded songs sitting in Liked Music to
-     * "not liked" a beat after their menu opened — the label changing under
-     * the user, with no request sent and nothing removed.
-     */
-    fun loadSongMenu(videoId: String?) {
-        songMenuJob?.cancel()
-        _songMenu.value = null
-        if (videoId == null || !_signedIn.value) return
-        songMenuJob = viewModelScope.launch {
-            val menu = YtMusicRepository.songMenu(videoId).getOrNull() ?: return@launch
-            _songMenu.value = menu
-            LikeState.rememberStated(videoId, menu.likeStatus)
-        }
-    }
-
-    /** The account's own playlists, for the picker and the library tab. */
-    private val _playlists = MutableStateFlow<List<UserPlaylist>>(emptyList())
-    val playlists: StateFlow<List<UserPlaylist>> = _playlists.asStateFlow()
-
-    private val _playlistsLoading = MutableStateFlow(false)
-    val playlistsLoading: StateFlow<Boolean> = _playlistsLoading.asStateFlow()
-
-    /** Re-fetched rather than cached for the session: playlists are edited here. */
-    fun loadPlaylists() {
-        if (!_signedIn.value || _playlistsLoading.value) return
-        val identity = listenerKey()
-        _playlistsLoading.value = true
-        viewModelScope.launch {
-            YtMusicRepository.userPlaylists().onSuccess { if (identity == listenerKey()) _playlists.value = it }
-            if (identity == listenerKey()) _playlistsLoading.value = false
-        }
-    }
-
-    /**
-     * The library feed's Playlists shelf, rewritten by [edit].
-     *
-     * Every playlist edit has to do this by hand, because the library tab reads
-     * `_library` and nothing else — [playlists] is the picker's list, not the
-     * tab's — so a rename that only updated that list left the card on screen
-     * still bearing the old name.
-     *
-     * Re-fetching instead is what this replaces, and it did not work: YouTube's
-     * `FEmusic_liked_playlists` is eventually consistent, and a fetch fired the
-     * moment an edit returns reliably answers with the state from *before* it.
-     * So the edit was applied, the feed denied it, and the denial is what
-     * reached the screen — the bug this exists to fix. The re-fetch still
-     * happens, via [libraryStale], once the tab is next opened and the feed has
-     * caught up.
-     *
-     * A shelf that isn't there yet is created by [edit] returning rows for it
-     * (a first playlist has no shelf to add to), and one left empty is dropped —
-     * see [LibraryScreen], which draws the create tile with or without a shelf.
-     */
-    private fun editPlaylistShelf(edit: (List<ShelfItem>) -> List<ShelfItem>) {
-        val page = (_library.value as? UiState.Success)?.data ?: return
-        val existing = page.shelves.firstOrNull { it.title == YtMusicRepository.PLAYLISTS_SHELF }
-        val items = edit(existing?.items.orEmpty())
-        if (items == existing?.items) return
-        val shelves = when {
-            existing == null && items.isEmpty() -> return
-            // No shelf yet: this is the account's first playlist, so the feed
-            // has never had one to send. Leads the page, as the feed orders it.
-            existing == null ->
-                listOf(HomeShelf(YtMusicRepository.PLAYLISTS_SHELF, items)) + page.shelves
-            // Emptied by deleting the last playlist. Dropped rather than left as
-            // a heading over nothing; the create tile is drawn either way.
-            items.isEmpty() -> page.shelves.filterNot { it === existing }
-            else -> page.shelves.map { if (it === existing) existing.copy(items = items) else it }
-        }
-        _library.value = UiState.Success(page.copy(shelves = shelves))
-    }
-
-    /**
-     * Restates a playlist's name everywhere it is currently drawn: its card in
-     * the library, the picker's list, and its own open page — header and top
-     * bar both, which read [DetailPage.title].
-     */
-    private fun setPlaylistTitle(playlist: UserPlaylist, title: String) {
-        _playlists.value = _playlists.value.map {
-            if (it.playlistId == playlist.playlistId) it.copy(title = title) else it
-        }
-        editPlaylistShelf { items ->
-            items.map { if (it.browseId == playlist.browseId) it.copy(title = title) else it }
-        }
-        _detailStack.value = _detailStack.value.map {
-            if (it.browseId == playlist.browseId) it.copy(title = title) else it
-        }
-    }
-
-    /**
-     * Adds [song] to a playlist, from the picker.
-     *
-     * Not optimistic, unlike a rating: the picker closes on the tap and there is
-     * nothing left of it to update, and a playlist that shows a track it turned
-     * out not to have taken is worse than one that shows it a moment late.
-     *
-     * The playlist's own page is the exception, because it can be the thing
-     * behind the picker — a row's menu on a playlist offers "Add to playlist" —
-     * and a page that doesn't show what was just added to it is the bug this is
-     * part of fixing. Still after the answer, not ahead of it.
-     *
-     * [onResult] tells the caller whether the track was already in the
-     * playlist, so it can show the same kind of notice "Add to queue" and
-     * "Play next" do — see [MainActivity]'s `showQueueNotice`. YouTube itself
-     * has no objection to a duplicate row, so that check is made here, against
-     * the playlist's own page if it is open, or a fresh fetch of it otherwise —
-     * and a real duplicate is never sent, rather than added and only reported.
-     */
-    fun addToPlaylist(playlist: UserPlaylist, song: Song, onResult: (alreadyInPlaylist: Boolean) -> Unit = {}) {
-        if (!requireSignIn()) return
-        viewModelScope.launch {
-            val openSongs = (_detailStack.value.firstOrNull { it.browseId == playlist.browseId }
-                ?.songs as? UiState.Success)?.data
-            val known = openSongs
-                ?: YtMusicRepository.allSongs(playlist.browseId).getOrNull()
-            if (known?.any { it.videoId == song.videoId } == true) {
-                onResult(true)
-                return@launch
-            }
-            YtMusicRepository.addToPlaylist(playlist.playlistId, listOf(song.videoId)).fold(
-                onSuccess = { added ->
-                    libraryStale = true
-                    // The playlist's page may be open behind the picker — it is
-                    // reachable from a row's own menu on it — so the track goes
-                    // into it for the same reason [addSuggestedSong] does.
-                    appendToOpenPlaylist(playlist.browseId, song, added[song.videoId])
-                    onResult(false)
-                },
-                onFailure = {},
-            )
-        }
-    }
-
-    /**
-     * Creates a playlist, seeded with [song] when the flow started from a
-     * track's menu — one request, so it can't half-succeed into an empty
-     * playlist the user has to add to again.
-     */
-    fun createPlaylist(title: String, privacy: PlaylistPrivacy, song: Song? = null) {
-        if (!requireSignIn()) return
-        val name = title.trim().ifBlank { text(R.string.new_playlist) }
-        viewModelScope.launch {
-            YtMusicRepository.createPlaylist(
-                title = name,
-                privacy = privacy,
-                videoIds = listOfNotNull(song?.videoId),
-            ).fold(
-                onSuccess = { playlistId ->
-                    // Nothing to look up for a playlist this account has just
-                    // made: it is the owner by construction, so its card is
-                    // editable the moment it appears rather than one request
-                    // after someone holds it.
-                    setPlaylistOwned("VL$playlistId", true)
-                    libraryStale = true
-                    val created = UserPlaylist(
-                        playlistId = playlistId,
-                        title = name,
-                        // Only what this request itself establishes. Both
-                        // surfaces that draw it leave a blank one out, so an
-                        // unseeded playlist gets a card of just its name rather
-                        // than a guess at what the feed will call it.
-                        subtitle = if (song != null) "1 song" else "",
-                        thumbnailUrl = song?.thumbnailUrl,
-                    )
-                    // Drawn from what was just sent rather than waited for: the
-                    // library feed does not have this playlist yet, and the
-                    // fetch that used to run here answered without it — see
-                    // [editPlaylistShelf]. Leads the shelf because it is the
-                    // newest, which is the order the feed itself comes in.
-                    _playlists.value = listOf(created) +
-                        _playlists.value.filterNot { it.playlistId == created.playlistId }
-                    editPlaylistShelf { items ->
-                        listOf(
-                            ShelfItem(
-                                title = created.title,
-                                subtitle = created.subtitle,
-                                thumbnailUrl = created.thumbnailUrl,
-                                videoId = null,
-                                browseId = created.browseId,
-                            ),
-                        ) + items.filterNot { it.browseId == created.browseId }
-                    }
-                },
-                onFailure = {},
-            )
-        }
-    }
-
-    /**
-     * Drops [song] from the playlist page it is being read on, and takes the
-     * row out from under the reader rather than waiting for a re-fetch.
-     */
-    fun removeFromPlaylist(browseId: String, song: Song) {
-        val setVideoId = song.setVideoId ?: return
-        if (!requireSignIn()) return
-        val playlistId = browseId.removePrefix("VL")
-        viewModelScope.launch {
-            YtMusicRepository.removeFromPlaylist(
-                playlistId,
-                listOf(setVideoId to song.videoId),
-            ).fold(
-                onSuccess = {
-                    libraryStale = true
-                    _detailStack.value = _detailStack.value.map { page ->
-                        val songs = (page.songs as? UiState.Success)?.data
-                        if (page.browseId != browseId || songs == null) {
-                            page
-                        } else {
-                            page.copy(
-                                songs = UiState.Success(
-                                    songs.filterNot { it.setVideoId == setVideoId },
-                                ),
-                            )
-                        }
-                    }
-                },
-                onFailure = {},
-            )
-        }
-    }
-
-    /**
-     * Adds one of [DetailPage.suggestedSongs] to the playlist it was suggested
-     * for: out of that section, and into the track list above it.
-     *
-     * Both halves, because either alone is a worse answer than doing nothing.
-     * Only removing it — which is what this used to do — reads as the track
-     * having been discarded rather than added: it leaves the Suggested list and
-     * turns up nowhere, and the playlist it was added to looks unchanged until
-     * the page is closed and reopened. Only adding it would leave YouTube still
-     * suggesting a track that is now in the playlist.
-     *
-     * The row goes in complete, per-entry id included, because
-     * [YtMusicRepository.addToPlaylist] reports the one it was just filed
-     * under — so "Remove from this playlist" works on it immediately rather
-     * than after a re-fetch. A response that named no id still adds the row;
-     * it just can't offer to take it back out yet.
-     */
-    fun addSuggestedSong(browseId: String, song: Song) {
-        if (!requireSignIn()) return
-        val playlistId = browseId.removePrefix("VL")
-        viewModelScope.launch {
-            YtMusicRepository.addToPlaylist(playlistId, listOf(song.videoId)).fold(
-                onSuccess = { added ->
-                    libraryStale = true
-                    _detailStack.value = _detailStack.value.map { page ->
-                        if (page.browseId != browseId) {
-                            page
-                        } else {
-                            page.copy(
-                                suggestedSongs = page.suggestedSongs
-                                    .filterNot { it.videoId == song.videoId },
-                            )
-                        }
-                    }
-                    appendToOpenPlaylist(browseId, song, added[song.videoId])
-                },
-                onFailure = {},
-            )
-        }
-    }
-
-    /**
-     * Puts [song] at the end of the playlist page at [browseId], if that page
-     * is open — where YouTube itself puts it, so the order survives the next
-     * fetch.
-     *
-     * An empty playlist counts as open: it renders as an empty-state message, and the
-     * first track added to one has to replace that message rather than be
-     * dropped for want of a list to join. Only that message, though — any other
-     * error is a page that failed to load, whose real contents are unknown, and
-     * answering it with a one-track listing would be a playlist invented out of
-     * a network failure. A page still loading is left alone too: the fetch in
-     * flight is newer than this and will land with the addition already in it.
-     */
-    private fun appendToOpenPlaylist(browseId: String, song: Song, setVideoId: String?) {
-        val added = song.copy(setVideoId = setVideoId)
-        _detailStack.value = _detailStack.value.map { page ->
-            if (page.browseId != browseId) return@map page
-            val songs = when (val state = page.songs) {
-                is UiState.Success -> state.data
-                is UiState.Error -> if (state.message == text(R.string.no_tracks_here)) emptyList() else return@map page
-                UiState.Loading -> return@map page
-            }
-            // Already there — a track added twice is two real entries on
-            // YouTube's side, but a duplicate row from a double tap is not
-            // something the user asked for.
-            if (songs.any { it.videoId == song.videoId }) return@map page
-            page.copy(
-                songs = UiState.Success(
-                    songs + added.copy(
-                        thumbnailUrl = added.thumbnailUrl ?: page.thumbnailUrl,
-                    ),
-                ),
-            )
-        }
-    }
-
-    /**
-     * Renames a playlist, and says so everywhere it is named — see
-     * [setPlaylistTitle]. Renaming is nearly always done from the playlist's
-     * own page or its card, so there is always something on screen still
-     * showing the old name.
-     */
-    fun renamePlaylist(playlist: UserPlaylist, title: String) {
-        if (!requireSignIn()) return
-        val name = title.trim()
-        if (name.isBlank() || name == playlist.title) return
-        viewModelScope.launch {
-            YtMusicRepository.renamePlaylist(playlist.playlistId, name).fold(
-                onSuccess = {
-                    setPlaylistTitle(playlist, name)
-                    libraryStale = true
-                },
-                onFailure = {},
-            )
-        }
-    }
-
-    fun deletePlaylist(playlist: UserPlaylist) {
-        if (!requireSignIn()) return
-        viewModelScope.launch {
-            YtMusicRepository.deletePlaylist(playlist.playlistId).fold(
-                onSuccess = {
-                    _playlists.value = _playlists.value
-                        .filterNot { it.playlistId == playlist.playlistId }
-                    // The card in the library tab, which is the surface the
-                    // deletion was almost certainly ordered from — and which the
-                    // re-fetch that used to stand in for this left in place; see
-                    // [editPlaylistShelf].
-                    editPlaylistShelf { items ->
-                        items.filterNot { it.browseId == playlist.browseId }
-                    }
-                    // Its page may be the one open; a deleted playlist has
-                    // nothing left to show.
-                    _detailStack.value = _detailStack.value
-                        .filterNot { it.browseId == playlist.browseId }
-                    libraryStale = true
-                },
-                onFailure = {},
-            )
-        }
-    }
-
-    /**
-     * Whether [browseId] is a playlist this account can be asked to edit.
-     *
-     * Only ever yes for a playlist [playlistOwned] has confirmed the account
-     * made. "In this account's library" is not the same thing and cannot stand
-     * in for it: `FEmusic_liked_playlists` lists a playlist saved from someone
-     * else in exactly the shape it lists one this account created, so a lookup
-     * in [playlists] alone called a stranger's playlist editable and the menus
-     * offered Rename and Delete on it — neither of which YouTube would have
-     * honoured.
-     *
-     * Strict rather than permissive-until-proven, so that every surface gives
-     * the same answer for the same playlist. The permissive version was right on
-     * a playlist's own page — where the page load supplies the answer — and
-     * wrong on a card until that page had been opened once, which is a menu that
-     * changes its mind about what a playlist is depending on where it is held.
-     */
-    fun editablePlaylist(browseId: String?): UserPlaylist? {
-        if (browseId == null || _playlistOwned.value[browseId] != true) return null
-        return _playlists.value.firstOrNull { it.browseId == browseId }
-    }
-
-    /**
-     * Which playlists in this account's library the account actually made, by
-     * browse id — see
-     * [com.music.bitchord.data.innertube.InnertubeParser.parsePlaylistOwned].
-     * An id absent from the map is one nothing has asked about yet, which is not
-     * the same as a no.
-     *
-     * Observable, because the answer routinely arrives after whatever wanted it
-     * is already on screen: a card's menu opens with nothing fetched, and the
-     * rows that depend on this appear as [resolvePlaylistOwnership] answers.
-     */
-    private val _playlistOwned = MutableStateFlow<Map<String, Boolean>>(emptyMap())
-    val playlistOwned: StateFlow<Map<String, Boolean>> = _playlistOwned.asStateFlow()
-
-    /**
-     * Finds out who made the playlist at [browseId], if it isn't already known.
-     *
-     * Only the playlist's own page states this, so a surface that has no page —
-     * a card in the library, a search result — has to ask for one. Which is why
-     * this is on demand rather than swept up front: the alternative is a request
-     * per playlist every time the library loads, for a question most of them
-     * will never be asked.
-     *
-     * Silent about anything that isn't a playlist in this account's library.
-     * Nothing else can be renamed or deleted whatever the answer, so asking
-     * would be a request spent to rule out what was never on offer.
-     */
-    fun resolvePlaylistOwnership(browseId: String?) {
-        if (!_signedIn.value || browseId == null) return
-        if (browseId in _playlistOwned.value || browseId in ownershipInFlight) return
-        if (_playlists.value.none { it.browseId == browseId }) return
-        ownershipInFlight += browseId
-        viewModelScope.launch {
-            YtMusicRepository.playlistOwned(browseId).onSuccess { owned ->
-                if (owned != null) setPlaylistOwned(browseId, owned)
-            }
-            // Released either way. A failed lookup that stayed marked would
-            // never be retried, leaving Rename off the user's own playlist for
-            // the rest of the session over one dropped request.
-            ownershipInFlight -= browseId
-        }
-    }
-
-    /** Guards against a second lookup while the first is still out. */
-    private val ownershipInFlight = mutableSetOf<String>()
-
-    private fun setPlaylistOwned(browseId: String, owned: Boolean) {
-        _playlistOwned.value = _playlistOwned.value + (browseId to owned)
-    }
-
-
     /**
      * Guards every account write. All of them are signed-in-only, and the UI
      * hides them for guests — this is the backstop for a session that expired
@@ -1183,37 +494,10 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
      */
     private fun requireSignIn(): Boolean = _signedIn.value
 
-    /**
-     * Whether the library needs re-fetching. Set by every write above and
-     * acted on when the tab is next opened, for the same reason [homeStale]
-     * exists: rearranging a page under whoever is reading it is worse than
-     * showing it a moment out of date.
-     */
-    private var libraryStale = false
-
-    /** Call when the library tab becomes visible. */
-    fun onLibraryShown() {
-        loadPlaylists()
-        if (!libraryStale) return
-        libraryStale = false
-        if (_library.value is UiState.Success) refresh(Feed.LIBRARY)
-    }
-
     init {
         startSearchPipeline()
         startSuggestPipeline()
         startTypeaheadMediaPipeline()
-        loadHome()
-        loadExplore()
-        if (_signedIn.value) {
-            loadLibrary()
-            loadAccount()
-            loadPlaylists()
-        }
-        viewModelScope.launch {
-            // drop(1): the current value is just the count so far, not a play.
-            PlaybackTracker.registeredPlays.drop(1).collect { homeStale = true }
-        }
         viewModelScope.launch {
             AppSettings.filterNonMusicAudio.drop(1).collect {
                 if (_detailStack.value.any { page -> page.browseId == "local:all" }) {
@@ -1223,362 +507,32 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    /**
-     * Whether a play has been registered since the home feed was last fetched.
-     *
-     * The feed leads with listening history, so it's out of date the moment a
-     * track starts — but re-fetching there would rearrange the page under
-     * whoever is reading it, and the tab is usually in the background anyway.
-     * It's re-fetched when the tab is next opened instead.
-     */
-    private var homeStale = false
-
-    /** Call when the home tab becomes visible. */
-    fun onHomeShown() {
-        if (!homeStale) return
-        homeStale = false
-        // A first load already in flight will pick the new play up by itself.
-        if (_home.value is UiState.Success) refresh(Feed.HOME)
-    }
-
-    private fun loadAccount() {
-        val identity = listenerKey()
-        viewModelScope.launch {
-            val account = YtMusicRepository.account().getOrNull()
-            if (identity != listenerKey()) return@launch
-            _account.value = account
-            // A channel picked in the in-app browser arrives as ids and nothing
-            // else — the page's `ytcfg` never says what the channel is called.
-            // The account menu, asked *as* that channel, answers with its name,
-            // which is what the settings row needs to show.
-            if (account != null && _selectedChannelKey.value != null) {
-                _selectedChannelName.value = account.name
-                val accountId = _activeAccountId.value
-                val profileId = _activeProfileId.value
-                val session = accountId?.let { id -> authStore.sessions.firstOrNull { it.accountId == id } }
-                val updated = session?.let { saved -> saved.copy(
-                    name = account.name, email = account.email,
-                    profiles = saved.profiles.map { profile ->
-                        if (profile.profileId == profileId) profile.copy(
-                            name = account.name, handle = account.email, avatar = account.thumbnailUrl,
-                        ) else profile
-                    },
-                ) }
-                if (updated != null) {
-                    authStore.upsertSession(updated, activate = false)
-                    _googleAccounts.value = authStore.sessions
-                }
-            }
-        }
-    }
-
-    /**
-     * A feed that can be pulled down to refresh. Tracked per feed rather than
-     * as one flag: a pull on Library while Home is still refreshing in the
-     * background shouldn't leave the wrong tab showing a loader.
-     */
-    enum class Feed { HOME, EXPLORE, LIBRARY }
-
-    private val _refreshing = MutableStateFlow(emptySet<Feed>())
-    val refreshing: StateFlow<Set<Feed>> = _refreshing.asStateFlow()
-
-    /**
-     * Re-fetches [feed] in place. Unlike the `load*` entry points this leaves
-     * the current content on screen rather than dropping back to the loading
-     * state — a refresh that swapped the page for a spinner would be a worse
-     * experience than the stale content it replaces.
-     */
-    fun refresh(feed: Feed) {
-        if (feed in _refreshing.value) return
-        if (feed == Feed.LIBRARY && !_signedIn.value) return
-        val identity = listenerKey()
-        _refreshing.value = _refreshing.value + feed
-        viewModelScope.launch {
-            when (feed) {
-                Feed.HOME -> refreshHome(identity)
-                Feed.EXPLORE -> fetchExplore()
-                Feed.LIBRARY -> fetchLibrary(identity)
-            }
-            _refreshing.value = _refreshing.value - feed
-        }
-    }
-
-    fun loadExplore() {
-        _explore.value = UiState.Loading
-        viewModelScope.launch { fetchExplore() }
-    }
-
-    private suspend fun fetchExplore() {
-        val state = YtMusicRepository.moodAndGenres().fold(
-            onSuccess = { sections ->
-                if (sections.isEmpty()) {
-                    UiState.Error(text(R.string.nothing_to_explore))
-                } else {
-                    UiState.Success(sections)
-                }
-            },
-            onFailure = { UiState.Error(it.friendly()) },
-        )
-        _explore.value = state
-        (state as? UiState.Success)?.data?.let(::loadMoodGenreArtwork)
-    }
-
-    /**
-     * Category buttons do not carry thumbnails themselves. Resolve a small
-     * number at a time from the shelves they open, so the grid gains real art
-     * without saturating the browse client or delaying the category list.
-     */
-    private fun loadMoodGenreArtwork(sections: List<MoodGenreSection>) {
-        viewModelScope.launch {
-            val limiter = Semaphore(4)
-            coroutineScope {
-                sections.flatMap(MoodGenreSection::items).forEach { item ->
-                    launch {
-                        val artwork = limiter.withPermit {
-                            YtMusicRepository.moodGenreArtwork(item.browseId, item.params).getOrNull()
-                        } ?: return@launch
-                        val current = (_explore.value as? UiState.Success)?.data ?: return@launch
-                        _explore.value = UiState.Success(current.map { section ->
-                            section.copy(items = section.items.map { currentItem ->
-                                if (currentItem.browseId == item.browseId && currentItem.params == item.params) {
-                                    currentItem.copy(thumbnailUrl = artwork)
-                                } else {
-                                    currentItem
-                                }
-                            })
-                        })
-                    }
-                }
-            }
-        }
-    }
-
-    fun openMoodGenre(item: MoodGenre) {
-        _selectedMoodGenre.value = item
-        _moodGenreShelves.value = UiState.Loading
-        viewModelScope.launch {
-            _moodGenreShelves.value = YtMusicRepository.moodGenreShelves(item.browseId, item.params).fold(
-                onSuccess = { shelves ->
-                    if (shelves.isEmpty()) UiState.Error(text(R.string.nothing_to_explore))
-                    else UiState.Success(shelves)
-                },
-                onFailure = { UiState.Error(it.friendly()) },
-            )
-        }
-    }
-
-    fun closeMoodGenre(): Boolean {
-        if (_selectedMoodGenre.value == null) return false
-        _selectedMoodGenre.value = null
-        return true
-    }
-
     /** Tapping a tab should leave any pushed page behind. */
     fun clearDetail() {
         if (_detailStack.value.isNotEmpty()) _detailStack.value = emptyList()
     }
 
-    fun loadHome() {
-        val identity = listenerKey()
-        val generation = homeLoadGeneration.incrementAndGet()
-        _home.value = UiState.Loading
-        homeContinuation = null
-        homeSeenTitles.clear()
-        _homeLoadingMore.value = false
-        _homeRecentlyPlayedLoading.value = _signedIn.value
-        // The core feed plus one browse per supplement. Recently played is left
-        // out: it has its own skeleton at the head of the page rather than the
-        // one at the tail.
-        _homePendingShelves.value = 1 + YtMusicRepository.HOME_SUPPLEMENT_BROWSE_IDS.size
-        viewModelScope.launch {
-            launch {
-                try {
-                    YtMusicRepository.home()
-                        .onSuccess { feed ->
-                            if (!isCurrentHomeLoad(identity, generation)) return@onSuccess
-                            homeContinuation = feed.continuation
-                            publishHomeShelves(feed.shelves)
-                        }
-                        .onFailure { failure ->
-                            if (isCurrentHomeLoad(identity, generation) && _home.value !is UiState.Success) {
-                                _home.value = UiState.Error(failure.friendly())
-                            }
-                        }
-                } finally {
-                    homeShelfRequestSettled(identity, generation)
-                }
-            }
-            if (_signedIn.value) {
-                launch {
-                    YtMusicRepository.homeRecentlyPlayed()
-                        .onSuccess { shelf ->
-                            if (isCurrentHomeLoad(identity, generation)) {
-                                _homeRecentlyPlayedLoading.value = false
-                                shelf?.let { publishHomeShelves(listOf(it), prepend = true) }
-                            }
-                        }
-                        .onFailure {
-                            if (isCurrentHomeLoad(identity, generation)) _homeRecentlyPlayedLoading.value = false
-                        }
-                }
-            }
-            YtMusicRepository.HOME_SUPPLEMENT_BROWSE_IDS.forEach { browseId ->
-                launch {
-                    try {
-                        YtMusicRepository.homeSupplement(browseId).onSuccess { shelves ->
-                            if (isCurrentHomeLoad(identity, generation)) publishHomeShelves(shelves)
-                        }
-                    } finally {
-                        homeShelfRequestSettled(identity, generation)
-                    }
-                }
-            }
-        }
-    }
-
     /**
-     * One of the parallel first-page requests has finished. Ignored once a newer
-     * load has taken over, which has already reset the count for its own fan-out.
-     */
-    private fun homeShelfRequestSettled(identity: String?, generation: Long) {
-        if (!isCurrentHomeLoad(identity, generation)) return
-        _homePendingShelves.value = (_homePendingShelves.value - 1).coerceAtLeast(0)
-    }
-
-    private fun isCurrentHomeLoad(identity: String?, generation: Long) =
-        identity == listenerKey() && generation == homeLoadGeneration.get()
-
-    private fun publishHomeShelves(shelves: List<HomeShelf>, prepend: Boolean = false) {
-        val existing = (_home.value as? UiState.Success)?.data.orEmpty()
-        if (prepend) {
-            // YouTube's core home can also contain a stale "Recently played"
-            // shelf. The dedicated history endpoint wins and replaces it.
-            val replacing = shelves.map { it.title.lowercase(Locale.ROOT) }.toSet()
-            homeSeenTitles.addAll(replacing)
-            _home.value = UiState.Success(shelves + existing.filterNot {
-                it.title.lowercase(Locale.ROOT) in replacing
-            })
-            return
-        }
-        val added = shelves.filter { homeSeenTitles.add(it.title.lowercase(Locale.ROOT)) }
-        if (added.isNotEmpty()) _home.value = UiState.Success(existing + added)
-    }
-
-    /** Refreshes the core feed without blanking the current Play page first. */
-    private suspend fun refreshHome(identity: String?) = coroutineScope {
-        val recent = if (_signedIn.value) async { YtMusicRepository.homeRecentlyPlayed() } else null
-        YtMusicRepository.home().onSuccess { feed ->
-            if (identity != listenerKey()) return@onSuccess
-            homeContinuation = feed.continuation
-            homeSeenTitles.clear()
-            val shelves = feed.shelves.filter { homeSeenTitles.add(it.title.lowercase(Locale.ROOT)) }
-            if (shelves.isNotEmpty()) _home.value = UiState.Success(shelves)
-        }
-        recent?.await()?.onSuccess { shelf ->
-            if (identity == listenerKey()) shelf?.let { publishHomeShelves(listOf(it), prepend = true) }
-        }
-    }
-
-    /**
-     * Called as the Home list nears its end. A no-op while a page is already
-     * in flight, once the feed is exhausted, or before the first page has
-     * loaded — [homeContinuation] covers all three by construction.
-     */
-    fun loadMoreHome() {
-        val token = homeContinuation ?: return
-        if (_homeLoadingMore.value) return
-        val identity = listenerKey()
-        _homeLoadingMore.value = true
-        viewModelScope.launch {
-            YtMusicRepository.moreHome(token).onSuccess { feed ->
-                if (identity == listenerKey()) {
-                    val added = feed.shelves.filter { homeSeenTitles.add(it.title.lowercase(Locale.ROOT)) }
-                    // A page with nothing new signals the feed has looped back on
-                    // itself rather than run dry with a token still attached —
-                    // treat it the same as exhausted so scrolling can't spin here.
-                    homeContinuation = feed.continuation.takeIf { added.isNotEmpty() }
-                    if (added.isNotEmpty()) {
-                        val existing = (_home.value as? UiState.Success)?.data ?: emptyList()
-                        _home.value = UiState.Success(existing + added)
-                    }
-                }
-            }
-            if (identity == listenerKey()) _homeLoadingMore.value = false
-        }
-    }
-
-    fun loadLibrary() {
-        if (!_signedIn.value) return
-        val identity = listenerKey()
-        _library.value = UiState.Loading
-        viewModelScope.launch { fetchLibrary(identity) }
-    }
-
-    private suspend fun fetchLibrary(identity: String?) {
-        val next = YtMusicRepository.library().fold(
-            onSuccess = { page ->
-                // Liked Music is published with just its first page on the tab;
-                // the rest of the collection is synced into LikeState here, in
-                // this ViewModel's scope, so it is cancelled with the screen and
-                // a liked track past the first page still reads as liked.
-                page.likedContinuation?.let { token -> syncLikedMusic(identity, token) }
-                if (page.isEmpty) UiState.Error(text(R.string.library_empty))
-                else UiState.Success(page.copy(likedContinuation = null))
-            },
-            onFailure = { UiState.Error(it.friendly()) },
-        )
-        if (identity == listenerKey()) _library.value = next
-    }
-
-    /**
-     * Follows Liked Music's continuation chain to exhaustion, seeding each
-     * page's ids into [LikeState] so every liked track reads as liked.
+     * The songs played on this device, most recent first.
      *
-     * Scoped to [viewModelScope] — a re-fetch of the library cancels and
-     * replaces it, and it dies with the screen. It only ever seeds ids, never
-     * retaining the full songs for pages already behind the tab.
-     *
-     * [identity] is the listener this token belongs to, checked before every
-     * page: [LikeState] is a single shared map, not scoped per account, so a
-     * sync still in flight when the listener switches must stop rather than
-     * go on seeding the old account's likes into the new one's session.
-     */
-    private fun syncLikedMusic(identity: String?, token: String) {
-        likedSyncJob?.cancel()
-        likedSyncJob = viewModelScope.launch {
-            YtMusicRepository.syncLikedMusic(token) { next ->
-                if (identity != listenerKey()) null else YtMusicRepository.moreSongs(next).getOrNull()
-            }
-        }
-    }
-
-    /**
-     * The account's listening history.
-     *
-     * Loaded on each visit rather than cached: it is a page whose whole subject
-     * is what happened most recently, and one that opened showing the state it
-     * was in last time would be answering a different question. Guests get the
-     * signed-out message straight away, since there is no account to have a
-     * history on.
+     * Read straight off the library rather than fetched: every play is written
+     * to the on-device track table as it happens, so the newest play is already
+     * in hand and there is no account to ask. Rebuilt on each visit for the same
+     * reason the remote page was — it is a list whose whole subject is what
+     * happened most recently, and one that opened showing the state it was in
+     * last time would be answering a different question.
      */
     fun loadHistory() {
-        if (!_signedIn.value) {
-            _history.value = UiState.Error(text(R.string.history_sign_in_required))
-            return
-        }
-        val identity = listenerKey()
         _history.value = UiState.Loading
         viewModelScope.launch {
-            val next = YtMusicRepository.history().fold(
-                onSuccess = { songs ->
-                    if (songs.isEmpty()) UiState.Error(text(R.string.history_empty))
-                    else UiState.Success(songs)
-                },
-                onFailure = { UiState.Error(it.friendly()) },
-            )
-            if (identity == listenerKey()) _history.value = next
+            _history.value = runCatching {
+                val songs = ListeningStats.recentTracks(HISTORY_ENTRIES)
+                if (songs.isEmpty()) UiState.Error(text(R.string.history_empty))
+                else UiState.Success(songs)
+            }.getOrElse { UiState.Error(it.friendly()) }
         }
     }
+
 
     /** Recent searches, kept on device as rich entity records. */
     val searchHistory: StateFlow<List<SearchHistoryEntity>> = SearchHistory.recent
@@ -2017,13 +971,13 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         const val SUGGEST_MAX_RESULTS = 8
 
         /**
-         * What a page with an empty listing says.
+         * How many rows the on-device listening history carries.
          *
-         * Named because it is a state one can be got *out* of, not just a
-         * message: an own playlist with nothing in it lands here, and adding the
-         * first track to it has to be able to tell "this page is empty" apart
-         * from "this page failed to load" — see [appendToOpenPlaylist].
+         * One screenful's worth, not the whole table: the list is read fresh
+         * every visit and anything past the first rows answers a question the
+         * scroll already answered.
          */
+        const val HISTORY_ENTRIES = 100
 
         /**
          * What a downloaded playlist's page says once the files under it are
@@ -2071,34 +1025,11 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             type = resolved,
         )
         viewModelScope.launch {
-            var sections = emptyList<HomeShelf>()
             // Callers that open an artist from a track — the player, the
             // long-press menu — only have that track's cover art and its full
-            // credit ("A, B & C") to hand, so the page swaps in the artist's
-            // own picture and name once they arrive.
-            var artwork: String? = null
-            var name: String? = null
-            /**
-             * The credit line, when the page had to supply its own.
-             *
-             * Only a link tapped outside the app arrives with neither — see
-             * [com.music.bitchord.playback.MusicLink]. Every other caller was
-             * looking at a card that already said this.
-             */
-            var credit: String? = null
-            /** Set when the track list carries on past its first response. */
-            var more: String? = null
-            /** Tracks YouTube offers to round the playlist out — see [DetailPage.suggestedSongs]. */
-            var suggested: List<Song> = emptyList()
-            /** Whether this release is already saved — see [DetailPage.library]. */
-            var library: LibraryState? = null
-            /** YouTube's own "About" blurb — see [DetailPage.description]. */
-            var description: String? = null
-            /** Artist header stats — see [DetailPage.subscriberCountText]. */
-            var subscriberCountText: String? = null
-            var monthlyListenerCount: String? = null
-            /** Whether this artist is subscribed to — see [DetailPage.subscription]. */
-            var subscription: SubscriptionState? = null
+            // credit ("A, B & C") to hand, so the page's own header has to be
+            // taken over from them once it arrives. Local pages supply nothing
+            // here; the card the user tapped already said what it is.
             val state = when {
                 Downloads.recordIdOf(browseId) != null -> {
                     val songs = downloadedPlaylist(browseId)
@@ -2121,86 +1052,16 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                         else UiState.Success(songs)
                     }
                 }
-                resolved == BrowseType.ARTIST -> {
-                    YtMusicRepository.artistPage(browseId).fold(
-                        onSuccess = { page ->
-                            sections = page.sections
-                            artwork = page.thumbnailUrl
-                            name = page.name
-                            description = page.description
-                            subscriberCountText = page.subscriberCountText
-                            monthlyListenerCount = page.monthlyListenerCount
-                            subscription = page.subscription
-                            if (page.songs.isEmpty()) {
-                                UiState.Error(text(R.string.no_tracks_here))
-                            } else {
-                                UiState.Success(page.songs.withArtwork(thumbnailUrl ?: artwork))
-                            }
-                        },
-                        onFailure = { UiState.Error(it.friendly()) },
-                    )
-                }
-                else -> {
-                    YtMusicRepository.browseSongs(browseId).fold(
-                        onSuccess = { page ->
-                            // Free here — the page that returned these rows is
-                            // the one thing that states who made the playlist,
-                            // so its own menu never has to go and ask. Recorded
-                            // even when the listing came back empty.
-                            page.owned?.let { setPlaylistOwned(browseId, it) }
-                            // Only for the caller that had nothing: a card's own
-                            // title is what the user just tapped, and must not
-                            // be swapped for the header's wording underneath them.
-                            page.header?.let { header ->
-                                if (title.isBlank()) name = header.title
-                                // Album cards often only carry the artist, while
-                                // the page header also carries the release year.
-                                // Prefer that richer line so the year appears
-                                // directly below the artist on the album page.
-                                if (resolved == BrowseType.ALBUM && header.subtitle.isNotBlank()) {
-                                    credit = header.subtitle
-                                } else if (subtitle.isBlank()) {
-                                    credit = header.subtitle
-                                }
-                                if (thumbnailUrl == null) artwork = header.thumbnailUrl
-                            }
-                            description = page.description
-                            if (page.songs.isEmpty()) {
-                                UiState.Error(text(R.string.no_tracks_here))
-                            } else {
-                                more = page.continuation
-                                suggested = page.suggested.withArtwork(thumbnailUrl ?: artwork)
-                                library = page.library
-                                UiState.Success(page.songs.withArtwork(thumbnailUrl ?: artwork))
-                            }
-                        },
-                        onFailure = { UiState.Error(it.friendly()) },
-                    )
-                }
+                else -> UiState.Error(text(R.string.no_tracks_here))
             }
             // Update by id — the user may have pushed another page meanwhile.
             _detailStack.value = _detailStack.value.map {
                 if (it.browseId == browseId && it.songs is UiState.Loading) {
-                    it.copy(
-                        songs = state,
-                        sections = sections,
-                        thumbnailUrl = artwork ?: it.thumbnailUrl,
-                        title = name ?: it.title,
-                        subtitle = credit ?: it.subtitle,
-                        suggestedSongs = suggested,
-                        library = library,
-                        description = description,
-                        subscriberCountText = subscriberCountText,
-                        monthlyListenerCount = monthlyListenerCount,
-                        subscription = subscription,
-                    )
+                    it.copy(songs = state)
                 } else {
                     it
                 }
             }
-            // Only once the first page is on screen: [fillIn] appends to it,
-            // and has nothing to append to before this.
-            more?.let { fillIn(browseId, it, thumbnailUrl ?: artwork) }
         }
     }
 
@@ -2253,62 +1114,6 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     private suspend fun downloadedPlaylist(browseId: String): List<Song> {
         val id = Downloads.recordIdOf(browseId) ?: return emptyList()
         return Downloads.getCollectionSongs(getApplication(), id)
-    }
-
-    /**
-     * Follows a detail page's continuations in the background, appending each
-     * page to what is already being read.
-     *
-     * A playlist of a few hundred tracks is several round trips, and taking
-     * them before showing anything meant a spinner for all of them. Growing
-     * the list underneath the reader is also what makes it safe to keep
-     * following continuations however deep the playlist runs — nobody is
-     * waiting on the last one — so a playlist past YouTube's ~1000-track,
-     * ten-page shelf still loads to the end instead of stopping there.
-     *
-     * Stops the moment the page leaves the stack: there is no one to append
-     * for. A page that adds nothing new (below) is the other exit, for a feed
-     * that loops back on itself instead of running dry.
-     */
-    private fun fillIn(browseId: String, token: String, artworkFallback: String?) {
-        viewModelScope.launch {
-            // Publish and draw the first response before spending the shared
-            // connection on page two. On a long playlist the continuation can
-            // otherwise start in the same main-loop turn as the state update,
-            // making a ready first screen feel as if it were still loading.
-            delay(150)
-            var next: String? = token
-            while (next != null) {
-                val fetched = YtMusicRepository.moreSongs(next).getOrNull() ?: return@launch
-                val stack = _detailStack.value
-                val index = stack.indexOfFirst { it.browseId == browseId }
-                if (index < 0) return@launch
-                val current = stack[index]
-                val existing = (current.songs as? UiState.Success)?.data ?: return@launch
-                val known = existing.mapTo(HashSet()) { it.videoId }
-                val added = fetched.songs
-                    .filter { known.add(it.videoId) }
-                    .withArtwork(artworkFallback)
-                // Suggestions can arrive on a later page than the real
-                // tracks, once the playlist's own continuation runs dry —
-                // see parsePlaylistShelf — so they're tracked separately
-                // rather than folded into [known].
-                val knownSuggested = current.suggestedSongs.mapTo(HashSet()) { it.videoId }
-                val addedSuggested = fetched.suggested
-                    .filter { it.videoId !in known && knownSuggested.add(it.videoId) }
-                    .withArtwork(artworkFallback)
-                // A page with nothing new on it means the feed has looped back
-                // rather than run dry with a token still attached.
-                if (added.isEmpty() && addedSuggested.isEmpty()) return@launch
-                _detailStack.value = stack.toMutableList().also {
-                    it[index] = current.copy(
-                        songs = UiState.Success(existing + added),
-                        suggestedSongs = current.suggestedSongs + addedSuggested,
-                    )
-                }
-                next = fetched.continuation
-            }
-        }
     }
 
     /**
@@ -2370,7 +1175,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                     LocalMediaRepository.getLocalMusic(context)
                         .ifEmpty { error(text(R.string.no_local_audio_found)) }
                 }
-                else -> YtMusicRepository.allSongs(browseId)
+                else -> runCatching { error(text(R.string.no_tracks_here)) }
             }
             onResult(result.map { it.withArtwork(artworkFallback) })
         }
@@ -2384,174 +1189,11 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         return true
     }
 
-    /**
-     * Loads the channel list, unless it is already in hand.
-     *
-     * @param force refetch even if it is — after a switch, since the list
-     *   itself reports which channel is active.
-     */
-    fun loadChannels(force: Boolean = false) {
-        if (!_signedIn.value) return
-        if (_channelsLoading.value) return
-        if (!force && _channels.value.isNotEmpty()) return
-        viewModelScope.launch {
-            _channelsLoading.value = true
-            YtMusicRepository.accountChannels()
-                .onSuccess {
-                    _channels.value = it
-                    persistDetectedProfiles(it)
-                }
-            _channelsLoading.value = false
-        }
-    }
-
-    /**
-     * Acts as [channel] from here on.
-     *
-     * Everything already on screen belongs to the channel being left — its
-     * library, its hearts, its playlists — so the switch clears them and
-     * refetches rather than letting the new identity's pages arrive one at a
-     * time on top of the old one's.
-     */
-    fun selectChannel(channel: AccountChannel) {
-        val accountId = _activeAccountId.value ?: return
-        val profile = YouTubeProfile(
-            profileId = profileId(channel.pageId, channel.dataSyncId, channel.name),
-            name = channel.name, handle = channel.subtitle, avatar = channel.thumbnailUrl,
-            pageId = channel.pageId, dataSyncId = channel.dataSyncId,
-            isBrandAccount = channel.pageId != null,
-        )
-        selectProfile(accountId, profile.profileId, profile)
-    }
-
-    /**
-     * A session lifted out of the in-app browser — a fresh sign-in, or the same
-     * login now pointed at a different channel.
-     *
-     * One path for both because they differ in exactly one thing: whether the
-     * cookie is new. What follows — adopt the identity the captured page
-     * reported, remember it, and refetch everything that belongs to a listener
-     * — is the same work either way.
-     */
-    fun onWebSession(
-        session: CapturedSession,
-        mode: WebSessionMode,
-        onComplete: (Boolean) -> Unit = {},
-    ) {
-        if (!session.loggedIn) {
-            onComplete(false)
-            return
-        }
-        val oldAccountId = _activeAccountId.value
-        val oldProfileId = _activeProfileId.value
-        viewModelScope.launch {
-            // Validate the exact cookie/profile pair before writing any of it.
-            // The old implementation persisted first and unconditionally set
-            // signedIn=true; a half-finished channel chooser therefore became
-            // a durable broken "Personal" account.
-            Innertube.cookie = session.cookie
-            Innertube.adoptSessionScope(
-                pageId = session.pageId,
-                dataSyncId = session.dataSyncId,
-                authUser = session.authUser,
-                visitorData = session.visitorData,
-                clientVersion = session.clientVersion,
-                loggedIn = true,
-            )
-            Innertube.selectChannel(session.pageId, session.dataSyncId, session.authUser)
-
-            val account = withTimeoutOrNull(20_000L) {
-                var result = YtMusicRepository.account()
-                if (result.isFailure) {
-                    delay(750L)
-                    result = YtMusicRepository.account()
-                }
-                result.getOrNull()
-            }
-            if (account == null) {
-                restoreActiveSession(oldAccountId, oldProfileId)
-                onComplete(false)
-                return@launch
-            }
-
-            // A channel switch is another identity under the same Google
-            // login, never a new Google account. For a fresh sign-in, matching
-            // a non-empty email upgrades the existing entry instead of adding
-            // a duplicate after cookies rotate.
-            val accountId = when (mode) {
-                WebSessionMode.SWITCH_CHANNEL -> oldAccountId
-                WebSessionMode.SIGN_IN -> authStore.sessions.firstOrNull {
-                    account.email.isNotBlank() && it.email.equals(account.email, ignoreCase = true)
-                }?.accountId ?: sessionId(session.cookie, null)
-            }
-            if (accountId == null) {
-                restoreActiveSession(oldAccountId, oldProfileId)
-                onComplete(false)
-                return@launch
-            }
-            val previous = authStore.sessions.firstOrNull { it.accountId == accountId }
-            val selectedProfileId = profileId(session.pageId, session.dataSyncId, account.name)
-            val profile = YouTubeProfile(
-                profileId = selectedProfileId,
-                name = account.name,
-                handle = account.email,
-                avatar = account.thumbnailUrl,
-                pageId = session.pageId,
-                dataSyncId = session.dataSyncId,
-                authUser = session.authUser,
-                isBrandAccount = session.pageId != null,
-            )
-            val hasRealIdentity = profile.pageId != null || profile.dataSyncId != null
-            val profiles = previous?.profiles.orEmpty().filterNot { known ->
-                known.profileId == profile.profileId ||
-                    (hasRealIdentity && known.profileId.startsWith("profile:"))
-            } + profile
-            val stored = GoogleAccountSession(
-                accountId = accountId,
-                cookie = session.cookie,
-                name = account.name,
-                email = account.email,
-                profiles = profiles,
-                activeProfileId = profile.profileId,
-            )
-
-            val wasSignedIn = _signedIn.value
-            if (wasSignedIn) cacheCurrentListener()
-            authStore.upsertSession(stored)
-            authStore.cookie = session.cookie // legacy compatibility only
-            _googleAccounts.value = authStore.sessions
-            _activeAccountId.value = accountId
-            _activeProfileId.value = profile.profileId
-            _selectedChannelKey.value = profile.profileId
-            _selectedChannelName.value = account.name
-            _account.value = account
-            _channels.value = emptyList()
-            _signedIn.value = true
-
-            // Every resolver verdict and personalised page belongs to the
-            // identity that was active before validation succeeded.
-            StreamResolver.onSessionChanged()
-            if (wasSignedIn) clearListenerState()
-            reloadForAccount()
-            loadChannels(force = true)
-            onComplete(true)
-        }
-    }
-
-    /** Put request signing back exactly as it was after a rejected candidate. */
-    private fun restoreActiveSession(accountId: String?, selectedProfileId: String?) {
-        val account = authStore.sessions.firstOrNull { it.accountId == accountId }
-        val profile = account?.profiles?.firstOrNull { it.profileId == selectedProfileId }
-        Innertube.cookie = account?.cookie
-        Innertube.selectChannel(profile?.pageId, profile?.dataSyncId, profile?.authUser)
-    }
-
     /** Selects an identity without ever allowing a response to replace it. */
     fun selectProfile(accountId: String, selectedProfileId: String, supplied: YouTubeProfile? = null) {
         val source = _googleAccounts.value.firstOrNull { it.accountId == accountId } ?: return
         val profile = supplied ?: source.profiles.firstOrNull { it.profileId == selectedProfileId } ?: return
         if (accountId == _activeAccountId.value && profile.profileId == _activeProfileId.value) return
-        cacheCurrentListener()
         val updated = source.copy(
             profiles = (source.profiles.filterNot { it.profileId == profile.profileId } + profile),
             activeProfileId = profile.profileId,
@@ -2562,13 +1204,11 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         _activeAccountId.value = accountId
         _activeProfileId.value = profile.profileId
         authStore.cookie = updated.cookie
-        Innertube.cookie = updated.cookie
-        Innertube.selectChannel(profile.pageId, profile.dataSyncId, profile.authUser)
         _selectedChannelKey.value = profile.profileId
         _selectedChannelName.value = profile.name
         StreamResolver.onSessionChanged()
-        clearListenerState(restoreCached = true)
-        reloadForAccount()
+        _history.value = UiState.Loading
+        LikeState.clear()
     }
 
     /** Returns false at an edge, allowing the avatar to play its elastic cue. */
@@ -2586,96 +1226,6 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         selectProfile(fallback.accountId, fallback.activeProfileId ?: fallback.profiles.firstOrNull()?.profileId ?: return)
     }
 
-    private fun persistDetectedProfiles(channels: List<AccountChannel>) {
-        val accountId = _activeAccountId.value ?: return
-        val current = authStore.sessions.firstOrNull { it.accountId == accountId } ?: return
-        val detected = channels.map { channel -> YouTubeProfile(
-            profileId(channel.pageId, channel.dataSyncId, channel.name), channel.name, channel.subtitle,
-            channel.thumbnailUrl, channel.pageId, channel.dataSyncId,
-            isBrandAccount = channel.pageId != null,
-        ) }
-        // A profile captured before its channel existed carries a provisional,
-        // name-hash id (see profileId()) rather than the pageId/dataSyncId Google
-        // reports here once the channel is live. Once Google actually reports a
-        // channel, that placeholder is stale — it would have been listed here
-        // too if it still lacked real ids — and it's dropped rather than kept
-        // alongside the identity it was standing in for. An empty response
-        // (channel not created yet, or a transient miss) must never drop it.
-        val stalePlaceholder = if (detected.isEmpty()) emptySet() else current.profiles
-            .filter { it.profileId.startsWith("profile:") }
-            .map { it.profileId }
-            .toSet()
-        // Keep the captured active identity if Google's endpoint temporarily
-        // omits it; an empty/partial response must never erase a selection.
-        val profiles = (current.profiles.filter { known ->
-            known.profileId !in stalePlaceholder && detected.none { it.profileId == known.profileId }
-        } + detected)
-        val selected = when {
-            current.activeProfileId != null && current.activeProfileId !in stalePlaceholder -> current.activeProfileId
-            current.activeProfileId in stalePlaceholder -> detected.singleOrNull()?.profileId
-            else -> null
-        } ?: profiles.firstOrNull()?.profileId
-        authStore.upsertSession(current.copy(profiles = profiles, activeProfileId = selected), activate = false)
-        _googleAccounts.value = authStore.sessions
-    }
-
-    /**
-     * Drops everything on screen that belongs to the identity being left.
-     *
-     * The hearts, the playlists and the library are all answers to "who is
-     * asking", so keeping them across a switch shows the new channel the old
-     * one's music until each page happens to be refetched.
-     */
-    private fun cacheCurrentListener() {
-        val key = listenerKey() ?: return
-        listenerCache[key] = ListenerSnapshot(
-            _account.value, _library.value, _history.value, _playlists.value, _playlistOwned.value,
-        )
-    }
-
-    private fun listenerKey(): String? = _activeAccountId.value?.let { accountId ->
-        _activeProfileId.value?.let { profileId -> "$accountId:$profileId" }
-    }
-
-    private fun clearListenerState(restoreCached: Boolean = false) {
-        _account.value = null
-        likedSyncJob?.cancel()
-        LikeState.clear()
-        _playlistsLoading.value = false
-        _playlists.value = emptyList()
-        _playlistOwned.value = emptyMap()
-        ownershipInFlight.clear()
-        _songMenu.value = null
-        _library.value = UiState.Loading
-        _history.value = UiState.Loading
-        if (restoreCached) listenerCache[listenerKey()]?.let { cached ->
-            _account.value = cached.account
-            _library.value = cached.library
-            _history.value = cached.history
-            _playlists.value = cached.playlists
-            _playlistOwned.value = cached.owned
-        }
-    }
-
-    /**
-     * Everything that is "the signed-in listener's", refetched.
-     *
-     * The scope comes first, and inside one coroutine rather than beside them:
-     * which channel the session acts as decides what "the library" and "the
-     * history" even refer to, so loading them first and scoping second shows
-     * the listener the wrong account's music and then silently disagrees with
-     * itself.
-     */
-    private fun reloadForAccount() {
-        viewModelScope.launch {
-            Innertube.ensureSessionScope()
-            loadHome()
-            loadLibrary()
-            loadAccount()
-            loadPlaylists()
-        }
-    }
-
     fun signOut() {
         // In a multi-account install, sign out removes only the current Google
         // session and restores another one. A legacy single-account install
@@ -2686,30 +1236,21 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             return
         }
         authStore.signOut()
-        Innertube.cookie = null
         // The mirror image: verdicts reached with a session in hand say nothing
         // about what an anonymous walk will be told, and the clients stood down
         // for refusing the session deserve a fresh hearing without it.
         StreamResolver.onSessionChanged()
         _signedIn.value = false
         _account.value = null
-        Innertube.selectChannel(null, null)
-        _channels.value = emptyList()
         _selectedChannelKey.value = null
         _selectedChannelName.value = null
         _googleAccounts.value = emptyList()
         _activeAccountId.value = null
         _activeProfileId.value = null
-        _library.value = UiState.Loading
-        // Ratings and playlists belong to the account that just left; keeping
-        // them would show the next signed-in user someone else's hearts.
-        likedSyncJob?.cancel()
+        _history.value = UiState.Loading
+        // Ratings belong to the account that just left; keeping them would show
+        // the next signed-in user someone else's hearts.
         LikeState.clear()
-        _playlists.value = emptyList()
-        _playlistOwned.value = emptyMap()
-        ownershipInFlight.clear()
-        _songMenu.value = null
-        loadHome()
     }
 
     private fun Throwable.friendly(): String = when {
