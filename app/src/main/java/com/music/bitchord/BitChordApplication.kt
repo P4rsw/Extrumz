@@ -21,8 +21,6 @@ import com.music.bitchord.data.canvas.SpotifyToken
 import com.music.bitchord.playback.AudioCache
 import com.music.bitchord.playback.LastPlayed
 import com.music.bitchord.playback.OriginalVersion
-import com.music.bitchord.data.innertube.Innertube
-import com.music.bitchord.data.innertube.InnerTubeXResolver
 import com.music.bitchord.data.listentogether.ListenTogether
 import com.music.bitchord.data.scrobbling.LastFM
 import com.music.bitchord.data.settings.AppSettings
@@ -31,9 +29,6 @@ import com.music.bitchord.data.sources.SourceRegistry
 import com.music.bitchord.data.stats.ArtistFacts
 import com.music.bitchord.data.stats.ListeningStats
 import com.music.bitchord.download.Downloads
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
 import kotlin.concurrent.thread
 
 class BitChordApplication : Application(), SingletonImageLoader.Factory {
@@ -62,7 +57,6 @@ class BitChordApplication : Application(), SingletonImageLoader.Factory {
             // session fills the songs tab without anyone tapping anything.
             TelegramAuthController.ensureStarted()
             SourceRegistry.init(this)
-            InnerTubeXResolver.init(this)
             // Its own directory: canvas clips are looping video, not audio, and
             // belong in a cache AudioCache's own limit and eviction policy were
             // never sized for. See CanvasCache's doc for why this one exists at
@@ -77,20 +71,6 @@ class BitChordApplication : Application(), SingletonImageLoader.Factory {
             authStore.select(restoredSession.accountId, restoredSession.activeProfileId)
         }
         authStore.cookie = restoredSession?.cookie
-        Innertube.cookie = restoredSession?.cookie
-        // Which account that cookie actually acts as. Read here rather than on
-        // demand so the answer is usually in hand before the first request needs
-        // it: a play registered under the wrong account is indistinguishable, to
-        // the listener, from one that was never registered at all. Fire and
-        // forget — every caller works without it, just less precisely.
-        if (restoredSession != null) {
-            // After the cookie, never before: setting the cookie clears any
-            // channel the last session was acting as, so restoring the choice
-            // first would restore it into the value about to be wiped.
-            restoredSession.profiles.firstOrNull { it.profileId == restoredSession.activeProfileId }
-                ?.let { Innertube.selectChannel(it.pageId, it.dataSyncId, it.authUser) }
-            CoroutineScope(Dispatchers.IO).launch { Innertube.ensureSessionScope() }
-        }
         AppSettings.init(this, authStore)
         // Restores a party this device is still a member of, so a process death
         // mid-session is something the rest of the party never sees. The socket
