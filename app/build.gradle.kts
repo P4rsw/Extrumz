@@ -55,18 +55,16 @@ val proxyPort: Int = (
 
 /*
  * Bump this by hand before cutting each sideloaded test build ("beta2",
- * "beta3", ...) and blank it out before cutting the real release. Marks the
- * versionName below as a pre-release: AppUpdateChecker.isNewer() treats any
- * "-suffix" as older than a clean release of the same number, so testers
- * still get the update prompt once the matching tag is actually published.
+ * "beta3", ...) and blank it out before cutting the real release. It is
+ * appended to the versionName below as a "-suffix", marking the build as a
+ * pre-release rather than the clean release of the same number.
  *
  * Applied to release builds as well as debug ones, and that is the whole
  * point of it. A sideloaded beta is a *release* build — signed with the real
  * key, installed over the real package — so leaving the marker off it is
- * exactly the case that strands a tester: their build calls itself 1.6.1,
- * the published 1.6.1 then matches it, isNewer() says no, and no prompt ever
- * comes. Blanking this line is the one step that turns a beta into a release,
- * so it is the one place to get right.
+ * exactly the case that strands a tester: their build calls itself 1.6.1 and
+ * the published 1.6.1 then matches it. Blanking this line is the one step
+ * that turns a beta into a release, so it is the one place to get right.
  */
 val betaSuffix = ""
 
@@ -315,12 +313,6 @@ dependencies {
     // [com.music.bitchord.ui.components.QrCode], so the result is styled like
     // the rest of the app rather than a stock black-and-white bitmap.
     implementation("com.google.zxing:core:3.5.3")
-
-    // ---- Markdown rendering (release notes in the update dialog) ----
-    // Pure Compose, not an AndroidView wrapper — needed so the text composes
-    // correctly under the dialog's Haze blur.
-    implementation("com.halilibo.compose-richtext:richtext-ui-material3:0.20.0")
-    implementation("com.halilibo.compose-richtext:richtext-commonmark:0.20.0")
 
     // ---- Innertube (YouTube Music) client: Ktor + kotlinx.serialization ----
     // Ktor and serialization are held at InnerTubeX's versions (below) so the
