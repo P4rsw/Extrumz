@@ -20,13 +20,9 @@
 -keep class com.metrolist.** { *; }
 -keep class com.dokar.quickjs.** { *; }
 
-# ---- Native and crypto --------------------------------------------------------
-# ONNX Runtime and QuickJS are called from JNI, which R8 cannot see. SMBJ picks
-# its BouncyCastle providers and event bus handlers reflectively.
+# ---- Native -------------------------------------------------------------------
+# ONNX Runtime and QuickJS are called from JNI, which R8 cannot see.
 -keep class ai.onnxruntime.** { *; }
--keep class com.hierynomus.** { *; }
--keep class net.engio.mbassy.** { *; }
--keep class org.bouncycastle.** { *; }
 -keepclasseswithmembernames,includedescriptorclasses class * { native <methods>; }
 
 # ---- Serialization --------------------------------------------------------------

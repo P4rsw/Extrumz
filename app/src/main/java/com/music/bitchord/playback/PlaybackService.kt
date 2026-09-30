@@ -1375,19 +1375,18 @@ class PlaybackService : MediaLibraryService() {
         // never heard of, burning its attempt budget on the way to ERROR.
         //
         // The scheme decision belongs *after* the substitution: everything
-        // outer — the cache, Smb's routing, the outer DefaultDataSource —
-        // runs before the resolve and only ever sees the `bitchord://` the
-        // queue was built with. Routing here, with the resolved URI in hand,
-        // is what keeps a local file out of OkHttp.
+        // outer — the cache, the outer DefaultDataSource — runs before the
+        // resolve and only ever sees the `bitchord://` the queue was built
+        // with. Routing here, with the resolved URI in hand, is what keeps a
+        // local file out of OkHttp.
         val chunkedFactory =
             ChunkedDataSource.Factory(OkHttpDataSource.Factory(Http.client), STREAM_CHUNK_BYTES)
         val resolvingFactory = ResolvingDataSource.Factory(
-            // smb:// keeps riding [SmbDataSource] as it does above the
-            // resolver; file/content/asset resolve locally through
-            // DefaultDataSource; everything else falls through to the bounded
-            // range fetch — see [ChunkedDataSource] for why an open-ended
-            // read of one is worth avoiding.
-            SmbDataSource.RoutingFactory(DefaultDataSource.Factory(applicationContext, chunkedFactory)),
+            // file/content/asset resolve locally through DefaultDataSource;
+            // everything else falls through to the bounded range fetch — see
+            // [ChunkedDataSource] for why an open-ended read of one is worth
+            // avoiding.
+            DefaultDataSource.Factory(applicationContext, chunkedFactory),
         ) { dataSpec ->
             // Wrapped rather than folded into the resolver above so the record
             // is made in one place for every branch of it, and made from what
@@ -1410,13 +1409,10 @@ class PlaybackService : MediaLibraryService() {
                 )
             }
         }
-        // Read-ahead resolves streams through the same chain the player does.
-        // smb:// tracks read straight off the share below the cache (so they
-        // cache and seek like HTTP); everything else flows as before, and the
-        // YouTube resolver never sees a scheme it cannot answer.
-        val defaultDataSourceFactory = SmbDataSource.RoutingFactory(
-            DefaultDataSource.Factory(applicationContext, resolvingFactory),
-        )
+        // Read-ahead resolves streams through the same chain the player does,
+        // so the YouTube resolver never sees a scheme it cannot answer.
+        val defaultDataSourceFactory =
+            DefaultDataSource.Factory(applicationContext, resolvingFactory)
         AudioCache.setUpstream(defaultDataSourceFactory)
         mediaSourceFactory = DefaultMediaSourceFactory(AudioCache.playbackFactory(defaultDataSourceFactory))
             .setLoadErrorHandlingPolicy(PermanentAwareLoadErrorPolicy())

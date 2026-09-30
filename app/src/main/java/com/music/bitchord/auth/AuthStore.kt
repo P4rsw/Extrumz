@@ -91,24 +91,6 @@ class AuthStore(context: Context) {
         get() = activeSession?.cookie?.let { hasApiSid(it) } == true
 
     /**
-     * The WebDAV server password. Encrypted like every other credential here:
-     * a backup export carries the server URL and username in plain prefs, but
-     * never this.
-     */
-    var webdavPassword: String?
-        get() = prefs.getString(KEY_WEBDAV_PASSWORD, null)
-        set(value) = prefs.edit().putString(KEY_WEBDAV_PASSWORD, value).apply()
-
-    /**
-     * The SMB share password. Encrypted like every other credential here:
-     * exports carry the server, share and username in plain prefs, but never
-     * this.
-     */
-    var smbPassword: String?
-        get() = prefs.getString(KEY_SMB_PASSWORD, null)
-        set(value) = prefs.edit().putString(KEY_SMB_PASSWORD, value).apply()
-
-    /**
      * The channel the listener chose to act as, if they chose one.
      *
      * Stored beside the cookie rather than in the plain settings because it is
@@ -215,7 +197,5 @@ class AuthStore(context: Context) {
         private const val KEY_CHANNEL_DATASYNC_ID = "channel_datasync_id"
         private const val KEY_CHANNEL_NAME = "channel_name"
         private const val KEY_CHANNEL_AUTH_USER = "channel_auth_user"
-        private const val KEY_WEBDAV_PASSWORD = "webdav_password"
-        private const val KEY_SMB_PASSWORD = "smb_password"
     }
 }

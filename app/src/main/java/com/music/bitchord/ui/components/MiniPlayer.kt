@@ -211,7 +211,7 @@ fun MiniPlayer(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             AsyncImage(
-                model = rememberRemoteArtworkUrl(song)?.artworkAt(ROW_ART_PX),
+                model = song.thumbnailUrl?.artworkAt(ROW_ART_PX),
                 contentDescription = null,
                 modifier = Modifier
                     .size(40.dp)

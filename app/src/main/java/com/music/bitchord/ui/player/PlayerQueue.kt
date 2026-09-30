@@ -73,7 +73,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.Velocity
 import coil3.compose.AsyncImage
 import com.music.bitchord.ui.components.thumbnailBorder
-import com.music.bitchord.ui.components.rememberRemoteArtworkUrl
 import com.music.bitchord.ui.icons.BitChordIcons
 import com.music.bitchord.data.model.QueueTier
 import com.music.bitchord.data.model.Song
@@ -719,7 +718,7 @@ private fun InlineQueueRow(
             Spacer(Modifier.width(4.dp))
         }
         AsyncImage(
-            model = rememberRemoteArtworkUrl(song),
+            model = song.thumbnailUrl,
             contentDescription = null,
             modifier = Modifier
                 .size(44.dp)

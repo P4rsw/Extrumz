@@ -48,10 +48,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Folder
 import androidx.compose.material.icons.rounded.LibraryMusic
 import androidx.compose.material.icons.rounded.MoreVert
-import androidx.compose.material.icons.rounded.Storage
 import com.music.bitchord.ui.icons.BitChordIcons
 import com.music.bitchord.R
 import coil3.compose.AsyncImage
@@ -797,8 +795,7 @@ internal fun NewShelfCard(
 
 /**
  * A device-folder card: mesh gradient in the folder's colours with its glyph
- * on top. One composable for local music, WebDAV and SMB rather than three
- * copies of the same box.
+ * on top.
  */
 @Composable
 private fun ServiceCard(colors: List<Color>, trackKey: String, icon: ImageVector) {
@@ -866,16 +863,6 @@ internal fun ShelfCard(
                 colors = listOf(Color(0xFF134E5E), Color(0xFF71B280)),
                 trackKey = "local:all",
                 icon = Icons.Rounded.LibraryMusic,
-            )
-            "local:webdav" -> ServiceCard(
-                colors = listOf(Color(0xFF3A1C71), Color(0xFFD76D77)),
-                trackKey = "local:webdav",
-                icon = Icons.Rounded.Folder,
-            )
-            "local:smb" -> ServiceCard(
-                colors = listOf(Color(0xFF0F2027), Color(0xFF2C5364)),
-                trackKey = "local:smb",
-                icon = Icons.Rounded.Storage,
             )
             else -> {
                 AsyncImage(

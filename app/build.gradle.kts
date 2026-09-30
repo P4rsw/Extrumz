@@ -159,8 +159,8 @@ android {
              *
              * Nothing is renamed (-dontobfuscate), and every library that reaches
              * for classes by name — Rhino running YouTube's player JavaScript,
-             * NewPipe, InnerTubeX, QuickJS, SMBJ and BouncyCastle, ONNX's JNI,
-             * protobuf-lite, Ktor — is kept whole: see proguard-rules.pro. What R8
+             * NewPipe, InnerTubeX, QuickJS, ONNX's JNI, protobuf-lite, Ktor —
+             * is kept whole: see proguard-rules.pro. What R8
              * is left to optimise is Compose, Media3, coroutines and our own
              * code, which is where the time goes. Checked on a device through the
              * `benchmark` build type below before it ships.
@@ -195,7 +195,7 @@ android {
     }
     packaging {
         resources {
-            // SMBJ's BouncyCastle and jspecify both ship this descriptor.
+            // jspecify ships this descriptor.
             excludes += "META-INF/versions/9/OSGI-INF/MANIFEST.MF"
         }
     }
@@ -361,9 +361,6 @@ dependencies {
     // ---- JS module execution: QuickJS VM for style source plugins ----
     // Held at InnerTubeX's version; the same VM runs QuickJsExecutor's module sources.
     implementation("io.github.dokar3:quickjs-kt-android:1.0.14")
-
-    // ---- SMB file shares: pure-Java SMB2/3 client (listing + streaming) ----
-    implementation("com.hierynomus:smbj:0.15.0")
 
     // ---- Automix: on-device beat/downbeat model (Beat This!, MIT-licensed) ----
     // The full android artifact, not onnxruntime-mobile: mobile only loads .ort

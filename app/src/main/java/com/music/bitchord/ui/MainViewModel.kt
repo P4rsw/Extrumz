@@ -1227,23 +1227,6 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             }
         }
         viewModelScope.launch {
-            AppSettings.webdavUrl.drop(1).collect {
-                reloadRemoteDetail(com.music.bitchord.data.webdav.WebDavConfig.BROWSE_ID)
-            }
-        }
-        viewModelScope.launch {
-            combine(
-                AppSettings.smbHost,
-                AppSettings.smbShare,
-                AppSettings.smbBasePath,
-                AppSettings.smbUsername,
-                AppSettings.smbPassword,
-            ) { fields -> fields.toList() }
-                .drop(1)
-                .debounce(300)
-                .collect { reloadRemoteDetail(com.music.bitchord.data.smb.SmbConfig.BROWSE_ID) }
-        }
-        viewModelScope.launch {
             // A leftover APK only means "Install Now" for the session that
             // downloaded it — see AppUpdateChecker.clearCache.
             AppUpdateChecker.clearCache(getApplication())
@@ -2073,44 +2056,6 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    /**
-     * A remote file library behind a `local:` page: how to list it and what
-     * an empty listing says. One entry per library keeps the detail loader,
-     * the refresher and the queue collector from each repeating the switch —
-     * a third library adds one line here and nothing anywhere else.
-     */
-    private data class RemoteLibrary(
-        val emptyRes: Int,
-        val songs: suspend () -> List<Song>,
-    )
-
-    private fun remoteLibrary(browseId: String): RemoteLibrary? = when (browseId) {
-        com.music.bitchord.data.webdav.WebDavConfig.BROWSE_ID ->
-            RemoteLibrary(
-                R.string.webdav_empty,
-                com.music.bitchord.data.webdav.WebDavRepository::getSongs,
-            )
-        com.music.bitchord.data.smb.SmbConfig.BROWSE_ID ->
-            RemoteLibrary(
-                R.string.smb_empty,
-                com.music.bitchord.data.smb.SmbRepository::getSongs,
-            )
-        else -> null
-    }
-
-    private suspend fun remoteSongsState(remote: RemoteLibrary): UiState<List<Song>> =
-        com.music.bitchord.data.remote.RemoteListing.state(runCatching { remote.songs() }, text(remote.emptyRes))
-
-    /**
-     * Re-reads an open remote-library page after its server settings change.
-     * A no-op when the page isn't open — the next visit lists fresh anyway.
-     */
-    private fun reloadRemoteDetail(browseId: String) {
-        if (_detailStack.value.any { page -> page.browseId == browseId }) {
-            reloadLocalDetail(browseId)
-        }
-    }
-
     fun openDetail(
         browseId: String,
         title: String,
@@ -2165,9 +2110,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             var monthlyListenerCount: String? = null
             /** Whether this artist is subscribed to — see [DetailPage.subscription]. */
             var subscription: SubscriptionState? = null
-            val remote = remoteLibrary(browseId)
             val state = when {
-                remote != null -> remoteSongsState(remote)
                 Downloads.recordIdOf(browseId) != null -> {
                     val songs = downloadedPlaylist(browseId)
                     if (songs.isEmpty()) UiState.Error(text(R.string.downloaded_playlist_empty))
@@ -2275,9 +2218,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun reloadLocalDetail(browseId: String) {
         viewModelScope.launch {
             val context = getApplication<Application>()
-            val remote = remoteLibrary(browseId)
             val state: UiState<List<Song>> = when {
-                remote != null -> remoteSongsState(remote)
                 Downloads.recordIdOf(browseId) != null -> {
                     val songs = downloadedPlaylist(browseId)
                     if (songs.isEmpty()) UiState.Error(text(R.string.downloaded_playlist_empty))
@@ -2423,11 +2364,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     ) {
         viewModelScope.launch {
             val context = getApplication<Application>()
-            val remote = remoteLibrary(browseId)
             val result = when {
-                remote != null -> runCatching {
-                    remote.songs().ifEmpty { error(text(remote.emptyRes)) }
-                }
                 Downloads.recordIdOf(browseId) != null -> runCatching {
                     downloadedPlaylist(browseId).ifEmpty {
                         error(text(R.string.downloaded_playlist_empty))

@@ -30,11 +30,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
@@ -46,7 +44,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.music.bitchord.data.settings.AppSettings
-import kotlinx.coroutines.launch
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 import dev.chrisbanes.haze.materials.HazeMaterials
@@ -132,14 +129,14 @@ data class EditorField(
 )
 
 /**
- * The shape every server editor in this app shares: a centered title, the
+ * The shape every address editor in this app shares: a centered title, the
  * last test result in place of the description, the fields, then Test above
  * Save above Cancel — plus an optional destructive row between Save and
  * Cancel for an entry that can also be removed.
  */
 @OptIn(ExperimentalHazeMaterialsApi::class)
 @Composable
-fun ServerEditorAlert(
+fun EditorAlert(
     hazeState: HazeState,
     title: String,
     description: String,
@@ -237,90 +234,6 @@ fun ServerEditorAlert(
 }
 
 /**
- * One field of a hosted server editor: the saved value it opens with, the
- * hint, and how the keyboard behaves on it.
- */
-data class FieldConfig(
-    val initial: String,
-    val placeholder: String,
-    val keyboardType: KeyboardType = KeyboardType.Text,
-    val isPassword: Boolean = false,
-)
-
-/**
- * A server editor that owns its own state: field values, the last test
- * result and the testing flag. The caller hands over fixed field configs
- * plus what test and save mean for those values, and gets back the same
- * frosted card as [ServerEditorAlert] — without the dozen remembered states
- * each host otherwise repeats.
- *
- * The configs are fixed per call site, so remembering once per opening is
- * sound; the host leaves composition on dismiss, which is when the next
- * opening starts over from the saved values.
- */
-@OptIn(ExperimentalHazeMaterialsApi::class)
-@Composable
-fun ServerEditorHost(
-    hazeState: HazeState,
-    title: String,
-    description: String,
-    fields: List<FieldConfig>,
-    canSubmit: (List<String>) -> Boolean,
-    testFailedRes: Int,
-    onTest: suspend (List<String>) -> Result<Unit>,
-    onSave: (List<String>) -> Unit,
-    onDismiss: () -> Unit,
-) {
-    val context = LocalContext.current
-    val scope = rememberCoroutineScope()
-    val states = remember { fields.map { mutableStateOf(it.initial) } }
-    var status by remember { mutableStateOf<String?>(null) }
-    var statusIsGood by remember { mutableStateOf(false) }
-    var testing by remember { mutableStateOf(false) }
-    val values = states.map { it.value }
-    ServerEditorAlert(
-        hazeState = hazeState,
-        title = title,
-        description = description,
-        fields = fields.mapIndexed { index, field ->
-            EditorField(
-                value = states[index].value,
-                onChange = { states[index].value = it; status = null },
-                placeholder = field.placeholder,
-                keyboardType = field.keyboardType,
-                isPassword = field.isPassword,
-            )
-        },
-        status = status,
-        statusIsGood = statusIsGood,
-        testing = testing,
-        canSubmit = canSubmit(values),
-        onTest = {
-            testing = true
-            status = null
-            scope.launch {
-                onTest(values).fold(
-                    onSuccess = {
-                        status = context.getString(R.string.connected)
-                        statusIsGood = true
-                    },
-                    onFailure = {
-                        status = context.getString(
-                            testFailedRes,
-                            it.message ?: context.getString(R.string.failed),
-                        )
-                        statusIsGood = false
-                    },
-                )
-                testing = false
-            }
-        },
-        onSave = { onSave(values) },
-        onDismiss = onDismiss,
-    )
-}
-
-/**
  * Add or edit a source that has an address — the addon editor.
  *
  * The same frosted card every other alert in this app uses, rather than the
@@ -365,7 +278,7 @@ fun AddonEditorAlert(
     removeLabel: String? = null,
     onDismiss: () -> Unit,
 ) {
-    ServerEditorAlert(
+    EditorAlert(
         hazeState = hazeState,
         title = title,
         description = description,
@@ -387,79 +300,6 @@ fun AddonEditorAlert(
         onRemove = onRemove,
         onDismiss = onDismiss,
     )
-}
-
-/**
- * A name clash mid-upload: the server already holds a file under the name a
- * track would land as.
- *
- * Three stacked outcomes rather than a yes/no — overwriting destroys the
- * server copy, so the non-destructive answer leads as the emphasised action.
- * [showApplyToAll] is only true mid-batch, where one answer can carry every
- * clash still queued behind this one.
- */
-@OptIn(ExperimentalHazeMaterialsApi::class)
-@Composable
-fun WebDavConflictAlert(
-    hazeState: HazeState,
-    fileName: String,
-    showApplyToAll: Boolean,
-    applyToAll: Boolean,
-    onApplyToAllChange: (Boolean) -> Unit,
-    onOverwrite: () -> Unit,
-    onKeepBoth: () -> Unit,
-    onSkip: () -> Unit,
-    onDismiss: () -> Unit,
-) {
-    AlertScaffold(hazeState = hazeState, onDismiss = onDismiss) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 19.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            Text(
-                text = stringResource(R.string.webdav_conflict_title, fileName),
-                style = MaterialTheme.typography.bodyLarge.copy(fontSize = 17.sp, fontWeight = FontWeight.W600),
-                color = MaterialTheme.colorScheme.onSurface,
-                textAlign = TextAlign.Center,
-            )
-            Text(
-                text = stringResource(R.string.webdav_conflict_message),
-                modifier = Modifier.padding(top = 4.dp, bottom = 14.dp),
-                style = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.sp, lineHeight = 17.sp),
-                color = MaterialTheme.colorScheme.onSurface,
-                textAlign = TextAlign.Center,
-            )
-        }
-        AlertRule()
-        AlertAction(
-            label = stringResource(R.string.webdav_keep_both),
-            emphasised = true,
-            onClick = onKeepBoth,
-        )
-        AlertRule()
-        AlertAction(
-            label = stringResource(R.string.webdav_overwrite),
-            emphasised = false,
-            onClick = onOverwrite,
-        )
-        AlertRule()
-        AlertAction(
-            label = stringResource(R.string.webdav_skip),
-            emphasised = false,
-            onClick = onSkip,
-        )
-        if (showApplyToAll) {
-            AlertRule()
-            ChoiceRow(
-                label = stringResource(R.string.webdav_apply_to_all),
-                detail = null,
-                checked = applyToAll,
-                onClick = { onApplyToAllChange(!applyToAll) },
-            )
-        }
-    }
 }
 
 /**
