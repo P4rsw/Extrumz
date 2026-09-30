@@ -1,11 +1,11 @@
 package com.music.bitchord.data.telegram
 
+import com.music.bitchord.data.TrackLog
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withTimeoutOrNull
 
 /**
  * Starts the TDLib client once credentials are available and keeps the session alive.
@@ -22,6 +22,7 @@ class TelegramSessionStarter(
     fun startAsync() {
         scope.launch {
             runCatching { start() }
+                .onFailure { TrackLog.w(TAG, "session start failed: ${it.message}") }
         }
     }
 
@@ -51,14 +52,24 @@ class TelegramSessionStarter(
             runCatching {
                 client.start(credentials)
                 awaitReadyThen(onReady)
-            }
+            }.onFailure { TrackLog.w(TAG, "session start failed: ${it.message}") }
         }
     }
 
+    /**
+     * Waits for Ready *without a budget*. First login — phone → code → 2FA —
+     * routinely takes longer than any fixed timeout, and the auto-scan hangs
+     * off this call: the 60s cap that used to be here returned null on a slow
+     * first login, so [onReady] never ran and the list stayed empty until the
+     * scan was started by hand. Nothing but cancellation stops this wait now;
+     * [scope] and the callers' own scopes are what end it.
+     */
     private suspend fun awaitReadyThen(block: suspend () -> Unit) {
-        val ready = withTimeoutOrNull(60_000) {
-            client.authState.first { it is TelegramAuthState.Ready }
-        }
-        if (ready != null) block()
+        client.authState.first { it is TelegramAuthState.Ready }
+        block()
+    }
+
+    private companion object {
+        private const val TAG = "TelegramSession"
     }
 }

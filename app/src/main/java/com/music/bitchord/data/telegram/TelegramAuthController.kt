@@ -62,7 +62,10 @@ object TelegramAuthController {
                     .onFailure { TrackLog.w(TAG, "auto-scan failed: ${it.message}") }
             },
         ).also { starter = it }
-        scope.launch { runCatching { existing.start() } }
+        scope.launch {
+            runCatching { existing.start() }
+                .onFailure { TrackLog.w(TAG, "client start failed: ${it.message}") }
+        }
     }
 
     /** Kicks a full scan; no-op while one is already running (scanner guards itself). */
@@ -92,6 +95,7 @@ object TelegramAuthController {
                 is TelegramAuthState.WaitingForPhoneNumber,
                 is TelegramAuthState.WaitingForQrScan ->
                     runCatching { Telegram.client.confirmLoginLink(held) }
+                        .onFailure { TrackLog.w(TAG, "deep-link confirm failed: ${it.message}") }
                 else -> Unit
             }
         }
