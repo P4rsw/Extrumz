@@ -1827,50 +1827,29 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                     return@collectLatest
                 }
 
-                // Search is YouTube's alone. A module is a *substitution*
-                // layer, not a catalogue to browse: it never has cover art,
-                // radio, related tracks or an album page, so its rows arrived
-                // in the results list looking like YouTube's and then behaved
-                // nothing like them. Every track found here takes the ordinary
-                // YouTube path and is handed to the module at playback time —
-                // see [SourceResolver.substituteForYouTube] — which upgrades
-                // the ones it holds without any of them having to be a
-                // separate row to pick between.
-                val result = YtMusicRepository.searchPage(request.query, request.filter)
-                // A search that has been superseded shouldn't land on screen,
-                // whether it succeeded or failed.
+                // Search is the local index plus this device's own files —
+                // Telegram's FTS5 first, then whatever audio is on the phone.
+                // There is no external catalogue left to fan out to: phase 2
+                // removed every non-Telegram source, so this is the whole
+                // answer rather than a supplement to a YouTube page.
+                val rows = searchTelegramAndLocal(request.query, request.filter)
+                // A search that has been superseded shouldn't land on screen.
                 if (request.requestId != newestRequestId.get()) return@collectLatest
-                _results.value = result.fold(
-                    onSuccess = { page -> published(page, key, request.requestId) },
-                    onFailure = { failure -> UiState.Error(failure.friendly()) },
-                )
+                _results.value = published(rows, key, request.requestId)
             }
     }
 
     /**
-     * Continues the visible search only when the list reaches its end. This is
-     * deliberately separate from the first-page request: waiting for every
-     * continuation was the reason a search sat on a spinner for seconds.
+     * Continues the visible search only when the list reaches its end.
+     *
+     * Kept for the UI's load-more call site; the local search answers in one
+     * page — FTS5 and MediaStore have no continuation token — so there is
+     * never anything to fetch here.
      */
     fun loadMoreSearchResults() {
         val session = searchSession ?: return
-        val token = session.continuation ?: return
+        if (session.continuation == null) return
         if (_searchLoadingMore.value) return
-        _searchLoadingMore.value = true
-        viewModelScope.launch {
-            val next = YtMusicRepository.searchContinuation(token, session.filter)
-            val stillCurrent = searchSession == session && session.requestId == newestRequestId.get()
-            if (stillCurrent) {
-                next.onSuccess { page ->
-                    val current = (_results.value as? UiState.Success)?.data.orEmpty()
-                    val merged = (current + page.rows).distinctBy(::searchResultKey)
-                    searchCache.put(session.key, SearchCacheEntry(merged, page.continuation))
-                    searchSession = session.copy(continuation = page.continuation)
-                    _results.value = UiState.Success(merged)
-                }
-                _searchLoadingMore.value = false
-            }
-        }
     }
 
     /**
@@ -1903,7 +1882,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             .debounce(SUGGEST_DEBOUNCE_MS)
             .collectLatest { input ->
                 if (!stillWanted(input)) return@collectLatest
-                val fetched = YtMusicRepository.searchSuggestions(input).getOrNull()
+                val fetched = runCatching { suggestionTitles(input) }.getOrNull()
                     ?: return@collectLatest
                 // Asked again on the way back; the field is live throughout.
                 if (!stillWanted(input)) return@collectLatest
@@ -1935,28 +1914,26 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                     _typeaheadResults.value = emptyList()
                     return@collectLatest
                 }
-                val result = YtMusicRepository.searchTypeahead(input).getOrNull()
+                val result = searchTelegramAndLocal(input, SearchFilter.SONGS)
                 // If the field moved on, drop the result silently.
                 if (_query.value != input) {
                     _typeaheadResults.value = emptyList()
                     return@collectLatest
                 }
                 // Cap results so the dropdown doesn't grow unbounded.
-                _typeaheadResults.value = result?.rows.orEmpty().take(TYPEAHEAD_MAX_RESULTS)
+                _typeaheadResults.value = result.take(TYPEAHEAD_MAX_RESULTS)
             }
     }
 
-    /** Caches and publishes the initial result page without waiting for later pages. */
+    /** Caches and publishes the first (and only) search page. */
     private fun published(
-        page: YtMusicRepository.SearchPage,
+        rows: List<SearchResult>,
         key: String,
         requestId: Long,
     ): UiState<List<SearchResult>> {
-        val rows = page.rows
         if (rows.isEmpty()) return UiState.Error(text(R.string.no_results))
-        searchCache.put(key, SearchCacheEntry(rows, page.continuation))
-        searchSession = SearchSession(key, requestId, _filter.value, page.continuation)
-        prefetchTopResult(rows)
+        searchCache.put(key, SearchCacheEntry(rows, continuation = null))
+        searchSession = SearchSession(key, requestId, _filter.value, continuation = null)
         return UiState.Success(rows)
     }
 
@@ -1967,103 +1944,62 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     /**
-     * The enabled non-YouTube sources, asked at the same time and returned
-     * split at YouTube's own place in the order.
+     * The whole of search: the indexed Telegram catalogue (FTS5 first, LIKE
+     * as fallback — see [TelegramSource.localResults]) plus this device's own
+     * audio files. External catalogues are gone as of phase 2, so the
+     * browse-shaped filters have nothing to answer with and return empty.
      *
-     * The split is what makes the Sources screen's ordering visible where it
-     * matters most. A library server ranked above YouTube puts its own copies
-     * at the top of the results — which is the whole point of ranking it there —
-     * and one ranked below appears under them instead.
-     *
-     * Only the Songs filter fans out: albums, artists and playlists are
-     * browse-shaped, and [MusicSource] deliberately answers for tracks only.
-     *
-     * Asked of the playback list rather than every enabled source, so a result
-     * offered here is one this connection's ceiling would actually let play —
-     * a row that can only be tapped into a YouTube stream is a lie about where
-     * the track is coming from.
+     * Telegram first and it keeps its own ranking; local files follow, tokens
+     * matching title or artist. One page — neither FTS5 nor MediaStore has a
+     * continuation token.
      */
-    private suspend fun sourceResults(
+    private suspend fun searchTelegramAndLocal(
         query: String,
         filter: SearchFilter,
-    ): Pair<List<SearchResult>, List<SearchResult>> = coroutineScope {
-        if (filter != SearchFilter.SONGS) return@coroutineScope emptyList<SearchResult>() to emptyList()
-        val active = SourceRegistry.activeForPlayback()
-        val youtubeRank = active.indexOfFirst { it.kind == SourceKind.YOUTUBE }
-            .let { if (it < 0) active.size else it }
-
-        val answers = active
-            .filter { it.kind != SourceKind.YOUTUBE }
-            .map { source ->
-                source to async {
-                    // Per-source, so one slow or unreachable server delays the
-                    // results by at most this much rather than for as long as
-                    // its socket takes to give up.
-                    runCatching {
-                        withTimeout(SOURCE_SEARCH_TIMEOUT_MS) { source.search(query, SOURCE_SEARCH_LIMIT) }
-                    }.getOrDefault(emptyList())
+    ): List<SearchResult> {
+        if (filter == SearchFilter.ALBUMS || filter == SearchFilter.ARTISTS ||
+            filter == SearchFilter.PLAYLISTS
+        ) {
+            return emptyList()
+        }
+        val tokens = query.split(Regex("\\s+")).filter { it.isNotBlank() }
+        if (tokens.isEmpty()) return emptyList()
+        val telegram = runCatching {
+            SourceRegistry.active()
+                .firstOrNull { it.kind == SourceKind.TELEGRAM }
+                ?.search(query, SEARCH_PAGE_SIZE)
+                .orEmpty()
+        }.getOrElse { emptyList() }
+        val local = runCatching {
+            val context = getApplication<Application>()
+            LocalMediaRepository.getLocalMusic(context).filter { song ->
+                tokens.all { token ->
+                    song.title.contains(token, ignoreCase = true) ||
+                        song.artist.contains(token, ignoreCase = true)
                 }
             }
-
-        val above = mutableListOf<SearchResult>()
-        val below = mutableListOf<SearchResult>()
-        answers.forEach { (source, job) ->
-            val rows = job.await().map { SearchResult.Track(it) }
-            val rank = active.indexOfFirst { it.configId == source.configId }
-            if (rank in 0 until youtubeRank) above += rows else below += rows
-        }
-        above to below
+        }.getOrElse { emptyList() }
+        return (telegram + local)
+            .distinctBy { it.videoId }
+            .take(SEARCH_PAGE_SIZE)
+            .map { SearchResult.Track(it) }
     }
 
     /**
-     * Warms the stream URL for the top song result the instant results land,
-     * not when it's tapped. [AudioCache] gives a head start to whatever's
-     * already queued; a fresh search has nothing queued yet, and the top
-     * result is overwhelmingly what gets tapped — see [play][MainActivity.play].
-     * The exact search result is warmed because video tracks now play their
-     * own audio by default; catalogue matching is only requested manually.
+     * What the suggestion chips under the search field offer: titles from the
+     * same local index the search itself would answer with, capped small —
+     * the typed text is already a working first row.
      */
-    private fun prefetchTopResult(rows: List<SearchResult>) {
-        val song = rows.firstNotNullOfOrNull {
-            when (it) {
-                is SearchResult.TopTrack -> it.song
-                is SearchResult.Track -> it.song
-                is SearchResult.Browse -> null
-            }
-        } ?: return
-        viewModelScope.launch {
-            runCatching {
-                val audio = song
-                // A source-backed row resolves through its own source already
-                // and never takes the YouTube path — warming either half of
-                // this for one would be work nothing asks for.
-                if (SourceRegistry.parseTrackKey(audio.videoId) != null) return@runCatching
-                // JioSaavn first, on the same reasoning as the queue's
-                // read-ahead: it is the copy that will actually be played if it
-                // has the track, so warming YouTube's URL instead warms the one
-                // that loses. Pinned through [StreamChoice] so playback opens
-                // this very stream rather than racing for it again — see
-                // [SourceResolver.prefetchSubstitute], which requires it.
-                val warmed = SourceResolver.prefetchSubstitute(
-                    TrackMatcher.Target(
-                        title = audio.title,
-                        artist = audio.artist,
-                        durationSec = TrackMatcher.secondsOf(audio.durationText),
-                        album = audio.albumName,
-                        isExplicit = audio.isExplicit,
-                        isVideo = audio.isVideo,
-                    ),
-                )
-                if (warmed != null) {
-                    StreamChoice.remember(audio.videoId, warmed, substituted = true)
-                    return@runCatching
-                }
-                // Disabled, or hasn't got it: the tap path falls back to
-                // YouTube, so that is what is worth having ready.
-                StreamResolver.resolve(audio.videoId)
-            }
-        }
-    }
+    private suspend fun suggestionTitles(input: String): List<String> =
+        runCatching {
+            SourceRegistry.active()
+                .firstOrNull { it.kind == SourceKind.TELEGRAM }
+                ?.search(input, SUGGEST_SOURCE_LIMIT)
+                .orEmpty()
+        }.getOrElse { emptyList() }
+            .map { it.title.ifBlank { it.artist } }
+            .distinct()
+            .take(SUGGEST_MAX_RESULTS)
 
     companion object {
         /**
@@ -2094,18 +2030,19 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         const val SEARCH_CACHE_ENTRIES = 100
 
         /**
-         * How long any one source gets to answer a search.
+         * How many rows the one search page carries.
          *
-         * Short on purpose: these run alongside the YouTube search, and their
-         * only job is to be *there* when it lands. A home server reached over
-         * a VPN that takes eight seconds has effectively not answered, and
-         * holding the whole result list for it would make search feel worse
-         * for the sake of results the user can still get by searching again.
+         * One page because there is nothing to continue from: FTS5 and
+         * MediaStore both answer in full. Big enough to scroll, small enough
+         * that a broad query doesn't build a list nobody reaches the end of.
          */
-        const val SOURCE_SEARCH_TIMEOUT_MS = 4000L
+        const val SEARCH_PAGE_SIZE = 50
 
-        /** Enough to be worth scrolling, short enough not to bury YouTube's own rows. */
-        const val SOURCE_SEARCH_LIMIT = 12
+        /** How deep the suggestion chips dig into the same local index. */
+        const val SUGGEST_SOURCE_LIMIT = 10
+
+        /** Titles offered under the field, above the typed text itself. */
+        const val SUGGEST_MAX_RESULTS = 8
 
         /**
          * What a page with an empty listing says.
