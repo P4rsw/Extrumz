@@ -127,6 +127,26 @@ enum class SourceKind(
         rank = 1,
     ),
 
+    /**
+     * The listener's own Telegram library: chats, channels and groups scanned
+     * for audio messages, indexed in Room and streamed through TDLib.
+     *
+     * Rank 1 puts it ahead of JioSaavn but behind everything the user added on
+     * purpose — it is the reason this fork exists, and it should be asked
+     * before a catalogue that can guess the wrong recording. No server to
+     * configure: credentials are baked in and authorization happens on the
+     * sources screen. `health()` reports Rejected until the listener has
+     * logged in, so an unauthorized install never stalls a source walk.
+     */
+    TELEGRAM(
+        label = "Telegram",
+        detail = "کانال‌ها و گروه‌های تلگرام شما — اسکن‌شده و آفلاین قابل پخش.",
+        labels = listOf("تلگرام", "آفلاین"),
+        needsServer = false,
+        canServeLossless = false,
+        rank = 1,
+    ),
+
     JIOSAAVN(
         label = "JioSaavn",
         detail = "Optional JioSaavn streams up to 320kbps AAC/MP4. Catalogue matching can select the wrong song.",

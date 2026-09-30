@@ -65,7 +65,7 @@ enum class AudioQuality(
         // all of them before it answers, which is seconds spent to land on a
         // transcode JioSaavn already has at 320.
         HIGH -> !kind.canServeLossless
-        MEDIUM, LOW -> kind == SourceKind.YOUTUBE
+        MEDIUM, LOW -> kind == SourceKind.YOUTUBE || kind == SourceKind.TELEGRAM
     }
 }
 

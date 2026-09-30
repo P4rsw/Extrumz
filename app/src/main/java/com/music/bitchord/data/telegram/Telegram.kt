@@ -15,5 +15,12 @@ object Telegram {
         appContext = context.applicationContext
     }
 
+    /** App context for pieces that need one without a DI graph (MediaStore lookups). */
+    val context: Context
+        get() = appContext
+
     val client: MusicTelegramClient by lazy { AndroidMusicTelegramClient(appContext) }
+
+    /** Shared scanner: the sources screen and the source itself must see one progress stream. */
+    val scanner: LibraryScanner by lazy { LibraryScanner.create() }
 }

@@ -45,6 +45,11 @@ interface TrackDao {
     )
     suspend fun recordPlay(id: String, playedAt: Long)
 
+    @Query(
+        "SELECT * FROM tracks WHERE sourceChatId = :chatId AND sourceMessageId = :messageId"
+    )
+    suspend fun getByChatAndMessage(chatId: Long, messageId: Long): Track?
+
     @Query("SELECT COUNT(*) FROM tracks")
     suspend fun count(): Int
 
