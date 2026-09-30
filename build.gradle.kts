@@ -37,4 +37,8 @@ plugins {
     id("org.jetbrains.kotlin.android") version "2.3.20" apply false
     id("org.jetbrains.kotlin.plugin.compose") version "2.3.20" apply false
     id("org.jetbrains.kotlin.plugin.serialization") version "2.3.20" apply false
+    // KSP is decoupled from Kotlin since 2.3.0; 2.3.11 is the release built
+    // against the 2.3.20 compiler line this project uses (Room's annotation
+    // processor runs through it).
+    id("com.google.devtools.ksp") version "2.3.11" apply false
 }

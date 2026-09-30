@@ -6,6 +6,7 @@ plugins {
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
     id("org.jetbrains.kotlin.plugin.serialization")
+    id("com.google.devtools.ksp")
 }
 
 /**
@@ -409,6 +410,18 @@ dependencies {
     // files, which would put an offline conversion step between the model and
     // the app for a saving that does not matter in a self-distributed APK.
     implementation("com.microsoft.onnxruntime:onnxruntime-android:1.28.0")
+
+    // ---- Telegram: TDLib client (JitPack — same artifact proven in the old project) ----
+    implementation("com.github.tdlibx:td:1.8.56")
+
+    // ---- Telegram library index: Room + bundled SQLite (FTS5 needs the bundled
+    // engine on every API level — the framework SQLite only gained FTS5 in
+    // Android 11 while minSdk is 26). Versions match the old project, where the
+    // same schema and Fts5Callbacks ran green. ----
+    implementation("androidx.room:room-runtime:2.8.5")
+    implementation("androidx.room:room-ktx:2.8.5")
+    implementation("androidx.sqlite:sqlite-bundled:2.7.1")
+    ksp("androidx.room:room-compiler:2.8.5")
 
     testImplementation("junit:junit:4.13.2")
     // A real HTTP server for the addon tests. The addon protocol is entirely
