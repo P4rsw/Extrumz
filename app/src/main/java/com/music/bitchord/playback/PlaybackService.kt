@@ -1476,11 +1476,28 @@ class PlaybackService : MediaLibraryService() {
         // well would not override that — OkHttpDataSource *appends* the
         // factory's agent after the request's, and the fetch would go out
         // carrying two contradictory User-Agent headers.
+        // The chunked/OkHttp pair speaks only http(s), and it used to be the
+        // *sole* factory behind the resolver. A resolver that hands back
+        // `file:///…` (Telegram's local tiers) or `content://` (MediaStore)
+        // was routed straight into OkHttp, which threw `Malformed URL` on a
+        // download that had completed milliseconds earlier — and the track
+        // then fell through the YouTube fallback for a title YouTube has
+        // never heard of, burning its attempt budget on the way to ERROR.
+        //
+        // The scheme decision belongs *after* the substitution: everything
+        // outer — the cache, Smb's routing, the outer DefaultDataSource —
+        // runs before the resolve and only ever sees the `bitchord://` the
+        // queue was built with. Routing here, with the resolved URI in hand,
+        // is what keeps a local file out of OkHttp.
+        val chunkedFactory =
+            ChunkedDataSource.Factory(OkHttpDataSource.Factory(Http.client), STREAM_CHUNK_BYTES)
         val resolvingFactory = ResolvingDataSource.Factory(
-            // Innermost, so it chunks the real googlevideo URL the resolver
-            // above has already substituted in — see [ChunkedDataSource] for
-            // why an open-ended read of one is worth avoiding.
-            ChunkedDataSource.Factory(OkHttpDataSource.Factory(Http.client), STREAM_CHUNK_BYTES),
+            // smb:// keeps riding [SmbDataSource] as it does above the
+            // resolver; file/content/asset resolve locally through
+            // DefaultDataSource; everything else falls through to the bounded
+            // range fetch — see [ChunkedDataSource] for why an open-ended
+            // read of one is worth avoiding.
+            SmbDataSource.RoutingFactory(DefaultDataSource.Factory(this, chunkedFactory)),
         ) { dataSpec ->
             // Wrapped rather than folded into the resolver above so the record
             // is made in one place for every branch of it, and made from what
@@ -1490,7 +1507,17 @@ class PlaybackService : MediaLibraryService() {
             // track's bytes it is fetching; this is the seam where both are in
             // hand. See [StreamContainer].
             streamResolver.resolveDataSpec(dataSpec).also { resolved ->
-                mediaIdIn(dataSpec.uri)?.let { StreamContainer.served(it, resolved.uri.toString()) }
+                val trackId = mediaIdIn(dataSpec.uri)
+                trackId?.let { StreamContainer.served(it, resolved.uri.toString()) }
+                // Which scheme the resolver picked, for which track — the
+                // whole diagnosis of "why did this not play" starts here, and
+                // it should be one TrackLog lookup rather than a logcat dive.
+                TrackLog.d(
+                    "BitChord",
+                    "resolved $trackId via ${resolved.uri.scheme ?: "none"}" +
+                        " (\"${dataSpec.uri.getQueryParameter("n")}\")",
+                    about = trackId,
+                )
             }
         }
         // Read-ahead resolves streams through the same chain the player does.
@@ -3192,6 +3219,19 @@ class PlaybackService : MediaLibraryService() {
         val videoId = playbackUri.getQueryParameter("v")
         val substituted = videoId?.let(StreamChoice::isSubstitute) == true
         if (!PlaybackFallback.isAlternative(playbackUri.toString(), substituted)) return false
+        // A Telegram track (`t=tg_…`) resolves to bytes already on the device:
+        // a title search on YouTube is a coin flip that spends this track's
+        // attempt budget on a query YouTube cannot answer ("No YouTube audio
+        // fallback matched <title>"), and the product is Telegram's. Let the
+        // ordinary retry/verdict path decide instead.
+        if (playbackUri.getQueryParameter("t")?.startsWith("tg_") == true) {
+            TrackLog.d(
+                "BitChord",
+                "${item.mediaId}: keeping the Telegram source; no YouTube fallback for tg_ track",
+                about = item.mediaId,
+            )
+            return false
+        }
         val fallback = item.toYouTubeFallbackMediaItem() ?: return false
         val mediaId = item.mediaId
 
