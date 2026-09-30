@@ -15,6 +15,7 @@ import com.music.bitchord.data.canvas.CanvasCache
 import com.music.bitchord.data.db.TelegramDb
 import com.music.bitchord.data.smb.SmbCoverFetcher
 import com.music.bitchord.data.telegram.Telegram
+import com.music.bitchord.data.telegram.TelegramAuthController
 import com.music.bitchord.data.webdav.WebDavCoilAuth
 import com.music.bitchord.data.canvas.SpotifyToken
 import com.music.bitchord.playback.AudioCache
@@ -56,6 +57,10 @@ class BitChordApplication : Application(), SingletonImageLoader.Factory {
             TelegramDb.init(this)
             // Same for the TDLib client holder: TDLib only boots on start().
             Telegram.init(this)
+            // Boots TDLib (once) and arms the auto-scan that fires the moment
+            // authorization completes — cold start to an already-logged-in
+            // session fills the songs tab without anyone tapping anything.
+            TelegramAuthController.ensureStarted()
             SourceRegistry.init(this)
             InnerTubeXResolver.init(this)
             // Its own directory: canvas clips are looping video, not audio, and

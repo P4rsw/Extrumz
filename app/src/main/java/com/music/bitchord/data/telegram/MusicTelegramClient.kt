@@ -93,6 +93,9 @@ interface MusicTelegramClient {
     /** Switches the auth flow to QR-code login on another device. */
     suspend fun requestQrCodeAuthentication()
 
+    /** Completes login from a `tg://login?token=` deep link, when TDLib accepts it. */
+    suspend fun confirmLoginLink(link: String)
+
     /** Logs out of the current session and clears parameter state. */
     suspend fun logout()
 

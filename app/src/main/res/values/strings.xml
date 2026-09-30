@@ -1144,4 +1144,29 @@
 
     <string name="card_songs_format">%1$s songs</string>
 
+    <!-- Telegram (TeleMusic) -->
+    <string name="tab_songs">آهنگ‌ها</string>
+    <string name="tab_channels">کانال‌ها</string>
+    <string name="tg_login">ورود به تلگرام</string>
+    <string name="tg_login_subtitle">برای جمع‌آوری آهنگ‌های کانال‌ها و گروه‌هایت وارد شو</string>
+    <string name="tg_phone">شماره تلفن (با کد کشور)</string>
+    <string name="tg_send_code">ارسال کد</string>
+    <string name="tg_code">کد تأیید</string>
+    <string name="tg_verify">تأیید</string>
+    <string name="tg_password">رمز دو مرحله‌ای</string>
+    <string name="tg_password_hint">رمز دو مرحله‌ای — راهنمایی: %1$s</string>
+    <string name="tg_unlock">باز کردن</string>
+    <string name="tg_qr">ورود با کد QR</string>
+    <string name="tg_qr_hint">این لینک را در تلگرام دستگاه دیگر باز کن: تنظیمات ← دستگاه‌ها ← اتصال دستگاه</string>
+    <string name="tg_qr_link">لینک ورود:</string>
+    <string name="tg_scanning">دارم آهنگ‌هاتو جمع می‌کنم…</string>
+    <string name="tg_empty_hint">هنوز آهنگی پیدا نشده. وارد تلگرام شو تا کانال‌هات را اسکن کنم.</string>
+    <string name="tg_search_hint">جستجو در آهنگ‌های تلگرام</string>
+    <string name="tg_all_chats">همه کانال‌ها</string>
+    <string name="tg_chats_empty">هنوز کانالی اسکن نشده است.</string>
+    <string name="tg_connected">متصل به تلگرام</string>
+    <string name="tg_start_scan">شروع اسکن</string>
+    <string name="tg_retry">تلاش دوباره</string>
+    <string name="tg_close">بستن</string>
+
 </resources>

@@ -164,6 +164,10 @@ class AndroidMusicTelegramClient(
         send(TdApi.RequestQrCodeAuthentication(LongArray(0)))
     }
 
+    override suspend fun confirmLoginLink(link: String) {
+        send(TdApi.ConfirmQrCodeAuthentication(link))
+    }
+
     override suspend fun logout() {
         send(TdApi.LogOut())
         parametersSent = false

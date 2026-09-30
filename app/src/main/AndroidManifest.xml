@@ -148,6 +148,21 @@
             </intent-filter>
 
             <!--
+              Telegram's QR confirmation: the official client opens
+              tg://login?token=… on the device where the code was scanned.
+              BROWSABLE so the link works from a browser or a notification;
+              best-effort — TDLib only accepts the token after its own
+              parameters have executed, and the phone/code flow remains the
+              fallback when they haven't.
+            -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="tg" android:host="login" />
+            </intent-filter>
+
+            <!--
               YouTube Music links: a song, an album, a playlist or an artist,
               tapped anywhere on the device.
 

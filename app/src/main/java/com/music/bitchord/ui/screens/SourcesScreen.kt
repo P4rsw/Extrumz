@@ -31,6 +31,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.key
@@ -58,6 +59,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.music.bitchord.R
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.data.smb.SmbRepository
+import com.music.bitchord.data.telegram.Telegram
+import com.music.bitchord.data.telegram.TelegramAuthController
+import com.music.bitchord.data.telegram.TelegramAuthState
 import com.music.bitchord.data.webdav.WebDavRepository
 import com.music.bitchord.data.settings.AudioQuality
 import com.music.bitchord.data.sources.AddonSource
@@ -734,6 +738,21 @@ private fun SourceRow(
                 },
                 maxLines = 2,
             )
+        }
+        if (config.kind == SourceKind.TELEGRAM) {
+            // Authorizing is the one thing this source needs from the listener
+            // — so the button lives here on the row rather than behind a tap
+            // into an editor that doesn't exist for it.
+            val authState by Telegram.client.authState.collectAsStateWithLifecycle()
+            if (authState !is TelegramAuthState.Ready) {
+                TextButton(onClick = { TelegramAuthController.requestAuthUi() }) {
+                    Text(
+                        text = stringResource(R.string.tg_login),
+                        maxLines = 1,
+                        style = MaterialTheme.typography.labelLarge,
+                    )
+                }
+            }
         }
         Spacer(Modifier.width(8.dp))
         if (onToggle == null) {
