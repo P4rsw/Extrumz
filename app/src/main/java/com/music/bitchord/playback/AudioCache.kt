@@ -431,7 +431,8 @@ object AudioCache {
     /**
      * Wraps [upstream] so everything played is written to disk on the way
      * through, and anything already there is served without a request.
-     * Local file and content URIs bypass disk caching to prevent redundant writes.
+     * Local file and content URIs bypass disk caching to prevent redundant
+     * writes — and so do Telegram tracks (see [isTelegramTrack]).
      */
     fun playbackFactory(upstream: DataSource.Factory): DataSource.Factory = DataSource.Factory {
         val cacheDs = cacheFactory(upstream).createDataSource()
@@ -446,7 +447,9 @@ object AudioCache {
 
             override fun open(dataSpec: DataSpec): Long {
                 val scheme = dataSpec.uri.scheme
-                activeDs = if (scheme == "file" || scheme == "content") {
+                activeDs = if (
+                    scheme == "file" || scheme == "content" || isTelegramTrack(dataSpec.uri)
+                ) {
                     upstreamDs
                 } else {
                     cacheDs
@@ -464,6 +467,19 @@ object AudioCache {
             }
         }
     }
+
+    /**
+     * A Telegram track (`bitchord://source?…&t=tg_…`) whose bytes already sit
+     * on disk — the TDLib download or a /Telegram/ file — and which the
+     * resolver re-serves as `file://` on every play. The queue's URI is still
+     * `bitchord://` when it reaches this `open()`, so without this check the
+     * cache path took a second full copy of a file that was already there
+     * (2× disk per Telegram track). Bypassing cannot cost offline playback:
+     * the replay resolves to the same local file, network or not. Read-ahead
+     * never writes these either — [prefetchQueue] drops source-backed keys.
+     */
+    private fun isTelegramTrack(uri: Uri): Boolean =
+        uri.authority == "source" && uri.getQueryParameter("t")?.startsWith("tg_") == true
 
     private fun cacheFactory(upstream: DataSource.Factory) = CacheDataSource.Factory()
         .setCache(cache)
