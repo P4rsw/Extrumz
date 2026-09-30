@@ -37,7 +37,6 @@
 # Our own @Serializable models, whole: kotlinx.serialization's bundled rules
 # cover the generated serializers, and keeping the classes too costs little.
 -keep @kotlinx.serialization.Serializable class com.music.bitchord.** { *; }
--keep @kotlinx.serialization.Serializable class com.my.kizzy.** { *; }
 
 # ---- WebView bridges ------------------------------------------------------------
 # PoToken minting and the Spotify token page call back into these from JavaScript.

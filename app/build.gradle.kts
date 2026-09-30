@@ -344,9 +344,6 @@ dependencies {
     implementation("io.ktor:ktor-serialization-kotlinx-json:3.5.2")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.11.0")
 
-    // ---- Discord Rich Presence: the gateway is a WebSocket, so Ktor needs the plugin ----
-    implementation("io.ktor:ktor-client-websockets:3.5.2")
-
     // ---- YouTube stream extraction: live-benchmarked client catalog + cipher tiers ----
     implementation("com.github.MetrolistGroup.innertubex:innertubex-android:v0.7.0")
 

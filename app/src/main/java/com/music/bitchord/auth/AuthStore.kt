@@ -6,12 +6,11 @@ import android.content.SharedPreferences
 /**
  * Encrypted-at-rest storage for credentials.
  *
- * Two live here: the YouTube Music session cookie, and — if the user turns on
- * the Discord integration — that account's own bearer token. Neither is a
- * password: the Google one is typed into accounts.google.com inside a WebView,
- * and the Discord one is read out of a completed login session. But both grant
- * full access to their account, so they don't go in the plain prefs the
- * scrobbler tokens use.
+ * Two kinds live here: the YouTube Music session cookie and the share
+ * passwords. The cookie is not typed in as a password at all — it is picked
+ * up from a login inside accounts.google.com's WebView — but all of them
+ * grant full access to their account or share, so they don't go in the plain
+ * prefs the scrobbler tokens use.
  *
  * A restored file whose keyset this device can't unwrap is recreated, and a
  * Keystore that can't be used at all degrades to plain prefs rather than
@@ -90,11 +89,6 @@ class AuthStore(context: Context) {
 
     val isSignedIn: Boolean
         get() = activeSession?.cookie?.let { hasApiSid(it) } == true
-
-    /** The Discord account's bearer token. See DiscordRPC for why a user token. */
-    var discordToken: String?
-        get() = prefs.getString(KEY_DISCORD_TOKEN, null)
-        set(value) = prefs.edit().putString(KEY_DISCORD_TOKEN, value).apply()
 
     /**
      * The WebDAV server password. Encrypted like every other credential here:
@@ -176,7 +170,8 @@ class AuthStore(context: Context) {
     }
 
     /**
-     * Signs out of YouTube Music only — the Discord login is a separate account.
+     * Signs out of YouTube Music only — any other in-app login is a separate
+     * account.
      */
     fun signOut() {
         prefs.edit().remove(KEY_COOKIE).remove(KEY_SESSIONS)
@@ -220,7 +215,6 @@ class AuthStore(context: Context) {
         private const val KEY_CHANNEL_DATASYNC_ID = "channel_datasync_id"
         private const val KEY_CHANNEL_NAME = "channel_name"
         private const val KEY_CHANNEL_AUTH_USER = "channel_auth_user"
-        private const val KEY_DISCORD_TOKEN = "discord_token"
         private const val KEY_WEBDAV_PASSWORD = "webdav_password"
         private const val KEY_SMB_PASSWORD = "smb_password"
     }

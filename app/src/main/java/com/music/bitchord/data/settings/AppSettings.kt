@@ -206,7 +206,7 @@ object AppSettings {
 
     private lateinit var prefs: SharedPreferences
 
-    /** Only for the Discord, WebDAV and SMB secrets — everything else on here is plain prefs. */
+    /** Only for the WebDAV and SMB secrets — everything else on here is plain prefs. */
     private lateinit var authStore: AuthStore
 
     /**
@@ -669,52 +669,6 @@ object AppSettings {
     val listenBrainzPrimaryArtistOnly = MutableStateFlow(false)
     val spotifySpdcToken = MutableStateFlow("")
 
-    // ── Discord Rich Presence ───────────────────────────────────────────
-
-    /**
-     * The connected Discord account's token, mirrored out of [AuthStore] so
-     * [PlaybackService][com.music.bitchord.playback.PlaybackService] can pick
-     * up a login without polling for one. Empty means not connected.
-     *
-     * Only the mirror is here — the persisted copy is encrypted, because unlike
-     * a scrobbler key this one is the account itself.
-     */
-    val discordToken = MutableStateFlow("")
-
-    /**
-     * Who the token belongs to, cached at login. Kept so the settings screen
-     * can show the account without a round trip every time it opens, and can
-     * still show it offline.
-     */
-    val discordUsername = MutableStateFlow("")
-    val discordName = MutableStateFlow("")
-    val discordAvatar = MutableStateFlow("")
-
-    val discordRpcEnabled = MutableStateFlow(true)
-
-    /** Put the track title on the bold profile line, in place of the artist. */
-    val discordUseDetails = MutableStateFlow(false)
-
-    /** Show measured Hi-Res, Lossless, or Dolby specs on the presence card. */
-    val discordShowAudioQuality = MutableStateFlow(true)
-
-    /** Reveals the presence-shape controls: status, activity type/name, buttons. */
-    val discordAdvancedMode = MutableStateFlow(false)
-
-    val discordStatus = MutableStateFlow("online")
-    val discordActivityType = MutableStateFlow("listening")
-
-    /** Overrides the "Listening to ___" line; empty means the app's own name. */
-    val discordActivityName = MutableStateFlow("")
-
-    val discordButton1Text = MutableStateFlow("")
-    val discordButton1Visible = MutableStateFlow(true)
-    val discordButton2Text = MutableStateFlow("")
-    val discordButton2Visible = MutableStateFlow(true)
-
-    /** The notice about what connecting an account actually does has been read. */
-    val discordInfoDismissed = MutableStateFlow(false)
-
     /** Published by PlaybackService so the UI can open the system equalizer. */
     val audioSessionId = MutableStateFlow(0)
 
@@ -943,22 +897,6 @@ object AppSettings {
             webdavPassword.value,
         )
         pinnedPlaylists.value = readPinnedPlaylists()
-        discordToken.value = authStore.discordToken.orEmpty()
-        discordUsername.value = prefs.getString(KEY_DISCORD_USERNAME, "").orEmpty()
-        discordName.value = prefs.getString(KEY_DISCORD_NAME, "").orEmpty()
-        discordAvatar.value = prefs.getString(KEY_DISCORD_AVATAR, "").orEmpty()
-        discordRpcEnabled.value = prefs.getBoolean(KEY_DISCORD_RPC_ENABLED, true)
-        discordUseDetails.value = prefs.getBoolean(KEY_DISCORD_USE_DETAILS, false)
-        discordShowAudioQuality.value = prefs.getBoolean(KEY_DISCORD_SHOW_AUDIO_QUALITY, true)
-        discordAdvancedMode.value = prefs.getBoolean(KEY_DISCORD_ADVANCED_MODE, false)
-        discordStatus.value = prefs.getString(KEY_DISCORD_STATUS, "online").orEmpty()
-        discordActivityType.value = prefs.getString(KEY_DISCORD_ACTIVITY_TYPE, "listening").orEmpty()
-        discordActivityName.value = prefs.getString(KEY_DISCORD_ACTIVITY_NAME, "").orEmpty()
-        discordButton1Text.value = prefs.getString(KEY_DISCORD_BUTTON_1_TEXT, "").orEmpty()
-        discordButton1Visible.value = prefs.getBoolean(KEY_DISCORD_BUTTON_1_VISIBLE, true)
-        discordButton2Text.value = prefs.getString(KEY_DISCORD_BUTTON_2_TEXT, "").orEmpty()
-        discordButton2Visible.value = prefs.getBoolean(KEY_DISCORD_BUTTON_2_VISIBLE, true)
-        discordInfoDismissed.value = prefs.getBoolean(KEY_DISCORD_INFO_DISMISSED, false)
     }
 
     /**
@@ -1554,83 +1492,6 @@ object AppSettings {
         prefs.edit().putBoolean(KEY_LISTENBRAINZ_PRIMARY_ARTIST_ONLY, value).apply()
     }
 
-    /** Writes through to the encrypted store; pass "" to disconnect. */
-    fun setDiscordToken(value: String) {
-        discordToken.value = value
-        authStore.discordToken = value.ifEmpty { null }
-    }
-
-    fun setDiscordAccount(username: String, name: String, avatar: String?) {
-        discordUsername.value = username
-        discordName.value = name
-        discordAvatar.value = avatar.orEmpty()
-        prefs.edit()
-            .putString(KEY_DISCORD_USERNAME, username)
-            .putString(KEY_DISCORD_NAME, name)
-            .putString(KEY_DISCORD_AVATAR, avatar.orEmpty())
-            .apply()
-    }
-
-    fun setDiscordRpcEnabled(value: Boolean) {
-        discordRpcEnabled.value = value
-        prefs.edit().putBoolean(KEY_DISCORD_RPC_ENABLED, value).apply()
-    }
-
-    fun setDiscordUseDetails(value: Boolean) {
-        discordUseDetails.value = value
-        prefs.edit().putBoolean(KEY_DISCORD_USE_DETAILS, value).apply()
-    }
-
-    fun setDiscordShowAudioQuality(value: Boolean) {
-        discordShowAudioQuality.value = value
-        prefs.edit().putBoolean(KEY_DISCORD_SHOW_AUDIO_QUALITY, value).apply()
-    }
-
-    fun setDiscordAdvancedMode(value: Boolean) {
-        discordAdvancedMode.value = value
-        prefs.edit().putBoolean(KEY_DISCORD_ADVANCED_MODE, value).apply()
-    }
-
-    fun setDiscordStatus(value: String) {
-        discordStatus.value = value
-        prefs.edit().putString(KEY_DISCORD_STATUS, value).apply()
-    }
-
-    fun setDiscordActivityType(value: String) {
-        discordActivityType.value = value
-        prefs.edit().putString(KEY_DISCORD_ACTIVITY_TYPE, value).apply()
-    }
-
-    fun setDiscordActivityName(value: String) {
-        discordActivityName.value = value
-        prefs.edit().putString(KEY_DISCORD_ACTIVITY_NAME, value).apply()
-    }
-
-    fun setDiscordButton1Text(value: String) {
-        discordButton1Text.value = value
-        prefs.edit().putString(KEY_DISCORD_BUTTON_1_TEXT, value).apply()
-    }
-
-    fun setDiscordButton1Visible(value: Boolean) {
-        discordButton1Visible.value = value
-        prefs.edit().putBoolean(KEY_DISCORD_BUTTON_1_VISIBLE, value).apply()
-    }
-
-    fun setDiscordButton2Text(value: String) {
-        discordButton2Text.value = value
-        prefs.edit().putString(KEY_DISCORD_BUTTON_2_TEXT, value).apply()
-    }
-
-    fun setDiscordButton2Visible(value: Boolean) {
-        discordButton2Visible.value = value
-        prefs.edit().putBoolean(KEY_DISCORD_BUTTON_2_VISIBLE, value).apply()
-    }
-
-    fun setDiscordInfoDismissed(value: Boolean) {
-        discordInfoDismissed.value = value
-        prefs.edit().putBoolean(KEY_DISCORD_INFO_DISMISSED, value).apply()
-    }
-
     fun setReplayGenres(value: Boolean) {
         replayGenres.value = value
         prefs.edit().putBoolean(KEY_REPLAY_GENRES, value).apply()
@@ -1820,12 +1681,6 @@ object AppSettings {
         return stored.split(",").filter { it.isNotBlank() }
     }
 
-    /** Forgets the account: token and cached profile. */
-    fun clearDiscordAccount() {
-        setDiscordToken("")
-        setDiscordAccount("", "", null)
-    }
-
     // ── Backup ──────────────────────────────────────────────────────────────
 
     /**
@@ -1840,9 +1695,9 @@ object AppSettings {
      * that has left the device in plain text. Signing back in after a restore is
      * a minute; a leaked session key is not recoverable at all.
      *
-     * The Discord token is not here for the same reason and one more: it never
-     * reaches this file. It lives in the encrypted store — see [AuthStore] — and
-     * so does the YouTube cookie, which means neither can be exported by
+     * The WebDAV/SMB passwords and the YouTube cookie are not here for the same
+     * reason and one more: they never reach this file. They live in the
+     * encrypted store — see [AuthStore] — so none of them can be exported by
      * accident.
      */
     fun exportPrefs(): Map<String, Any?> {
@@ -2021,21 +1876,6 @@ object AppSettings {
     private const val KEY_LISTENBRAINZ_PRIMARY_ARTIST_ONLY = "listenbrainz_primary_artist_only"
     private const val KEY_SPOTIFY_SPDC_TOKEN = "spotify_spdc_token"
 
-    private const val KEY_DISCORD_USERNAME = "discord_username"
-    private const val KEY_DISCORD_NAME = "discord_name"
-    private const val KEY_DISCORD_AVATAR = "discord_avatar"
-    private const val KEY_DISCORD_RPC_ENABLED = "discord_rpc_enabled"
-    private const val KEY_DISCORD_USE_DETAILS = "discord_use_details"
-    private const val KEY_DISCORD_SHOW_AUDIO_QUALITY = "discord_show_audio_quality"
-    private const val KEY_DISCORD_ADVANCED_MODE = "discord_advanced_mode"
-    private const val KEY_DISCORD_STATUS = "discord_status"
-    private const val KEY_DISCORD_ACTIVITY_TYPE = "discord_activity_type"
-    private const val KEY_DISCORD_ACTIVITY_NAME = "discord_activity_name"
-    private const val KEY_DISCORD_BUTTON_1_TEXT = "discord_button_1_text"
-    private const val KEY_DISCORD_BUTTON_1_VISIBLE = "discord_button_1_visible"
-    private const val KEY_DISCORD_BUTTON_2_TEXT = "discord_button_2_text"
-    private const val KEY_DISCORD_BUTTON_2_VISIBLE = "discord_button_2_visible"
-    private const val KEY_DISCORD_INFO_DISMISSED = "discord_info_dismissed"
     private const val KEY_LAST_VERSION_CODE = "last_version_code"
 }
 

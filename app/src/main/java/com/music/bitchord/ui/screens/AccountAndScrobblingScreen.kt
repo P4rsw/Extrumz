@@ -21,8 +21,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -41,7 +39,6 @@ fun AccountAndScrobblingScreen(
     onSignOut: () -> Unit,
     onOpenListenBrainzLogin: () -> Unit,
     onOpenLastfmLogin: () -> Unit,
-    onOpenDiscord: () -> Unit,
     contentPadding: PaddingValues,
     modifier: Modifier = Modifier,
 ) {
@@ -57,9 +54,6 @@ fun AccountAndScrobblingScreen(
     val listenBrainzEnabled by AppSettings.listenBrainzEnabled.collectAsStateWithLifecycle()
     val listenBrainzToken by AppSettings.listenBrainzToken.collectAsStateWithLifecycle()
     val listenBrainzPrimaryArtistOnly by AppSettings.listenBrainzPrimaryArtistOnly.collectAsStateWithLifecycle()
-    val discordToken by AppSettings.discordToken.collectAsStateWithLifecycle()
-    val discordUsername by AppSettings.discordUsername.collectAsStateWithLifecycle()
-    val discordRpcEnabled by AppSettings.discordRpcEnabled.collectAsStateWithLifecycle()
 
     Column(
         modifier = modifier
@@ -91,23 +85,6 @@ fun AccountAndScrobblingScreen(
             SettingsGroup {
                 DestructiveRow(label = stringResource(R.string.sign_out), onClick = onSignOut)
             }
-        }
-
-        SettingsGroup(
-            header = stringResource(R.string.rich_presence),
-            footer = stringResource(R.string.rich_presence_footer),
-        ) {
-            SettingsRow(
-                icon = ImageVector.vectorResource(R.drawable.ic_discord),
-                title = "Discord",
-                subtitle = when {
-                    discordToken.isEmpty() -> stringResource(R.string.tap_to_connect)
-                    !discordRpcEnabled -> stringResource(R.string.connected_presence_off)
-                    discordUsername.isNotEmpty() -> stringResource(R.string.sharing_as, discordUsername)
-                    else -> stringResource(R.string.sharing_listens)
-                },
-                onClick = onOpenDiscord,
-            )
         }
 
         if (AppSettings.scrobblingAvailable) {

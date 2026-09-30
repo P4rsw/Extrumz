@@ -1351,10 +1351,6 @@ fun SettingsScreen(
                     append("Developer")
                 }
                 append("  ")
-                withLink(LinkAnnotation.Url("https://discord.gg/pDdKfrdHY6", linkStyles)) {
-                    append("Discord")
-                }
-                append("  ")
                 withLink(LinkAnnotation.Url("https://bitchord.kushagrasingh.in/", linkStyles)) {
                     append("Website")
                 }

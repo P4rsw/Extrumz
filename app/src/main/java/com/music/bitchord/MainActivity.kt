@@ -108,7 +108,6 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.music.bitchord.auth.DiscordLoginScreen
 import com.music.bitchord.auth.WebSessionMode
 import com.music.bitchord.auth.YtMusicLoginScreen
 import com.music.bitchord.data.AppUpdateChecker
@@ -139,9 +138,6 @@ import com.music.bitchord.data.settings.ThemeMode
 import com.music.bitchord.ui.components.AccountProfileSelector
 import com.music.bitchord.ui.screens.AccountAndScrobblingScreen
 import com.music.bitchord.ui.screens.ChannelsScreen
-import com.music.bitchord.ui.screens.DiscordDialog
-import com.music.bitchord.ui.screens.DiscordDialogHost
-import com.music.bitchord.ui.screens.DiscordScreen
 import com.music.bitchord.ui.screens.EqualizerScreen
 import com.music.bitchord.ui.screens.HistoryScreen
 import com.music.bitchord.ui.screens.SettingsScreen
@@ -487,13 +483,6 @@ private fun BitChordApp(
      * restored over an empty one would be a manager with nothing to manage.
      */
     var showDownloadManager by remember { mutableStateOf(false) }
-    // Discord Rich Presence: its own page under Account & integrations, its own
-    // full-screen sign-in, and one slot for whichever of its alerts is open.
-    // The alerts live out here rather than on the page because their scrim has
-    // to cover the tab bar and mini player, which are drawn after it.
-    var showDiscord by remember { mutableStateOf(false) }
-    var showDiscordLogin by remember { mutableStateOf(false) }
-    var discordDialog by remember { mutableStateOf<DiscordDialog?>(null) }
     var songActions by remember { mutableStateOf<Song?>(null) }
     var showLyricsOffset by remember { mutableStateOf(false) }
     /**
@@ -2003,7 +1992,6 @@ private fun BitChordApp(
                 showEqualizer = false
                 showReplay = false
                 showHistory = false
-                showDiscord = false
                 libraryShowAll = null
 
                 when (sourceType) {
@@ -2078,10 +2066,7 @@ private fun BitChordApp(
         BackHandler(enabled = selectedMoodGenre != null && detail == null && !showSettings && !showReplay) {
             viewModel.closeMoodGenre()
         }
-        BackHandler(enabled = showDiscord) {
-            showDiscord = false
-        }
-        BackHandler(enabled = showAccountScrobbling && !showDiscord) {
+        BackHandler(enabled = showAccountScrobbling) {
             showAccountScrobbling = false
         }
         BackHandler(enabled = showSources) {
@@ -2110,7 +2095,6 @@ private fun BitChordApp(
         BackHandler(enabled = showUpdateDialog) { showUpdateDialog = false }
         BackHandler(enabled = showListenBrainzLogin) { showListenBrainzLogin = false }
         BackHandler(enabled = showLastfmLogin) { showLastfmLogin = false }
-        BackHandler(enabled = discordDialog != null) { discordDialog = null }
         BackHandler(enabled = editingSource != null) { editingSource = null }
         BackHandler(enabled = showHistory) { showHistory = false }
         // Disabled while a detail page is open over the grid: that one's own
@@ -2133,7 +2117,6 @@ private fun BitChordApp(
             Box(Modifier.weight(1f).fillMaxHeight()) {
                 AnimatedContent(
                     targetState = when {
-                        showDiscord -> "discord"
                         showHistory -> "history"
                         // `&& detail == null`: a card opened from the grid
                         // stacks a detail page over it exactly as one opened
@@ -2218,7 +2201,7 @@ private fun BitChordApp(
                     // the identical copy fading in behind it.
                     val live = detailStack.lastOrNull()?.takeIf {
                         it.browseId == key && key != "settings" && key != "account_scrobbling" &&
-                            key != "discord" && key != "replay" && key != "history" &&
+                            key != "replay" && key != "history" &&
                             key != "library_show_all"
                     }
                     // Held for the same reason, one step further on: a popped
@@ -2287,15 +2270,6 @@ private fun BitChordApp(
                             listState = replayListState,
                             landingPage = replayLandingPage,
                         )
-                    } else if (key == "discord") {
-                        DiscordScreen(
-                            song = player.song,
-                            positionMs = player.position.positionMs,
-                            durationMs = player.durationMs,
-                            onOpenLogin = { showDiscordLogin = true },
-                            onOpenDialog = { discordDialog = it },
-                            contentPadding = listPadding,
-                        )
                     } else if (key == "account_scrobbling") {
                         AccountAndScrobblingScreen(
                             signedIn = signedIn,
@@ -2313,7 +2287,6 @@ private fun BitChordApp(
                             onSignOut = { viewModel.signOut() },
                             onOpenListenBrainzLogin = { showListenBrainzLogin = true },
                             onOpenLastfmLogin = { showLastfmLogin = true },
-                            onOpenDiscord = { showDiscord = true },
                             contentPadding = listPadding,
                         )
                     } else if (key == "sources") {
@@ -2707,9 +2680,9 @@ private fun BitChordApp(
                     (detail.type == BrowseType.ALBUM ||
                         detail.type == BrowseType.PLAYLIST ||
                         detail.type == BrowseType.ARTIST) &&
-                    !isLocalDetail && !showDiscord && !showHistory && !showSettings &&
+                    !isLocalDetail && !showHistory && !showSettings &&
                     !showAccountScrobbling && !showSources && !showEqualizer && !showReplay
-                val isReplayVisible = showReplay && !showDiscord && !showHistory &&
+                val isReplayVisible = showReplay && !showHistory &&
                     !(libraryShowAll != null && detail == null) &&
                     !showAccountScrobbling && !showSources && 
                     !showEqualizer && !showSettings
@@ -2740,7 +2713,6 @@ private fun BitChordApp(
 
                 FrostedTopBar(
                     title = when {
-                        showDiscord -> "Discord"
                         showHistory -> stringResource(R.string.history)
                         libraryShowAll != null && detail == null -> libraryShowAll?.title.orEmpty()
                         showAccountScrobbling -> stringResource(R.string.account_scrobbling)
@@ -2764,7 +2736,7 @@ private fun BitChordApp(
                     scrolled = when {
                         showSettings || showAccountScrobbling || showSources ||
                             showEqualizer ||
-                            showDiscord || showHistory ||
+                            showHistory ||
                             (libraryShowAll != null && detail == null) ||
                             (detail != null && detailActiveShelf != null) ||
                             selectedMoodGenre != null -> true
@@ -2777,7 +2749,6 @@ private fun BitChordApp(
                     refreshing = currentFeed != null && currentFeed in refreshing,
                     pullFraction = { currentPull?.distanceFraction ?: 0f },
                     onBack = when {
-                        showDiscord -> ({ showDiscord = false })
                         showHistory -> ({ showHistory = false })
                         libraryShowAll != null && detail == null -> ({ libraryShowAll = null })
                         showAccountScrobbling -> ({ showAccountScrobbling = false })
@@ -2816,7 +2787,7 @@ private fun BitChordApp(
                             // Left of the account photo, and only on Library itself:
                             // a history is a record of what was played, which reads
                             // as that tab's business rather than every tab's.
-                            if (!showHistory && !showReplay && !showDiscord && libraryShowAll == null &&
+                            if (!showHistory && !showReplay && libraryShowAll == null &&
                                 detail == null && selectedTab == TAB_LIBRARY
                             ) {
                                 IconButton(
@@ -3973,53 +3944,10 @@ private fun BitChordApp(
             )
         }
 
-        // ---- Discord sign-in (full screen WebView) ----
-        if (showDiscordLogin) {
-            BackHandler { showDiscordLogin = false }
-            Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-                Column(Modifier.fillMaxSize()) {
-                    Row(
-                        Modifier
-                            .fillMaxWidth()
-                            .statusBarsPadding()
-                            .padding(horizontal = 8.dp, vertical = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        IconButton(onClick = { showDiscordLogin = false }) {
-                            Icon(
-                                Icons.Rounded.Close,
-                                contentDescription = stringResource(R.string.close),
-                                tint = MaterialTheme.colorScheme.onBackground,
-                            )
-                        }
-                        Text(
-                            "Sign in to Discord",
-                            style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.onBackground,
-                        )
-                    }
-                    DiscordLoginScreen(
-                        onTokenCaptured = { token ->
-                            AppSettings.setDiscordToken(token)
-                            showDiscordLogin = false
-                        },
-                    )
-                }
-            }
-        }
-
         if (showSpotifyCanvasAuth) {
             BackHandler { showSpotifyCanvasAuth = false }
             SpotifyCanvasAuthScreen(
                 onNavigateUp = { showSpotifyCanvasAuth = false }
-            )
-        }
-
-        discordDialog?.let { which ->
-            DiscordDialogHost(
-                which = which,
-                hazeState = hazeState,
-                onDismiss = { discordDialog = null },
             )
         }
 
