@@ -130,7 +130,12 @@ fun SongsScreen(
         if (scan.isRunning) {
             Spacer(Modifier.height(8.dp))
             Text(
-                stringResource(R.string.tg_scanning),
+                stringResource(R.string.tg_scanning) +
+                    if (scan.attempts > 0) {
+                        " — " + stringResource(R.string.tg_scan_attempt, scan.attempts)
+                    } else {
+                        ""
+                    },
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(horizontal = 16.dp),

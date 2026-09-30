@@ -90,7 +90,12 @@ fun ChannelsScreen(
         if (scan.isRunning) {
             LinearProgressIndicator(Modifier.fillMaxWidth())
             Text(
-                stringResource(R.string.tg_scanning),
+                stringResource(R.string.tg_scanning) +
+                    if (scan.attempts > 0) {
+                        " — " + stringResource(R.string.tg_scan_attempt, scan.attempts)
+                    } else {
+                        ""
+                    },
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),

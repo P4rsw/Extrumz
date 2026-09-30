@@ -53,6 +53,10 @@ interface TrackDao {
     @Query("SELECT COUNT(*) FROM tracks")
     suspend fun count(): Int
 
+    /** Rows indexed for one chat — the cumulative figure a chat's trackCount shows. */
+    @Query("SELECT COUNT(*) FROM tracks WHERE sourceChatId = :chatId")
+    suspend fun countForChat(chatId: Long): Int
+
     @Query("SELECT * FROM tracks WHERE isFavorite = 1 ORDER BY lastPlayed DESC")
     fun observeFavorites(): Flow<List<Track>>
 

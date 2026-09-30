@@ -7,6 +7,7 @@ import com.music.bitchord.data.db.dao.TrackDao
 import com.music.bitchord.data.db.entity.ChatSource
 import com.music.bitchord.data.db.entity.ChatType
 import com.music.bitchord.data.db.entity.Track
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -17,12 +18,16 @@ data class ScanProgress(
     val chatsScanned: Int = 0,
     val totalChats: Int = 0,
     val tracksIndexed: Int = 0,
+    /** GetChats attempts spent waiting for dialogs to load (0 = not waiting). */
+    val attempts: Int = 0,
     val lastError: String? = null
 )
 
 /**
  * Scans Telegram chats for audio messages and indexes them as [Track]s.
- * Supports full scans (all tracked chats) and incremental scans from the stored cursor.
+ * Full scans cover all tracked chats; [scanChat]'s cursor/paging is what a
+ * future incremental watcher will build on (its one caller, the old
+ * `incrementalScan`, had none and was removed — see PATCH_3_REPORT).
  */
 class LibraryScanner(
     private val client: MusicTelegramClient,
@@ -78,6 +83,9 @@ class LibraryScanner(
             }
             _progress.value = _progress.value.copy(isRunning = false)
         } catch (e: Exception) {
+            // Cancelling the scan (scope shutdown) is not a scan failure and
+            // must not be swallowed into lastError.
+            if (e is CancellationException) throw e
             TrackLog.w(TAG, "fullScan failed: ${e::class.simpleName}: ${e.message}")
             _progress.value = _progress.value.copy(
                 isRunning = false,
@@ -99,6 +107,9 @@ class LibraryScanner(
         var attempt = 0
         while (true) {
             attempt++
+            // Published so the banners can show "attempt N" during the wait —
+            // two minutes with no visible change reads as a hang.
+            _progress.value = _progress.value.copy(attempts = attempt)
             val chats = client.listTrackedCandidateChats()
             if (chats.isNotEmpty()) {
                 if (attempt > 1) {
@@ -119,11 +130,6 @@ class LibraryScanner(
         }
     }
 
-    suspend fun incrementalScan(chatId: Long) {
-        val chat = chatDao.getById(chatId) ?: return
-        scanChat(chatId, fromMessageId = chat.lastScannedMessageId, full = false)
-    }
-
     suspend fun indexAudio(audio: RemoteAudio) {
         val existing = trackDao.getById(audio.uniqueFileId)
         val track = MetadataMerger.merge(audio, timeSource(), existing = existing)
@@ -138,7 +144,6 @@ class LibraryScanner(
 
     private suspend fun scanChat(chatId: Long, fromMessageId: Long, full: Boolean) {
         var cursor = fromMessageId
-        var indexed = 0
         var emptyPages = 0
         // Largest (most recent) message ID seen in this scan.
         var maxMessageId = fromMessageId
@@ -154,7 +159,6 @@ class LibraryScanner(
             emptyPages = 0
             for (audio in page.audios) {
                 indexAudio(audio)
-                indexed++
                 if (audio.messageId > maxMessageId) maxMessageId = audio.messageId
             }
             if (!full) break
@@ -162,11 +166,14 @@ class LibraryScanner(
             if (next == 0L || next == cursor) break
             cursor = next
         }
-        // Store the NEWEST scanned message ID so incremental scan starts from there.
+        // Store the NEWEST scanned message ID so an incremental pass (a
+        // future watcher) starts from there, and a *cumulative* track count —
+        // rows this chat has in the database — not what this one pass saw,
+        // which would reset the number on every rescan.
         chatDao.updateScanProgress(
             chatId = chatId,
             messageId = maxOf(fromMessageId, maxMessageId),
-            trackCount = indexed
+            trackCount = trackDao.countForChat(chatId)
         )
     }
 

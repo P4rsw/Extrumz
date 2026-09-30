@@ -1497,7 +1497,7 @@ class PlaybackService : MediaLibraryService() {
             // DefaultDataSource; everything else falls through to the bounded
             // range fetch — see [ChunkedDataSource] for why an open-ended
             // read of one is worth avoiding.
-            SmbDataSource.RoutingFactory(DefaultDataSource.Factory(this, chunkedFactory)),
+            SmbDataSource.RoutingFactory(DefaultDataSource.Factory(applicationContext, chunkedFactory)),
         ) { dataSpec ->
             // Wrapped rather than folded into the resolver above so the record
             // is made in one place for every branch of it, and made from what
@@ -1525,7 +1525,7 @@ class PlaybackService : MediaLibraryService() {
         // cache and seek like HTTP); everything else flows as before, and the
         // YouTube resolver never sees a scheme it cannot answer.
         val defaultDataSourceFactory = SmbDataSource.RoutingFactory(
-            DefaultDataSource.Factory(this, resolvingFactory),
+            DefaultDataSource.Factory(applicationContext, resolvingFactory),
         )
         AudioCache.setUpstream(defaultDataSourceFactory)
         mediaSourceFactory = DefaultMediaSourceFactory(AudioCache.playbackFactory(defaultDataSourceFactory))
