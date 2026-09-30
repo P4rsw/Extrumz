@@ -1,0 +1,142 @@
+package com.music.bitchord.data.telegram
+
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.StateFlow
+
+data class TelegramCredentials(
+    val apiId: Int,
+    val apiHash: String
+) {
+    override fun toString(): String = "TelegramCredentials(apiId=***, apiHash=***)"
+}
+
+sealed interface TelegramAuthState {
+    data object Uninitialized : TelegramAuthState
+    data object Initializing : TelegramAuthState
+    data object WaitingForPhoneNumber : TelegramAuthState
+    data class WaitingForCode(val phoneNumber: String) : TelegramAuthState
+    data class WaitingForQrScan(val link: String) : TelegramAuthState
+    data class WaitingForPassword(val passwordHint: String?) : TelegramAuthState
+    data class Failed(val message: String) : TelegramAuthState
+    data object Ready : TelegramAuthState
+    data object Closed : TelegramAuthState
+}
+
+enum class TelegramConnectionState {
+    WAITING_FOR_NETWORK, CONNECTING, UPDATING, READY
+}
+
+/** Audio message normalized without TDLib types crossing the boundary. */
+data class RemoteAudio(
+    val chatId: Long,
+    val messageId: Long,
+    val remoteFileId: String,
+    val uniqueFileId: String,
+    val title: String?,
+    val performer: String?,
+    val fileName: String?,
+    val mimeType: String,
+    val durationSeconds: Int,
+    val sizeBytes: Long,
+    val caption: String,
+    val dateSeconds: Long,
+    val mediaAlbumId: Long?
+)
+
+data class RemoteAudioPage(
+    val audios: List<RemoteAudio>,
+    val nextFromMessageId: Long
+)
+
+data class ChatInfo(
+    val chatId: Long,
+    val title: String,
+    val username: String?,
+    val isChannel: Boolean,
+    val isGroup: Boolean
+)
+
+class TelegramClientException(
+    message: String,
+    val code: Int
+) : Exception(message)
+
+/**
+ * Telegram client backed by TDLib (org.drinkless.tdlib).
+ *
+ * Implementations live in [BaseMusicTelegramClient] subclasses and expose
+ * auth/connection state as [StateFlow]s for UI observation.
+ */
+interface MusicTelegramClient {
+
+    /** Authorization progress (phone/code/QR/password → [TelegramAuthState.Ready]). */
+    val authState: StateFlow<TelegramAuthState>
+
+    /** TDLib connection quality; independent from authorization. */
+    val connectionState: StateFlow<TelegramConnectionState>
+
+    /** Hot stream of newly received audio messages (drops oldest when slow). */
+    val newAudioMessages: Flow<RemoteAudio>
+
+    /** Initializes the TDLib client and begins the auth flow. */
+    suspend fun start(credentials: TelegramCredentials)
+
+    /** Submits the phone number for code/QR delivery. */
+    suspend fun submitPhoneNumber(phoneNumber: String)
+
+    /** Confirms the login code received via SMS/Telegram. */
+    suspend fun submitCode(code: String)
+
+    /** Confirms the 2FA cloud password. */
+    suspend fun submitPassword(password: String)
+
+    /** Switches the auth flow to QR-code login on another device. */
+    suspend fun requestQrCodeAuthentication()
+
+    /** Logs out of the current session and clears parameter state. */
+    suspend fun logout()
+
+    /** Global message search for audio files. */
+    suspend fun searchAllAudio(query: String = "", limit: Int = TelegramConfig.DEFAULT_PAGE_LIMIT): List<RemoteAudio>
+
+    /** One page of audio messages in a chat; [fromMessageId] is the paging cursor. */
+    suspend fun getChatAudio(
+        chatId: Long,
+        fromMessageId: Long = 0L,
+        limit: Int = TelegramConfig.DEFAULT_PAGE_LIMIT
+    ): RemoteAudioPage
+
+    /** Chat metadata (title/username/type), or null when unavailable. */
+    suspend fun getChatInfo(chatId: Long): ChatInfo?
+
+    /** Candidate chats worth scanning (channels/supergroups), capped at [TelegramConfig.MAX_TOP_CHATS]. */
+    suspend fun listTrackedCandidateChats(): List<ChatInfo>
+
+    /** Local filesystem path of a file, downloading it when needed. */
+    suspend fun getStreamPath(fileId: String, offset: Long = 0L): String
+
+    /** Ensures the full file is downloaded and returns its local path. */
+    suspend fun downloadFile(fileId: String, synchronous: Boolean = false): String
+
+    /** Downloads only a byte range (ID3 header) for cheap metadata parsing. */
+    suspend fun downloadPartial(fileId: String, offset: Long = 0L, limit: Long = TelegramConfig.ID3_HEADER_MAX_BYTES.toLong()): String = downloadFile(fileId, true)
+
+    /** Creates a private supergroup used as a playlist channel. */
+    suspend fun createPlaylistChannel(title: String, description: String): Long
+
+    /** Forwards an audio message into the playlist channel; returns new message id. */
+    suspend fun addToPlaylistChannel(
+        playlistChatId: Long,
+        chatId: Long,
+        messageId: Long
+    ): Long
+
+    /** Creates an invite link for the playlist channel. */
+    suspend fun createInviteLink(chatId: Long): String
+
+    /** Grants admin rights so the bot/client can post; false when it fails. */
+    suspend fun addChatAdmin(chatId: Long, userChatId: Long): Boolean
+
+    /** Public channel/group search by query. */
+    suspend fun searchPublicChannels(query: String, limit: Int = 20): List<ChatInfo>
+}
