@@ -288,7 +288,7 @@ dependencies {
     // Audio is progressive, but Apple serves its motion artwork as HLS — this
     // is what lets the animated sleeve play it. See CanvasArtworkPlayer.
     implementation("androidx.media3:media3-exoplayer-hls:1.11.0")
-    // Source modules hand back manifests rather than files, and which kind is
+    // Substitute sources hand back manifests rather than files, and which kind is
     // the backend's choice, not ours: the Tidal one served `.m3u8` until
     // September 2026 and `.mpd` after it, for the same track and the same
     // request. Without this artifact a DASH manifest is not merely unplayed —
@@ -358,8 +358,9 @@ dependencies {
     // ---- Auth/session storage ----
     implementation("androidx.security:security-crypto:1.1.0-alpha06")
 
-    // ---- JS module execution: QuickJS VM for style source plugins ----
-    // Held at InnerTubeX's version; the same VM runs QuickJsExecutor's module sources.
+    // ---- QuickJS VM, held at InnerTubeX's version ----
+    // InnerTubeX runs YouTube's player JavaScript in this VM; nothing else in
+    // the app uses it directly.
     implementation("io.github.dokar3:quickjs-kt-android:1.0.14")
 
     // ---- Automix: on-device beat/downbeat model (Beat This!, MIT-licensed) ----
@@ -381,11 +382,6 @@ dependencies {
     ksp("androidx.room:room-compiler:2.8.5")
 
     testImplementation("junit:junit:4.13.2")
-    // A real HTTP server for the addon tests. The addon protocol is entirely
-    // "what does this app send, and what does it do with what comes back", and
-    // a hand-rolled fake of the client would be a test of the fake. Pinned to
-    // the OkHttp version already on the runtime classpath.
-    testImplementation("com.squareup.okhttp3:mockwebserver:5.3.2")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.10.2")
     androidTestImplementation("androidx.test.ext:junit:1.3.0")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.7.0")

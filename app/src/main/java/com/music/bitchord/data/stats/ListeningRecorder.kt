@@ -152,7 +152,7 @@ object ListeningRecorder {
         }
         if (song.albumName != null && song.artistId != null) return song
         // Only tracks YouTube can answer for. A file on the device and a
-        // source-module track both carry ids this endpoint has never heard of,
+        // substitute track both carry ids this endpoint has never heard of,
         // and asking would be a failed request per play, forever.
         if (song.localUri != null || song.videoId.length != YOUTUBE_ID_LENGTH) return song
         if (asked.add(song.videoId)) {

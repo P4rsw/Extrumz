@@ -39,8 +39,8 @@ import kotlin.coroutines.CoroutineContext
  *
  * ### What gets kept
  *
- * Only the paths that decide how a track plays: the resolver, the module
- * sandbox, the source ladder, the cache and the player. Deliberately not the
+ * Only the paths that decide how a track plays: the resolver, a substitute's own fetch,
+ * the source ladder, the cache and the player. Deliberately not the
  * feeds, the artwork, the lyrics or the library — a paste that includes
  * everything is one nobody reads to the end of, and none of it has ever been
  * the answer to "why did this song sound wrong".
@@ -109,8 +109,8 @@ object TrackLog {
      *
      * The alternative is passing an id down to every call that logs, and the
      * lines worth having are exactly the ones furthest from anyone who knows
-     * which track they are for: a fetch inside a QuickJS export inside a module
-     * search inside a source ladder. None of those layers has any other use for
+     * which track they are for: a fetch inside a remote search inside a source
+     * ladder. None of those layers has any other use for
      * a track id, and threading one through all of them to serve a debug button
      * would be a worse trade than the button is worth.
      *

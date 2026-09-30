@@ -265,7 +265,7 @@ class DirectAudioStreamingRegressionTest {
             description = "Direct PCM supported",
         )
 
-        listOf("local", "Unified", "JioSaavn", "Addon").forEach { providerName ->
+        listOf("local", "Unified", "Telegram", "YouTube").forEach { providerName ->
             val source = SourceDescriptor(
                 encoding = "audio/flac",
                 sampleRateHz = 96000,

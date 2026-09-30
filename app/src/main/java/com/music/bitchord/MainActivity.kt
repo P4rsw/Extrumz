@@ -138,8 +138,6 @@ import com.music.bitchord.ui.screens.ChannelsScreen
 import com.music.bitchord.ui.screens.EqualizerScreen
 import com.music.bitchord.ui.screens.HistoryScreen
 import com.music.bitchord.ui.screens.SettingsScreen
-import com.music.bitchord.ui.screens.SourceEditorAlert
-import com.music.bitchord.ui.screens.SourcesScreen
 import com.music.bitchord.ui.screens.SongsScreen
 import com.music.bitchord.ui.screens.SpotifyCanvasAuthScreen
 import com.music.bitchord.playback.AudioCache
@@ -177,7 +175,6 @@ import com.music.bitchord.download.DownloadTarget
 import com.music.bitchord.download.Downloads
 import com.music.bitchord.ui.components.BrowseActionsSheet
 import com.music.bitchord.ui.components.BrowseTarget
-import com.music.bitchord.ui.components.ConfirmationAlert
 import com.music.bitchord.ui.components.DownloadManagerSheet
 import com.music.bitchord.ui.components.PlaylistPickerSheet
 import com.music.bitchord.ui.components.SongActionsSheet
@@ -200,9 +197,6 @@ import com.music.bitchord.ui.components.backdrop.backdrops.LayerBackdrop
 import com.music.bitchord.ui.components.backdrop.backdrops.layerBackdrop
 import com.music.bitchord.ui.components.backdrop.backdrops.rememberLayerBackdrop
 import com.music.bitchord.ui.components.isGlassSupported
-import com.music.bitchord.data.sources.SourceConfig
-import com.music.bitchord.data.sources.SourceKind
-import com.music.bitchord.data.sources.SourceRegistry
 import com.music.bitchord.ui.components.MiniPlayer
 import com.music.bitchord.ui.components.QueueActionNotice
 import com.music.bitchord.ui.components.QueueActionNoticeHost
@@ -441,17 +435,9 @@ private fun BitChordApp(
     var showReplayShare by remember { mutableStateOf(false) }
     /** Which story card the share sheet is for, or null for the whole Replay. */
     var replaySharePage by remember { mutableStateOf<ReplayStoryPage?>(null) }
-    var showSources by remember { mutableStateOf(false) }
     var showEqualizer by remember { mutableStateOf(false) }
     var showSpotifyCanvasAuth by remember { mutableStateOf(false) }
 
-    // Hosted here rather than inside SourcesScreen so its frosted card has
-    // something to blur: that screen is drawn inside the `hazeSource` subtree,
-    // and a haze effect sampling the layer it is itself part of renders with no
-    // background at all. Hosting it here also puts the scrim over the tab bar
-    // and the mini player, like every other alert in the app.
-    var editingSource by remember { mutableStateOf<SourceConfig?>(null) }
-    var confirmJioSaavn by remember { mutableStateOf(false) }
     var showHistory by remember { mutableStateOf(false) }
     // A Library shelf's "Show all" — the shelf it was opened from, so its own
     // cards can be laid out again as a full-screen grid. See [LibraryGridPage].
@@ -1932,7 +1918,6 @@ private fun BitChordApp(
                 showNowPlaying = false
                 viewModel.clearDetail()
                 showSettings = false
-                showSources = false
                 showEqualizer = false
                 showReplay = false
                 showHistory = false
@@ -2004,14 +1989,11 @@ private fun BitChordApp(
             showReplay = false
         }
         BackHandler(
-            enabled = detail != null && !showSettings && !showSources && 
+            enabled = detail != null && !showSettings &&
                 !showEqualizer && !showReplay,
         ) { viewModel.closeDetail() }
         BackHandler(enabled = selectedMoodGenre != null && detail == null && !showSettings && !showReplay) {
             viewModel.closeMoodGenre()
-        }
-        BackHandler(enabled = showSources) {
-            showSources = false
         }
         BackHandler(enabled = showEqualizer) {
             showEqualizer = false
@@ -2019,7 +2001,7 @@ private fun BitChordApp(
         // One back step out of Settings, or out of any tab but Home, lands on
         // Home rather than exiting — only Home itself hands back to the system,
         // which is what actually closes/minimizes the app.
-        BackHandler(enabled = showSettings && !showSources && !showEqualizer) {
+        BackHandler(enabled = showSettings && !showEqualizer) {
             showSettings = false
             // Only when Settings was the whole of what was on screen. Opened
             // over Replay or over a release page, closing it reveals that again
@@ -2028,13 +2010,12 @@ private fun BitChordApp(
         }
         BackHandler(
             enabled = detail == null && !showSettings &&
-                !showSources && !showEqualizer && !showReplay && selectedMoodGenre == null &&
+                !showEqualizer && !showReplay && selectedMoodGenre == null &&
                 selectedTab != TAB_HOME,
         ) {
             selectedTab = TAB_HOME
         }
         BackHandler(enabled = showUpdateDialog) { showUpdateDialog = false }
-        BackHandler(enabled = editingSource != null) { editingSource = null }
         BackHandler(enabled = showHistory) { showHistory = false }
         // Disabled while a detail page is open over the grid: that one's own
         // BackHandler below has to close first, or back would skip past it
@@ -2064,7 +2045,6 @@ private fun BitChordApp(
                         // give way to the `detail != null` branch below it
                         // rather than keep showing the grid underneath.
                         libraryShowAll != null && detail == null -> "library_show_all"
-                        showSources -> "sources"
                         showEqualizer -> "equalizer"
                         // Above Replay, not below it. The top bar's account
                         // button sets `showSettings` from every page including
@@ -2208,12 +2188,6 @@ private fun BitChordApp(
                             listState = replayListState,
                             landingPage = replayLandingPage,
                         )
-                    } else if (key == "sources") {
-                        SourcesScreen(
-                            contentPadding = listPadding,
-                            onEditSource = { editingSource = it },
-                            onConfirmJioSaavn = { confirmJioSaavn = true },
-                        )
                     } else if (key == "equalizer") {
                         EqualizerScreen(contentPadding = listPadding)
                     } else if (key == "settings") {
@@ -2234,7 +2208,6 @@ private fun BitChordApp(
                             },
                             onLyricsSources = { showLyricsSources = true },
                             onTranslationLanguage = { showTranslationLanguage = true },
-                            onSources = { showSources = true },
                             onSpotifyCanvasAuth = { showSpotifyCanvasAuth = true },
                             onAppLanguage = { showAppLanguage = true },
                             contentPadding = listPadding,
@@ -2591,10 +2564,9 @@ private fun BitChordApp(
                         detail.type == BrowseType.PLAYLIST ||
                         detail.type == BrowseType.ARTIST) &&
                     !isLocalDetail && !showHistory && !showSettings &&
-                    !showSources && !showEqualizer && !showReplay
+                    !showEqualizer && !showReplay
                 val isReplayVisible = showReplay && !showHistory &&
                     !(libraryShowAll != null && detail == null) &&
-                    !showSources && 
                     !showEqualizer && !showSettings
                 val chromePageColor = if (isDetailVisible) {
                     detailPalette.background
@@ -2625,7 +2597,6 @@ private fun BitChordApp(
                     title = when {
                         showHistory -> stringResource(R.string.history)
                         libraryShowAll != null && detail == null -> libraryShowAll?.title.orEmpty()
-                        showSources -> stringResource(R.string.sources)
                         showEqualizer -> stringResource(R.string.equalizer)
                         showSettings -> stringResource(R.string.settings)
                         showReplay -> stringResource(R.string.replay)
@@ -2643,7 +2614,7 @@ private fun BitChordApp(
                     // Search has no large in-list header to hand the title back to —
                     // the field takes that space — so its bar title is always up.
                     scrolled = when {
-                        showSettings || showSources ||
+                        showSettings ||
                             showEqualizer ||
                             showHistory ||
                             (libraryShowAll != null && detail == null) ||
@@ -2660,7 +2631,6 @@ private fun BitChordApp(
                     onBack = when {
                         showHistory -> ({ showHistory = false })
                         libraryShowAll != null && detail == null -> ({ libraryShowAll = null })
-                        showSources -> ({ showSources = false })
                         showEqualizer -> ({ showEqualizer = false })
                         showSettings -> ({ showSettings = false })
                         showReplay -> ({ showReplay = false })
@@ -2673,7 +2643,7 @@ private fun BitChordApp(
                     actions = {
                         // Only worth surfacing where there's room for it and it won't
                         // be mistaken for a per-page action — Home, at rest.
-                        if (!showSettings && !showSources && !showEqualizer &&
+                        if (!showSettings && !showEqualizer &&
                             detail == null && selectedTab == TAB_HOME
                         ) {
                             updateNotice?.let { update ->
@@ -2796,7 +2766,6 @@ private fun BitChordApp(
                     viewModel.clearDetail()
                     viewModel.closeMoodGenre()
                     showSettings = false
-                    showSources = false
                     showEqualizer = false
                     showReplay = false
                     showHistory = false
@@ -3662,36 +3631,6 @@ private fun BitChordApp(
             BackHandler { showSpotifyCanvasAuth = false }
             SpotifyCanvasAuthScreen(
                 onNavigateUp = { showSpotifyCanvasAuth = false }
-            )
-        }
-
-        editingSource?.let { config ->
-            SourceEditorAlert(
-                hazeState = hazeState,
-                config = config,
-                onDismiss = { editingSource = null },
-                onSaved = { editingSource = null },
-                onDelete = {
-                    SourceRegistry.remove(config.id)
-                    editingSource = null
-                },
-                scope = scope,
-            )
-        }
-
-        if (confirmJioSaavn) {
-            ConfirmationAlert(
-                hazeState = hazeState,
-                title = stringResource(R.string.enable_jiosaavn),
-                description = stringResource(R.string.jiosaavn_mismatch_warning),
-                confirmLabel = stringResource(R.string.enable_anyway),
-                onConfirm = {
-                    SourceRegistry.configs.value
-                        .firstOrNull { it.kind == SourceKind.JIOSAAVN }
-                        ?.let { SourceRegistry.setEnabled(it.id, true) }
-                    confirmJioSaavn = false
-                },
-                onDismiss = { confirmJioSaavn = false },
             )
         }
 

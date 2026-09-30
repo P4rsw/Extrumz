@@ -288,8 +288,8 @@ object StreamResolver {
      * which happens for every YouTube-queued track whether or not another
      * source ends up serving its bytes, since the YouTube walk always runs
      * alongside a substitute lookup rather than only when one fails. So a
-     * track substituted to JioSaavn or an addon still carries the figure its
-     * YouTube counterpart resolved.
+     * substituted track still carries the figure its YouTube counterpart
+     * resolved.
      */
     fun loudnessDbFor(videoId: String): Double? = loudness[videoId]
 
@@ -833,7 +833,7 @@ object StreamResolver {
     fun onPlaybackRefused(url: String, responseCode: Int) {
         if (responseCode !in REFUSAL_CODES) return
         // Only googlevideo's URLs say anything about the client that minted
-        // them. A module's stream URL answering 404 is that server's business,
+        // them. A source's stream URL answering 404 is that server's business,
         // and must not bench a YouTube client.
         if (url.toHttpUrlOrNull()?.host?.endsWith("googlevideo.com") != true) return
         val videoId = InnerTubeXResolver.onRefused(url)

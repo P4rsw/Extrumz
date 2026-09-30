@@ -414,8 +414,8 @@ object AudioCache {
      * first played with Atmos on writes an Atmos file under `#alt`; turning
      * the setting off changes nothing about that file, so the very next play
      * of the same track reads it straight off disk, atmosAllowed check and
-     * all, because the check lives in [ModuleSource.unplayable] and that code
-     * never runs. The suffix means "atmos off" resolves and caches under a
+     * all, because the check on the incoming stream never runs. The suffix
+     * means "atmos off" resolves and caches under a
      * key the "atmos on" file was never written to, so the setting actually
      * takes effect on replay; flipping back on reads the original file again
      * rather than re-fetching it.
@@ -580,10 +580,10 @@ object AudioCache {
         // real cost. Warming [StreamResolver]'s own cache writes nothing to
         // disk and cannot corrupt anything, and it is the difference between
         // the fallback starting instantly and starting with a full client walk
-        // — measured at 7.9s. Since the fallback now races the module lookup
-        // rather than waiting behind it, that walk is what a track waits on
-        // whenever the modules are slow, and warming it here is what makes the
-        // race worth running at all.
+        // — measured at 7.9s. Since the fallback now races the substitute
+        // lookup rather than waiting behind it, that walk is what a track
+        // waits on whenever the substitute is slow, and warming it here is
+        // what makes the race worth running at all.
         val substitutable = SourceResolver.canSubstituteForYouTube()
         job = videoIds.firstOrNull()?.let { next ->
             val target = upcoming.firstOrNull { it.mediaId == next }?.target
@@ -1013,7 +1013,7 @@ object AudioCache {
                 }
                 fetch(
                     cacheKey = videoId,
-                    // Do not inherit a JioSaavn/lossless StreamChoice from
+                    // Do not inherit a substitute/lossless StreamChoice from
                     // playback. The base key is reserved for the lightweight
                     // YouTube Opus copy used by Automix analysis.
                     uri = Uri.parse(AutomixAnalysisSource.opusUri(videoId)),

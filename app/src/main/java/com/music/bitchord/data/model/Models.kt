@@ -176,7 +176,7 @@ fun Song.artworkAt(px: Int): String? = thumbnailUrl.artworkAt(px)
  * two playlists hand the same one to unrelated tracks, which is what used to
  * light up a stranger's row while something else played. A video id is no
  * better across catalogues — the same recording arrives with a different id
- * from a local file, a download and a module source, and the highlight would
+ * from a local file, a download and a substitute source, and the highlight would
  * simply go missing.
  *
  * The cost is that name and credit are not unique: an album track and its

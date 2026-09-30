@@ -247,9 +247,9 @@ internal fun PlaybackQualityLabel(
     // "Loading lossless" only appears when a lossless fetch is actually in
     // flight, not on every buffering YouTube track.
     val effectiveQuality = if (metered == true) cellularQuality else wifiQuality
-    // Whether a module is still racing YouTube for this exact track — see
+    // Whether a source is still racing YouTube for this exact track — see
     // [NerdStats.racingLossless]. YouTube can win that race and already be
-    // playing while the module lookup is still running detached, and the badge
+    // playing while the source lookup is still running detached, and the badge
     // should keep saying "loading" through that stretch rather than going
     // blank only to possibly say "loading" again a moment later.
     val racingLossless by NerdStats.racingLossless.collectAsStateWithLifecycle()
@@ -1171,13 +1171,13 @@ private fun LosslessOrStats(
 ) {
     when {
         // Still resolving — either the player itself is buffering, or a
-        // module is still racing YouTube for this track in the background
+        // source is still racing YouTube for this track in the background
         // (see [NerdStats.racingLossless]) even though YouTube already won
         // and is audible. Either way nothing measured yet to confirm with,
         // so this is a statement of intent, not a result — no shimmer, so
         // it never reads as "confirmed" before it is.
         // [stillRacing] on its own, not gated on the lossless preference: a
-        // module outranks YouTube on the strength of the source order alone,
+        // source outranks YouTube on the strength of the source order alone,
         // so the lookup runs — and can come back lossless — with that switch
         // off. Gating this on it left the badge blank through the wait and
         // then jumped straight to "Hi-Res Lossless".
@@ -1194,7 +1194,7 @@ private fun LosslessOrStats(
         (stillRacing && nerdStats?.isLossless != true) ||
             (isLoading && losslessRequested && nerdStats == null) -> LosslessLabel(
             // What is already true, ahead of what is still being looked for.
-            // A race running over JioSaavn's 320kbps AAC and one running over
+            // A race running over a 320kbps AAC and one running over
             // YouTube's 160kbps Opus were both drawn as a bare "Upgrading
             // Quality", which reads as "this is not good yet" — wrong on the
             // first, where the track is already at the top of what lossy gets
@@ -1205,8 +1205,8 @@ private fun LosslessOrStats(
             // Decided on [NerdStats.Snapshot.isHiQuality] rather than on which
             // source won, for the reason that property already gives: a
             // 320kbps stream is a 320kbps stream wherever it came from. It is
-            // read off the stream rather than off what the module offered, so
-            // a JioSaavn AAC qualifies once its container has stated its rate;
+            // read off the stream rather than off what the source offered, so
+            // an AAC qualifies once its container has stated its rate;
             // YouTube's Opus sits under the threshold and keeps the plain
             // label it had.
             text = if (nerdStats?.isHiQuality == true) {
@@ -1233,9 +1233,9 @@ private fun LosslessOrStats(
             iconPainter = painterResource(R.drawable.ic_dolby_atmos),
             modifier = modifier,
         )
-        // Lossy, but the good end of lossy — a module's 320kbps tier, which
-        // for a great many tracks is the best copy that exists anywhere the
-        // app can reach. See [NerdStats.Snapshot.isHiQuality].
+        // Lossy, but the good end of lossy — a 320kbps tier, which for a
+        // great many tracks is the best copy that exists anywhere the app can
+        // reach. See [NerdStats.Snapshot.isHiQuality].
         nerdStats?.isHiQuality == true -> LosslessLabel(
             text = stringResource(R.string.high_quality),
             animated = false,

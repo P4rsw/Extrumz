@@ -14,7 +14,7 @@ import java.util.Locale
  *
  *  - **Too loose** and the wrong recording plays under the right title — a
  *    cover, a remix, an hour-long loop — with nothing on screen to say so.
- *  - **Too strict** and the module the user configured is quietly never used,
+ *  - **Too strict** and the source the user configured is quietly never used,
  *    which is what "Paniyon Sa (From "Satyamev Jayate")" by Atif Aslam did
  *    against a catalogue holding the same audio as "Paniyon Sa" by
  *    Atif Aslam, Tulsi Kumar.
@@ -247,11 +247,11 @@ object TrackMatcher {
      * Whether otherwise valid rows describe more than one release while the
      * requested track gives us no release with which to choose between them.
      *
-     * JioSaavn has catalogue collisions where title and artist are identical
-     * but the audio is not. Picking the runtime-nearest row is unsafe there:
-     * a different recording can be only a second nearer than the wanted one.
+     * Catalogues have collisions where title and artist are identical but the
+     * audio is not. Picking the runtime-nearest row is unsafe there: a
+     * different recording can be only a second nearer than the wanted one.
      * The caller uses this as a conservative source miss and leaves the track
-     * on YouTube instead of guessing.
+     * on the fallback source instead of guessing.
      */
     fun hasConflictingAlbums(candidates: List<Song>, target: Target): Boolean {
         if (!target.album.isNullOrBlank()) return false
@@ -269,7 +269,7 @@ object TrackMatcher {
     }
 
     /**
-     * Resolves a JioSaavn release collision only when one candidate is plainly
+     * Resolves a release collision only when one candidate is plainly
      * more specifically credited than every other close-duration candidate.
      *
      * A film's original release often names the complete vocal ensemble while
@@ -397,7 +397,7 @@ object TrackMatcher {
      * label, `Official Video`, the remaster note. The phrases in
      * [NEUTRAL_SEGMENTS] are the exceptions that read like takes and aren't:
      * `Album Version` and `Radio Edit` describe the ordinary release, and
-     * treating them as versions would stop a module ever matching the plain
+     * treating them as versions would stop a source ever matching the plain
      * listing of the same track.
      */
     private fun classify(
@@ -438,9 +438,9 @@ object TrackMatcher {
      * The disagreement that matters is a cover: same title, different singer.
      * The agreement that has to survive is a *partial* credit, because which
      * of a duet's singers reaches the title is a formatting choice — YouTube's
-     * "Atif Aslam" and a module's "Atif Aslam, Tulsi Kumar" are one recording
+     * "Atif Aslam" and a source's "Atif Aslam, Tulsi Kumar" are one recording
      * with two spellings of its credit, and refusing that pairing is what kept
-     * the module out of the way of the very tracks it held.
+     * the source out of the way of the very tracks it held.
      *
      * A side with no credit at all scores zero rather than failing: there is
      * nothing to disagree with, and the title has already had to match exactly.
@@ -492,7 +492,7 @@ object TrackMatcher {
      *
      * The strongest signal available, and the one that catches what titles
      * cannot: the ten-minute loop, the album-side upload, the snippet. Only
-     * consulted when both sides state a runtime — most module rows do, and a
+     * consulted when both sides state a runtime — most source rows do, and a
      * queue row usually does.
      */
     private fun durationScore(wanted: Int?, got: Int?, allowVideoDrift: Boolean = false): Int? {

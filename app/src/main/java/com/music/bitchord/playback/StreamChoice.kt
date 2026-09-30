@@ -18,7 +18,7 @@ import java.util.concurrent.ConcurrentHashMap
  * That is not a hypothetical. Measured on this device: a track started on
  * YouTube with 57 seconds pre-buffered, played to the end of those 57 seconds,
  * and its continuation fetch resolved — correctly, by its own lights — to a
- * module's 320kbps AAC instead. The player was handed the middle of an MP4
+ * source's 320kbps AAC instead. The player was handed the middle of an MP4
  * where it expected the rest of a WebM, and `MatroskaExtractor` threw
  * `EOFException`:
  *
@@ -41,7 +41,7 @@ import java.util.concurrent.ConcurrentHashMap
  *
  * ### Why a time limit
  *
- * A module's stream URL is signed and expires — around five hours, on the
+ * A source's stream URL is signed and expires — around five hours, on the
  * catalogues in use here. Holding one indefinitely would eventually hand the
  * player a dead URL rather than a wrong one, which is no better. [TTL_MS] is
  * far inside every expiry seen, so a choice is either reused while it is
@@ -127,9 +127,9 @@ object StreamChoice {
      * Tracks whose substituted stream refused to serve its bytes, and when.
      *
      * [forget] alone is not enough to recover from one. The search behind a
-     * substitution is deterministic — the same module, asked the same query for
+     * substitution is deterministic — the same source, asked the same query for
      * the same tier, answers with the same URL — and it is also *fast*, because
-     * by the second attempt its index and its module are cached. So a retry
+     * by the second attempt its index and its source are cached. So a retry
      * that is free to substitute again wins the race against YouTube by the
      * same margin it won it the first time, and resolves straight back to the
      * URL that just failed. Three attempts of that is a track that never plays
@@ -150,8 +150,8 @@ object StreamChoice {
      * cooling-off period, not a verdict — long enough to get the track playing
      * and keep it playing, short enough to ask again in the same sitting.
      *
-     * Most of what used to arrive here doesn't any more: [ModuleSource.malformed]
-     * rejects a URL carrying its own origin twice before anything tries to play
+     * Most of what used to arrive here doesn't any more: a malformed URL — one
+     * carrying its own origin twice — is rejected before anything tries to play
      * it. This is the net under that, for the failures only playback can find.
      */
     private val refusedSubstitutes = ConcurrentHashMap<String, Long>()
@@ -182,7 +182,7 @@ object StreamChoice {
      *
      * Comfortably longer than the recovery it exists to protect — the retry
      * happens within seconds — and longer than a play of the track, so nothing
-     * swaps back mid-song. Short enough that a module which was briefly
+     * swaps back mid-song. Short enough that a source which was briefly
      * returning bad URLs gets another chance inside the same listening session.
      */
     private const val REFUSAL_MS = 10 * 60 * 1000L

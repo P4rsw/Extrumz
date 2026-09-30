@@ -141,7 +141,7 @@ class DownloadStoreTest {
     /**
      * Only the top rung is worth a source's own file. The rungs below it are AAC
      * rungs, and YouTube's AAC ladder is the more reliable fetch for those — so
-     * asking a module for a transcode it would have to make is worse on both
+     * asking a source for a transcode it would have to make is worse on both
      * counts.
      */
     @Test

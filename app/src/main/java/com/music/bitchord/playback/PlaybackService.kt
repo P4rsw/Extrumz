@@ -1095,7 +1095,7 @@ class PlaybackService : MediaLibraryService() {
             // Which track everything below is for, said once, because none of
             // it would otherwise know: this runs on ExoPlayer's loader thread
             // with a DataSpec and nothing else, and the work it starts — the
-            // source ladder, the module sandbox, a client walk — logs from
+            // source ladder, a source's own resolve, a client walk — logs from
             // places several layers deep that have no idea whose bytes they
             // are fetching. Read-ahead means the track being resolved here is
             // usually *not* the one playing, which is exactly why the lines
@@ -1151,7 +1151,7 @@ class PlaybackService : MediaLibraryService() {
                 ?: return@Resolver dataSpec
             // An explicit rollback is not a preference for a different
             // candidate: it means this exact YouTube rendition, immediately.
-            // Answer it before StreamChoice, the module race and a pending
+            // Answer it before StreamChoice, the source race and a pending
             // upgrade can put another source back under the listener.
             if (dataSpec.uri.getQueryParameter(DIRECT_YOUTUBE_PARAMETER) == "1") {
                 QualityUpgrade.forget(videoId)
@@ -1173,7 +1173,7 @@ class PlaybackService : MediaLibraryService() {
                     .build()
             }
             // Automix owns a base-cache Opus rendition. It must bypass the
-            // playback race winner (JioSaavn, a module, or a lossless upgrade)
+            // playback race winner (a substitute or a lossless upgrade)
             // and resolve directly to YouTube for this analysis-only request.
             if (AutomixAnalysisSource.requestsYouTubeOpus(
                     dataSpec.uri.getQueryParameter(AutomixAnalysisSource.OPUS_QUERY_PARAMETER),
@@ -1259,23 +1259,23 @@ class PlaybackService : MediaLibraryService() {
                 // is remembered with an empty one, and writing that over a
                 // claim some other path made would be worse than saying nothing.
                 val sourceName = serving.sourceConfigId?.let { SourceRegistry.config(it)?.displayName }
-                    ?: if (StreamChoice.isSubstitute(videoId)) "Module" else "YouTube"
+                    ?: if (StreamChoice.isSubstitute(videoId)) "Substitute" else "YouTube"
                 if (serving.format != StreamFormat()) {
                     NerdStats.onSourceStream(videoId, serving.format, sourceName)
                 }
                 NerdStats.recordSource(videoId, sourceName)
-                // Read-ahead can pin JioSaavn's quick 320kbps answer before
-                // this track becomes current.  It is the right answer for an
-                // immediate start, but it is not the final quality verdict:
-                // returning here used to bypass [resolveWithModulePriority],
-                // the only path which calls [QualityUpgrade.settledForLess].
+                // Read-ahead can pin a quick 320kbps answer before this track
+                // becomes current.  It is the right answer for an immediate
+                // start, but it is not the final quality verdict: returning
+                // here used to bypass [resolveWithModulePriority], the only
+                // path which calls [QualityUpgrade.settledForLess].
                 // Consequently a warmed track displayed its high-quality
-                // source but never kept the upgrading state or asked the
-                // module for its lossless copy.
+                // source but never kept the upgrading state or asked its
+                // source for a better copy.
                 //
                 // Only substituted, non-lossless choices need this. A pinned
                 // YouTube URL has no source result to promote, and a lossless
-                // module result already satisfies the request.
+                // result already satisfies the request.
                 if (StreamChoice.isSubstitute(videoId) &&
                     serving.format.isLossless != true &&
                     QualityUpgrade.couldStillUpgrade(videoId, dataSpec.uri)
@@ -1294,8 +1294,8 @@ class PlaybackService : MediaLibraryService() {
                     .build()
             }
             // A track queued from YouTube may be held by a source the user
-            // ranked above it — see [SourceResolver.substituteForYouTube] and
-            // [raceYouTubeOrModule]. Only worth the extra lookup when
+            // ranked above it — see [SourceResolver.substituteForYouTube].
+            // Only worth the extra lookup when
             // something actually outranks YouTube; otherwise this is the
             // plain resolve every build before this one made.
             if (!SourceResolver.canSubstituteForYouTube()) {
@@ -1330,9 +1330,9 @@ class PlaybackService : MediaLibraryService() {
                 )
             }
             when (won) {
-                is Resolved.Module -> {
+                is Resolved.Source -> {
                     val sourceName = won.stream.sourceConfigId?.let { SourceRegistry.config(it)?.displayName }
-                        ?: "Module"
+                        ?: "Substitute"
                     NerdStats.onSourceStream(videoId, won.stream.format, sourceName)
                     NerdStats.recordSource(videoId, sourceName)
                     StreamChoice.remember(videoId, won.stream, substituted = true)
@@ -1341,10 +1341,10 @@ class PlaybackService : MediaLibraryService() {
                         .setHttpRequestHeaders(won.stream.headers)
                         .build()
                 }
-                // A module could have served this and didn't — it missed, its
+                // A source could have served this and didn't — it missed, its
                 // server was slow, or the lookup ran out of budget. The last
                 // of those is worth chasing rather than accepting: measured
-                // here, a module's stream URL arrived 66ms after the live path
+                // here, a source's stream URL arrived 66ms after the live path
                 // gave up on it, and the difference between a FLAC and a
                 // YouTube Opus stream came down to that. The second look has
                 // no such deadline, so what was nearly in hand is asked for
@@ -2803,7 +2803,7 @@ class PlaybackService : MediaLibraryService() {
         ) {
             return
         }
-        // Phase 2: no YouTube fallback. A failed alternative — addon, module,
+        // Phase 2: no YouTube fallback. A failed alternative — another source,
         // quality upgrade — used to be rebuilt as an explicit YouTube request
         // (this is also where the round-2 `t=tg_` exception lived). Every
         // external source is gone: a telegram track gets exactly one resolve
@@ -2870,20 +2870,20 @@ class PlaybackService : MediaLibraryService() {
         //
         // This is also the other half of what [StreamChoice.isSubstitute]
         // cannot see below: a track that started on YouTube and swapped to a
-        // module mid-song (see [QualityUpgrade]) was remembered by
+        // source mid-song (see [QualityUpgrade]) was remembered by
         // [StreamChoice] as an *un*substituted YouTube choice — the swap
         // never went through [StreamChoice.remember] at all — so a die on
         // this URI is invisible to the `isSubstitute` check even though it is
-        // exactly the same failure: a module handed over a URL it cannot
+        // exactly the same failure: a source handed over a URL it cannot
         // actually serve. Left as it was, [resolveWithModulePriority] — the
         // only place that reads [StreamChoice.substitutesRefused] — kept
-        // racing the same broken module on every single retry, because
+        // racing the same broken source on every single retry, because
         // nothing had ever told it to stop. Observed on a Tidal DASH manifest
         // that came back malformed 23 times in two minutes, once for every
         // tap of the play button.
-        val diedOnModuleStream = uri?.let(QualityUpgrade::cacheTag)
+        val diedOnSubstituteStream = uri?.let(QualityUpgrade::cacheTag)
             ?.let { it == "hifi" || it.startsWith("hifi-") } == true
-        if (diedOnModuleStream) {
+        if (diedOnSubstituteStream) {
             QualityUpgrade.refuseUpgrades(mediaId)
         }
         // Whatever failed took its claimed format with it. The stream that
@@ -2902,7 +2902,7 @@ class PlaybackService : MediaLibraryService() {
         // substitution that happens *before* the first note rather than after.
         // Read before the forget below, which is what clears the evidence.
         uri?.getQueryParameter("v")
-            ?.takeIf { diedOnModuleStream || StreamChoice.isSubstitute(it) }
+            ?.takeIf { diedOnSubstituteStream || StreamChoice.isSubstitute(it) }
             ?.let { videoId ->
                 StreamChoice.refuseSubstitutes(videoId)
                 TrackLog.w(
@@ -3024,8 +3024,8 @@ class PlaybackService : MediaLibraryService() {
      * manifest through a progressive source — [StreamContainer] has the full
      * account of why one cannot be played that way and how it happens anyway.
      * The live path now declines to substitute one at all, but that is only the
-     * `bitchord://watch?v=…` half: a track queued from a module's own search
-     * results plays through `bitchord://source?…`, is resolved by that module
+     * `bitchord://watch?v=…` half: a track queued from a source's own search
+     * results plays through `bitchord://source?…`, is resolved by that source
      * and by nothing else, and has no YouTube copy to start on. For those there
      * is no choice to make in advance, and this is the only place that can see
      * what actually came back.
@@ -3403,12 +3403,6 @@ class PlaybackService : MediaLibraryService() {
             return
         }
         OriginalVersion.unpin(mediaId)
-        // A manual retry is a request for the addon's state *now*. In
-        // particular, do not replay a successful empty search cached while one
-        // of the addon's upstreams was unavailable or reuse an earlier stream
-        // URL. Running calls are retained and joined; only completed track
-        // answers are discarded. The manifest is intentionally unaffected.
-        SourceRegistry.clearCompletedAddonTrackCalls()
         QualityUpgrade.askByHand(mediaId)
         TrackLog.d("BitChord", "upgrade asked for by hand for $mediaId", about = mediaId)
         lookForBetterCopy(player)
@@ -3431,7 +3425,7 @@ class PlaybackService : MediaLibraryService() {
      *    [audioFormatFor] for what it cost to read one on trust.
      *  - **Whether the listener owns the file.** A downloaded track resolves to
      *    its own copy on disk — see the resolving data source above, which
-     *    answers it before the module race is ever reached, so a download has
+     *    answers it before the source race is ever reached, so a download has
      *    never been a candidate for substitution. Reproduced here because this
      *    path skips that resolver entirely; without it the second look would
      *    spend data replacing a file the user deliberately saved.
@@ -3477,7 +3471,7 @@ class PlaybackService : MediaLibraryService() {
      *
      *  - **What the decoder says.** `Format.bitrate` is populated for the
      *    containers that carry the field, which for what BitChord plays means
-     *    MP4/AAC — the 320kbps copy a module served last session reports itself
+     *    MP4/AAC — the 320kbps copy a source served last session reports itself
      *    exactly.
      *  - **What the cache entry weighs.** Opus in WebM, which is what YouTube
      *    serves and so what most base entries hold, states no bitrate at all;
@@ -3713,9 +3707,8 @@ class PlaybackService : MediaLibraryService() {
             TrackLog.d("BitChord", "upgraded to ${stream.format.summary} at ${now.position}ms ($upgradedSourceName)")
             watchUpgrade(mediaId, now.uri, now.position, now.duration, previousFormat)
             if (QualityUpgrade.continueAfterLossySwap(mediaId)) {
-                // The immediate JioSaavn improvement stays audible while a
-                // slower lossless source is checked against its higher-quality
-                // floor. Wait for this pass to release `upgradeJob`; otherwise
+                // The immediate improvement stays audible while a slower
+                // better source is checked against its higher-quality floor. Wait for this pass to release `upgradeJob`; otherwise
                 // the second pass would see the first one as still active and
                 // return without starting its lookup.
                 val firstPass = upgradeJob
@@ -3752,8 +3745,8 @@ class PlaybackService : MediaLibraryService() {
         val item = player.currentMediaItem ?: return null
         if (item.mediaId != mediaId) return null
         val uri = item.localConfiguration?.uri?.toString() ?: return null
-        // One mid-track lossy improvement (typically Opus → JioSaavn) must not
-        // prevent the requested lossless copy from replacing it. Two marked
+        // One mid-track lossy improvement (typically Opus → 320kbps AAC) must
+        // not prevent the requested lossless copy from replacing it. Two marked
         // URIs get distinct cache entries through [QualityUpgrade.upgradedUri].
         if (uri.contains("${QualityUpgrade.MARKER}=hifi-")) return null
         // A track the listener is holding on YouTube's own upload is not a
@@ -4107,7 +4100,7 @@ class PlaybackService : MediaLibraryService() {
             // borrowed that claim from got reverted.
             if (previousFormat != null) {
                 val prevSource = StreamChoice.of(mediaId)?.sourceConfigId?.let { SourceRegistry.config(it)?.displayName }
-                    ?: if (StreamChoice.isSubstitute(mediaId)) "Module" else "YouTube"
+                    ?: if (StreamChoice.isSubstitute(mediaId)) "Substitute" else "YouTube"
                 NerdStats.onSourceStream(mediaId, previousFormat, prevSource)
             } else {
                 NerdStats.clearDeclared(mediaId)
@@ -4141,20 +4134,20 @@ class PlaybackService : MediaLibraryService() {
 
     /** What [resolveWithModulePriority] settled on. */
     private sealed interface Resolved {
-        data class Module(val stream: SourceStream) : Resolved
+        data class Source(val stream: SourceStream) : Resolved
         data class YouTube(val url: String) : Resolved
     }
 
     /**
-     * Resolves a YouTube-queued track by racing the higher-ranked modules
-     * against YouTube itself, and handing whatever the modules are still doing
+     * Resolves a YouTube-queued track by racing the higher-ranked sources
+     * against YouTube itself, and handing whatever the sources are still doing
      * to [QualityUpgrade] if YouTube gets there first.
      *
-     * Nobody gets a head start. An earlier version gave the modules six
+     * Nobody gets a head start. An earlier version gave the sources six
      * seconds of silence to answer in before the fallback was even *asked*
-     * for, on the reasoning that a module answering inside that window plays
+     * for, on the reasoning that a source answering inside that window plays
      * with no seam in it. What that actually bought, on every track the
-     * modules were slow on, was six seconds of nothing followed by a YouTube
+     * sources were slow on, was six seconds of nothing followed by a YouTube
      * client walk starting from cold — the wait and the seam, rather than one
      * or the other. Starting both at once removes the first of those: the
      * track begins as soon as *anything* can serve it.
@@ -4162,21 +4155,21 @@ class PlaybackService : MediaLibraryService() {
      * The speculative resolve this reinstates was dropped once before, for a
      * real reason — it is several round trips to `youtubei.googleapis.com`
      * competing for the same radio and connection pool as the lookup beside
-     * it, and on a track the modules do have, that work is thrown away. What
+     * it, and on a track the sources do have, that work is thrown away. What
      * changed is that it is no longer speculative: YouTube is now the expected
-     * outcome for anything the modules don't answer quickly, so its walk is on
+     * outcome for anything the sources don't answer quickly, so its walk is on
      * the critical path rather than hedging one. It is also coalesced and
      * cached — see [StreamResolver.resolve] — so even a discarded walk warms
      * the URL this track will want if the upgrade later falls through.
      *
-     * A module that wins the race outright still wins the track, which is the
+     * A source that wins the race outright still wins the track, which is the
      * one thing worth keeping from the old head start: the lossless copy plays
      * from the first note and there is no swap at all. That is a narrower
      * window than it sounds, and deliberately so — read-ahead warms the
      * YouTube URL for the queue (see [AudioCache.prefetchQueue]), so on a
      * track that was read ahead the fallback answers in milliseconds and
      * almost always wins. The swap is the ordinary path now; playing from the
-     * first note is the prize for a module quick enough to beat a cached URL.
+     * first note is the prize for a source quick enough to beat a cached URL.
      *
      * A lookup that loses is not cancelled. It is handed over still running,
      * because it is not wrong, only late, and the thing it is about to return
@@ -4191,7 +4184,7 @@ class PlaybackService : MediaLibraryService() {
         target: TrackMatcher.Target,
     ): Resolved {
         // A substitute already broke this track once — see
-        // [StreamChoice.refuseSubstitutes]. Racing the modules again would find
+        // [StreamChoice.refuseSubstitutes]. Racing the sources again would find
         // the same catalogue holding the same unplayable URL, so there is
         // nothing to race: YouTube is the one answer here that hasn't failed.
         // Skipped entirely rather than merely deprioritised, because a lookup
@@ -4204,13 +4197,13 @@ class PlaybackService : MediaLibraryService() {
         NerdStats.onLosslessRaceStart(videoId)
         // Both legs are parented to the service's scope rather than to the
         // caller, so neither inherits whose track this is — see
-        // [TrackLog.about]. Without it the module walk and the client walk both
+        // [TrackLog.about]. Without it the source walk and the client walk both
         // log from a scope that knows nothing, which is most of what a resolve
         // has to say about itself.
         val lookup = scope.async(Dispatchers.IO + TrackLog.about(videoId)) {
             withTimeoutOrNull(SUBSTITUTE_TIMEOUT_MS) { SourceResolver.substituteForYouTube(target) }
         }
-        // Started now rather than after the modules have had their say, and
+        // Started now rather than after the sources have had their say, and
         // wrapped rather than thrown from: it is awaited only on the paths
         // that need it, and an async that fails without ever being awaited is
         // an unhandled exception in this service's scope.
@@ -4218,8 +4211,8 @@ class PlaybackService : MediaLibraryService() {
             runCatching { StreamResolver.resolve(videoId) }
         }
 
-        // First past the post. A null because [lookup] won is a module miss; a
-        // null because [fallback] won means YouTube has a URL and the modules
+        // First past the post. A null because [lookup] won is a source miss; a
+        // null because [fallback] won means YouTube has a URL and the sources
         // are still looking — [lookup.isActive] below is what tells those
         // apart, which is the question the old head start answered by timing
         // out rather than by asking.
@@ -4232,7 +4225,7 @@ class PlaybackService : MediaLibraryService() {
             // failing was the slow outcome. It no longer is: [StreamResolver]
             // now answers a known-unplayable track immediately, so the losing
             // leg crosses the line first and, before this, took the track down
-            // with it while a module lookup that was about to succeed was still
+            // with it while a source lookup that was about to succeed was still
             // running. Exactly the case in the report — an age-gated track that
             // YouTube would never serve and a catalogue that had it all along.
             fallback.onAwait { resolved -> if (resolved.isSuccess) null else lookup.await() }
@@ -4246,7 +4239,7 @@ class PlaybackService : MediaLibraryService() {
         // at 0ms rather than a track that plays lossless. See [StreamContainer]
         // for the log of exactly that.
         //
-        // Nothing is thrown away for it. What the modules found is passed to
+        // Nothing is thrown away for it. What the sources found is passed to
         // the second look already answered, which is the same handover a lookup
         // that merely lost the race gets — and [QualityUpgrade]'s swap does
         // declare the type, so the manifest plays there. The cost is a seam a
@@ -4282,11 +4275,11 @@ class PlaybackService : MediaLibraryService() {
                 about = videoId,
             )
             NerdStats.onLosslessRaceEnd(videoId)
-            return Resolved.Module(quick)
+            return Resolved.Source(quick)
         }
 
         if (quick != null) {
-            // The modules got there first, so the YouTube walk is genuinely
+            // The sources got there first, so the YouTube walk is genuinely
             // spare work now. Cancelling drops only this service's wait on it;
             // [StreamResolver] parents the walk itself elsewhere and lets it
             // finish into its own cache.
@@ -4295,9 +4288,9 @@ class PlaybackService : MediaLibraryService() {
             // ordinary good case, and the one with no seam in it.
             if (!quick.belowRequest) {
                 NerdStats.onLosslessRaceEnd(videoId)
-                return Resolved.Module(quick)
+                return Resolved.Source(quick)
             }
-            // Less than was asked for — but a lossy copy from a module still
+            // Less than was asked for — but a lossy copy from a source still
             // beats going back to YouTube for one. Worth a second look, and
             // with this lookup already finished that look starts from scratch.
             val settled = QualityUpgrade.settledForLess(
@@ -4307,7 +4300,7 @@ class PlaybackService : MediaLibraryService() {
                 servedBy = quick.sourceConfigId,
             )
             if (!settled) NerdStats.onLosslessRaceEnd(videoId)
-            return Resolved.Module(quick)
+            return Resolved.Source(quick)
         }
 
         val url = fallback.await().getOrThrow()
@@ -4461,7 +4454,7 @@ class PlaybackService : MediaLibraryService() {
      * not, so [Format.bitrate] arrives as `NO_VALUE` and the honest figure is
      * whatever named this stream instead. The source's own figure comes ahead
      * of YouTube's because a track can have both: one resolved through YouTube
-     * and then upgraded to a module stream mid-song has a stale 160 sitting in
+     * and then upgraded to a source stream mid-song has a stale 160 sitting in
      * [NerdStats.pickedBitrateKbps] describing audio that stopped playing
      * several seconds ago. Anything still unknown is left null for the UI to
      * omit — better a shorter line than a made-up number.
@@ -4520,10 +4513,10 @@ class PlaybackService : MediaLibraryService() {
             return "Unknown"
         }
 
-        // 4. Stream substitution (e.g. YouTube substituted by addon)
+        // 4. Stream substitution (YouTube substituted by another source)
         StreamChoice.of(id)?.let { serving ->
             val name = serving.sourceConfigId?.let { SourceRegistry.config(it)?.displayName }
-                ?: if (StreamChoice.isSubstitute(id)) "Module" else null
+                ?: if (StreamChoice.isSubstitute(id)) "Substitute" else null
             if (!name.isNullOrBlank()) return name
         }
 
@@ -5453,10 +5446,10 @@ class PlaybackService : MediaLibraryService() {
      * applies it to the shared session as a millibel gain, or switches the
      * effect off when nothing is known yet or the setting is off.
      *
-     * A track substituted to JioSaavn or an addon still carries a figure here
-     * as long as it was queued from YouTube, because [StreamResolver] resolves
-     * the YouTube stream alongside the substitute lookup rather than only when
-     * one fails — see [StreamResolver.loudnessDbFor]'s own doc.
+     * A substituted track still carries a figure here as long as it was queued
+     * from YouTube, because [StreamResolver] resolves the YouTube stream
+     * alongside the substitute lookup rather than only when one fails — see
+     * [StreamResolver.loudnessDbFor]'s own doc.
      */
     private fun setupLoudnessEnhancer(mediaId: String?) {
         val exoPlayer = player ?: return
@@ -5483,8 +5476,8 @@ class PlaybackService : MediaLibraryService() {
     /**
      * One retry, a few seconds after a transition, for the track whose
      * YouTube figure had not resolved yet when [setupLoudnessEnhancer] first
-     * ran — the substitute lookup that wins the race for a JioSaavn or addon
-     * track is often quicker than the YouTube walk running alongside it. Only
+     * ran — the substitute lookup that wins the race for a track is often
+     * quicker than the YouTube walk running alongside it. Only
      * fires if the figure is still missing and the track is still current, so
      * it neither overwrites a value that already arrived nor reaches into a
      * track the listener has since moved past.
@@ -6696,9 +6689,9 @@ class PlaybackService : MediaLibraryService() {
          * Nothing like [RESOLVE_TIMEOUT_MS], because the two are not the same
          * kind of wait: that one bounds the only way to hear the track, this
          * one bounds an optional upgrade over a stream YouTube will serve
-         * anyway. Generous enough for a cold module — index fetch, JS
-         * download, engine init, search, then the stream URL — and short
-         * enough that a dead server costs a pause rather than a stall.
+         * anyway. Generous enough for a cold source — index fetch, request,
+         * search, then the stream URL — and short enough that a dead server
+         * costs a pause rather than a stall.
          */
         const val SUBSTITUTE_TIMEOUT_MS = 20_000L
 

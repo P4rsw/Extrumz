@@ -18,8 +18,8 @@ import kotlin.math.max
  *
  * ### Why DASH exists here at all
  *
- * Because the shape of a module's stream is the backend's choice and not ours.
- * The Tidal module served `.m3u8` until September 2026 and `.mpd` afterwards —
+ * Because the shape of a source's stream is the backend's choice and not ours.
+ * The Tidal source served `.m3u8` until September 2026 and `.mpd` afterwards —
  * same track, same requested tier, no version change on our side. Playback
  * survived that by being told the mime type
  * ([PlaybackService][com.music.bitchord.playback.PlaybackService]'s
@@ -131,7 +131,7 @@ internal object OfflineDash {
      * Read with regexes rather than an XML parser, and narrowly: this is not a
      * general DASH implementation and should not read like one. It handles the
      * single-period, single-audio-representation, `SegmentTemplate` manifests
-     * the source modules actually serve, and refuses everything else instead of
+     * the sources actually serve, and refuses everything else instead of
      * guessing. Media3 remains the real DASH implementation — this only has to
      * be right about the manifests that reach a download.
      */
@@ -152,7 +152,7 @@ internal object OfflineDash {
         val mediaTemplate = attr("media")?.let(::unescape)
             ?: error("DASH manifest has no media template")
         // Only `$Number$` is supported. `$Time$` would need the timeline's
-        // running offsets rather than its durations, and no module serves it.
+        // running offsets rather than its durations, and no source serves it.
         if (!mediaTemplate.contains("\$Number\$")) error("Unsupported DASH media template")
         val timescale = attr("timescale")?.toDoubleOrNull()?.takeIf { it > 0 } ?: 1.0
         val startNumber = attr("startNumber")?.toIntOrNull() ?: 1

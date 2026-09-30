@@ -7,7 +7,7 @@ import java.util.Locale
 /**
  * Whether the URL serving a track points at audio or at an index of it.
  *
- * A source module's stream URL is whatever its backend feels like serving, and
+ * A source's stream URL is whatever its backend feels like serving, and
  * that is not always a file. Tidal answers a lossless or Dolby Atmos request
  * with an MPEG-DASH manifest, and answered the same request with an HLS one
  * until September 2026 — same track, same tier, no version change on our side.
@@ -21,7 +21,7 @@ import java.util.Locale
  * it offers the XML to every extractor it has and none of them can sniff it.
  *
  * ```
- *   15:11:53  substituted: 'What Did I Miss?' served by Ricky's Addon over YouTube at Dolby Atmos
+ *   15:11:53  substituted: 'What Did I Miss?' served by Ricky's Source over YouTube at Dolby Atmos
  *   15:11:54  playback failed for Lx4gPURH35g at 0ms (ERROR_CODE_PARSING_CONTAINER_UNSUPPORTED)
  *             None of the available extractors (FlvExtractor, FlacExtractor, …) could read the stream
  *             sniff failures: [NoDeclaredBrand, NoDeclaredBrand]
@@ -39,7 +39,7 @@ import java.util.Locale
  * whether it may substitute at all, and where a track that failed anyway is put
  * back on its feet.
  *
- * Judged on the extension, deliberately, and not on what the module said the
+ * Judged on the extension, deliberately, and not on what the source said the
  * codec was: `format: "flac"` describes the audio inside and says nothing about
  * the envelope the URL points at.
  */
@@ -100,8 +100,8 @@ object StreamContainer {
      * source that handed it over said so.
      *
      * Judging on the extension is a guess, and it is wrong in exactly the case
-     * this app now meets most often: an addon that serves an HLS playlist from
-     * an extensionless path. The reference addon does this at `/dash/{id}`,
+     * this app now meets most often: a source that serves an HLS playlist from
+     * an extensionless path. The reference server does this at `/dash/{id}`,
      * which has no `.m3u8` to read, is not a DASH manifest despite the name,
      * and reports `format: "flac"` — three ways of looking like a plain FLAC
      * file while being an index of one. Handed to a progressive source, that
@@ -111,7 +111,7 @@ object StreamContainer {
      *
      * So a source that knows says so, once, and every existing caller —
      * the item builder, the may-I-substitute check, the failure recovery —
-     * gets the right answer without any of them learning about addons.
+     * gets the right answer without any of them re-deriving it.
      *
      * Keyed by URL rather than by media id because that is what all three
      * callers hold, and because a signed URL is already unique to one

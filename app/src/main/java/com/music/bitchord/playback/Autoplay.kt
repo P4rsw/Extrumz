@@ -42,7 +42,7 @@ fun autoplayQueueNeedsRefresh(
     currentIndex == itemCount - 1
 
 /**
- * Finds the YouTube id that should seed AutoPlay for a song. Module tracks do not
+ * Finds the YouTube id that should seed AutoPlay for a song. Substitute tracks do not
  * carry YouTube ids, so they are matched on YouTube before the radio request.
  */
 suspend fun youtubeSeedFor(song: Song): String? {

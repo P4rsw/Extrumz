@@ -75,7 +75,7 @@ class ChunkedDataSource(
             passthrough = true
             chunkOpen = true
             // Reported, not just thrown. Nothing but googlevideo carries `clen`,
-            // so every module stream comes through this branch — and this was
+            // so every source stream comes through this branch — and this was
             // the one open in the app whose refusal was neither logged nor
             // handed anywhere. A dead Tidal URL surfaced as a bare
             // ExoPlaybackException with not one line naming the server that

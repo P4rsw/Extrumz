@@ -854,7 +854,7 @@ object Downloads {
      * apart anyway, because the split is what makes the expensive half
      * separately measurable and separately cancellable.
      *
-     * On a lossless queue this is the expensive half by a wide margin: a module
+     * On a lossless queue this is the expensive half by a wide margin: a source
      * search fans out across a whole index and then a stream endpoint is
      * opened, tens of seconds against the few the transfer itself takes on a
      * fast connection. Run between transfers, as it used to be, that time was
@@ -880,7 +880,7 @@ object Downloads {
         // Asked before the lookup rather than after it, unlike the check on the
         // route's own filename below. A file already sitting in Music under a
         // lossless extension is the answer to the whole question, and spending
-        // a twenty-second module search to arrive at a name we could have
+        // a twenty-second source search to arrive at a name we could have
         // guessed is the difference between re-running a 300-track queue in
         // seconds and re-running it in hours. Only the extensions that can only
         // be lossless are worth guessing at: an `.m4a` may be this app's ALAC
@@ -1145,12 +1145,12 @@ object Downloads {
      * they offer would not beat YouTube's own AAC. Which of those happened is
      * the resolver's business — from here it is a URL and a codec either way.
      *
-     * Bounded, because a module search waits on every backend it has (see
-     * `ModuleSource.SEARCH_PATIENT_MS`) and does that once per query the matcher
-     * offers. For a track no module holds, that is the whole queue stopped for
-     * the better part of a minute on the way to a download that was always
-     * going to be YouTube's. `PlaybackService.SUBSTITUTE_TIMEOUT_MS` bounds the
-     * same search for the same reason.
+     * Bounded, because a patient source search waits on every backend it has
+     * and does that once per query the matcher offers. For a track no source
+     * holds, that is the whole queue stopped for the better part of a minute
+     * on the way to a download that was always going to be YouTube's.
+     * `PlaybackService.SUBSTITUTE_TIMEOUT_MS` bounds the same search for the
+     * same reason.
      *
      * The [DownloadStore.storable] check belongs here rather than inside the
      * resolver: the resolver's job is finding the best audio, and whether this
@@ -1236,25 +1236,24 @@ object Downloads {
      * How long the source lookup may hold a download up before it goes to
      * YouTube regardless.
      *
-     * **This has to clear `ModuleSource.SEARCH_PATIENT_MS`, and for a long time
-     * it didn't.** It was 20s against a patient window of 25s, which made the
+     * **This has to clear a patient search window, and for a long time it
+     * didn't.** It was 20s against a patient window of 25s, which made the
      * arithmetic decide the outcome: [SourceResolver.forDownload] asks every
-     * source with `waitForAll = true`, that flag buys each module the full 25s
+     * source with `waitForAll = true`, that flag buys each source the full 25s
      * patient window, and this timeout fired five seconds before the window it
-     * was waiting on could even close. Every track whose modules were not
+     * was waiting on could even close. Every track whose source was not
      * unusually quick came back null — not "no source has it", but "nobody was
      * asked for long enough" — and null here means YouTube. So a Lossless
      * setting reliably produced YouTube's AAC, and it looked like a bulk-only
-     * fault because it *was* one: a single download runs with the engines to
-     * itself and lands inside 20s, while four workers sharing three interpreter
-     * engines per module (`QuickJsExecutor.ENGINES_PER_MODULE`) do not.
+     * fault because it *was* one: a single download runs with the lookups to
+     * itself and lands inside 20s, while four workers sharing one pool do not.
      *
      * Sized off what it actually bounds, therefore, rather than off the playback
      * timeout it used to be matched to. One patient search is 25s, the matcher
      * offers up to two queries (`TrackMatcher.queries`), and [streamBest] may
      * then open up to `STREAM_ATTEMPTS` stream endpoints on the winner. Sixty
-     * seconds covers a slow-but-working index; it is still finite, because the
-     * alternative is the queue stalled per track on modules that simply do not
+     * seconds covers a slow-but-working lookup; it is still finite, because the
+     * alternative is the queue stalled per track on sources that simply do not
      * have the recording.
      *
      * The comparison with playback is no longer the right one and is worth
@@ -1266,7 +1265,7 @@ object Downloads {
      * It bounds the lossy half of that lookup too, which is why
      * [SourceResolver.forDownload] runs both halves at once rather than in
      * turn: a fast source queued behind a slow one would spend this budget
-     * waiting for a module and never be asked.
+     * waiting for a slow source and never be asked.
      */
     private const val SOURCE_LOOKUP_MS = 60_000L
 

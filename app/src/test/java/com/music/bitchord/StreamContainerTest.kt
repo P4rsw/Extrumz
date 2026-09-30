@@ -22,10 +22,10 @@ class StreamContainerTest {
 
     @Test
     fun `hls source-track reopen preserves source parameters and fragment`() {
-        val original = "bitchord://source?s=addon-1&t=track-2&n=Wait#part"
+        val original = "bitchord://source?s=tg-1&t=track-2&n=Wait#part"
 
         assertEquals(
-            "bitchord://source?s=addon-1&t=track-2&n=Wait&manifest_reopen=hls#part",
+            "bitchord://source?s=tg-1&t=track-2&n=Wait&manifest_reopen=hls#part",
             StreamContainer.markedForManifestReopen(
                 original,
                 "application/x-mpegURL",

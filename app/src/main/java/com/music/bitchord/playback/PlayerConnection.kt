@@ -657,7 +657,7 @@ fun Song.toMediaItem(): MediaItem {
 /**
  * The current song reopened through YouTube alone, bypassing every substitute
  * and quality-upgrade path.  The separate rendition tag is essential: the
- * base cache key may currently contain JioSaavn or module bytes, and resuming
+ * base cache key may currently contain substitute bytes, and resuming
  * that entry as though it were a YouTube WebM corrupts the stream.
  */
 fun Song.toDirectYouTubeMediaItem(): MediaItem =
@@ -676,7 +676,7 @@ private fun Song.directYouTubeUri(): String =
  * upgrade has visibly swapped, because the swap is not the only way to end up
  * on a copy that is wrong. A source ranked above YouTube gets first refusal on
  * every track — see [SourceResolver.substituteForYouTube] — so a song can be
- * playing JioSaavn's or a module's idea of it from its very first second, with
+ * playing another source's idea of it from its very first second, with
  * nothing on screen having changed and nothing to undo. Those are precisely the
  * ones worth doubting: the match is made on title, artist and runtime, and a
  * live version, a remaster or a different mix agreeing on all three is a
@@ -687,8 +687,8 @@ private fun Song.directYouTubeUri(): String =
  * The three exclusions are all "there is no such upload", not "reverting would
  * be unwise":
  *
- *  - a track queued from a module's own catalogue has no YouTube id at all,
- *    only a source-and-track key that would build a nonsense URI;
+ *  - a track queued from another source's own catalogue has no YouTube id at
+ *    all, only a source-and-track key that would build a nonsense URI;
  *  - a file on the device is identified by its own `content://` or `file://`
  *    URI, for the same reason;
  *  - a music video *is* the YouTube upload, so there is nowhere for it to go.

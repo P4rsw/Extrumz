@@ -208,7 +208,7 @@ object Downloader {
      * Verify that a source URL is a file in the container it advertised before
      * it is allowed to become a download route.
      *
-     * Some module backends label an HLS master playlist as FLAC. Downloading
+     * Some source backends label an HLS master playlist as FLAC. Downloading
      * that text faithfully produces a tiny `.flac` which no player can open;
      * rejecting it here lets the ordinary YouTube fallback take over instead.
      */

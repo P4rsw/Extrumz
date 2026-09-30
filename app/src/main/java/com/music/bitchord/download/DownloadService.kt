@@ -88,18 +88,16 @@ class DownloadService : Service() {
      * already served at line rate and two at once would finish neither sooner.
      * That reasoning was about the *transfer*, and the transfer turned out to
      * be the small half. Working out where a lossless track's bytes come from
-     * — a search across every module in the index, then a stream endpoint
-     * opened against the winner, then another when that one answers with a
-     * lossy copy — is tens of seconds a track, and none of it is bandwidth. On
+     * — a search across every catalogue, then a stream endpoint opened against
+     * the winner, then another when that one answers with a lossy copy — is
+     * tens of seconds a track, and none of it is bandwidth. On
      * a 300-track queue drained one at a time, that is a connection sitting
      * idle for the great majority of the run: measured at ~19s a track against
      * a few seconds of actual transfer.
      *
      * It is latency, so the answer is overlap. Four in flight means four
-     * lookups outstanding at once, and the module engines they land on are
-     * pooled to match — see `QuickJsExecutor.ENGINES_PER_MODULE`, without which
-     * this would be four workers taking turns on one interpreter and no faster
-     * than one.
+     * lookups outstanding at once, and a fifth worker would mostly be waiting
+     * on the first four rather than resolving anything.
      *
      * A worker that finds the queue empty waits [IDLE_GRACE_MS] before giving
      * up rather than exiting on the spot. The queue is filled by a loop of
@@ -264,10 +262,9 @@ class DownloadService : Service() {
          * Sized against what is actually scarce. Bandwidth is not: four
          * lossless tracks at once is comfortably inside a home connection, and
          * the transfers were never the bottleneck. Lookup latency is, and four
-         * is where the module engines stop being the limit — the pool behind
-         * them is three deep per module, so a fifth worker would mostly be
-         * queueing for an interpreter rather than resolving anything. It is
-         * also the point past which a failure gets hard to read: eight rows
+         * is where the shared lookup pool stops being the limit — a fifth
+         * worker would mostly be queueing rather than resolving anything. It
+         * is also the point past which a failure gets hard to read: eight rows
          * moving at once is a wall of text, not a download.
          */
         const val WORKERS = 4

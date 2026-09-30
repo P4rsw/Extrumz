@@ -157,11 +157,11 @@ class AudioPipelineTest {
         NerdStats.recordSource("track-123", "YouTube")
         assertEquals("YouTube", NerdStats.sourceFor("track-123"))
 
-        NerdStats.onSourceStream("track-456", StreamFormat(codec = "flac"), source = "Unified Addon")
-        assertEquals("Unified Addon", NerdStats.sourceFor("track-456"))
+        NerdStats.onSourceStream("track-456", StreamFormat(codec = "flac"), source = "Telegram")
+        assertEquals("Telegram", NerdStats.sourceFor("track-456"))
 
-        NerdStats.onStreamPicked("track-789", 320, source = "JioSaavn")
-        assertEquals("JioSaavn", NerdStats.sourceFor("track-789"))
+        NerdStats.onStreamPicked("track-789", 320, source = "YouTube")
+        assertEquals("YouTube", NerdStats.sourceFor("track-789"))
     }
 
     @Test
@@ -183,13 +183,13 @@ class AudioPipelineTest {
     @Test
     fun `forgetLastSession clears all recorded sources and snapshots`() {
         NerdStats.recordSource("track-1", "YouTube")
-        NerdStats.recordSource("track-2", "JioSaavn")
+        NerdStats.recordSource("track-2", "Telegram")
         NerdStats.current.value = NerdStats.Snapshot(
             mimeType = "audio/flac",
             bitrateKbps = 1411,
             sampleRateHz = 44100,
             channels = 2,
-            sourceName = "JioSaavn",
+            sourceName = "Telegram",
         )
 
         NerdStats.forgetLastSession()
@@ -203,47 +203,47 @@ class AudioPipelineTest {
 
     @Test
     fun `stale provider must never leak across tracks sharing same inner identifier`() {
-        // Track 1 played from JioSaavn with inner track id "101"
-        NerdStats.recordSource("101", "JioSaavn")
-        assertEquals("JioSaavn", NerdStats.exactSourceFor("101"))
+        // Track 1 played from Telegram with inner track id "101"
+        NerdStats.recordSource("101", "Telegram")
+        assertEquals("Telegram", NerdStats.exactSourceFor("101"))
 
-        // Track 2 is an Addon track with the exact same inner id "101" under an addon prefix
-        val addonMediaId = "src:addon-uuid-xyz::101"
-        // Before Addon resolves or records itself, exactSourceFor must NOT leak JioSaavn
-        assertNull(NerdStats.exactSourceFor(addonMediaId))
+        // Track 2 is a YouTube track with the exact same inner id "101" under a source prefix
+        val otherMediaId = "src:youtube-uuid-xyz::101"
+        // Before the second source records itself, exactSourceFor must NOT leak the first
+        assertNull(NerdStats.exactSourceFor(otherMediaId))
 
-        // Once Addon stream is recorded for the exact mediaId, it strictly returns the Addon
-        NerdStats.recordSource(addonMediaId, "Unified Addon")
-        assertEquals("Unified Addon", NerdStats.exactSourceFor(addonMediaId))
-        // And track 1 remains JioSaavn without being mutated
-        assertEquals("JioSaavn", NerdStats.exactSourceFor("101"))
+        // Once the second source records its stream for the exact mediaId, it returns that source
+        NerdStats.recordSource(otherMediaId, "YouTube")
+        assertEquals("YouTube", NerdStats.exactSourceFor(otherMediaId))
+        // And track 1 remains Telegram without being mutated
+        assertEquals("Telegram", NerdStats.exactSourceFor("101"))
     }
 
     @Test
     fun `playback source transitions maintain correct sequence without stale bleed`() {
-        val jiosaavnId = "src:jiosaavn-uuid::track-jio"
-        val addonId = "src:addon-uuid::track-addon"
+        val telegramId = "src:telegram-uuid::track-tg"
+        val youtubeId = "src:youtube-uuid::track-yt"
         val localId = "local-storage-track-uri"
 
-        // 1. JioSaavn playback
-        NerdStats.recordSource(jiosaavnId, "JioSaavn")
-        assertEquals("JioSaavn", NerdStats.exactSourceFor(jiosaavnId))
+        // 1. Telegram playback
+        NerdStats.recordSource(telegramId, "Telegram")
+        assertEquals("Telegram", NerdStats.exactSourceFor(telegramId))
 
-        // 2. Transition JioSaavn -> Addon
-        NerdStats.recordSource(addonId, "Tidal Addon")
-        assertEquals("Tidal Addon", NerdStats.exactSourceFor(addonId))
+        // 2. Transition Telegram -> YouTube
+        NerdStats.recordSource(youtubeId, "YouTube")
+        assertEquals("YouTube", NerdStats.exactSourceFor(youtubeId))
 
-        // 3. Transition Addon -> Local Storage (Local Storage does not rely on streaming source)
+        // 3. Transition YouTube -> Local Storage (Local Storage does not rely on streaming source)
         assertNull(NerdStats.exactSourceFor(localId))
 
-        // 4. Transition Local -> JioSaavn
-        assertEquals("JioSaavn", NerdStats.exactSourceFor(jiosaavnId))
+        // 4. Transition Local -> Telegram
+        assertEquals("Telegram", NerdStats.exactSourceFor(telegramId))
 
-        // 5. Transition Local -> Addon
-        assertEquals("Tidal Addon", NerdStats.exactSourceFor(addonId))
+        // 5. Transition Local -> YouTube
+        assertEquals("YouTube", NerdStats.exactSourceFor(youtubeId))
 
-        // 6. Transition Addon -> JioSaavn
-        assertEquals("JioSaavn", NerdStats.exactSourceFor(jiosaavnId))
+        // 6. Transition YouTube -> Telegram
+        assertEquals("Telegram", NerdStats.exactSourceFor(telegramId))
     }
 
     @Test

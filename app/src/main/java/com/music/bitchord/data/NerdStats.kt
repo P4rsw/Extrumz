@@ -77,7 +77,7 @@ object NerdStats {
          * badge that was wrong, [current] is nulled across a track change so
          * that gap shows nothing rather than the previous track's figures,
          * and "measured or not stated" is a rule that can be read off the
-         * screen — "measured, except briefly, when it is whatever the module
+         * screen — "measured, except briefly, when it is whatever the source
          * said" is not.
          */
         val isLossless: Boolean
@@ -100,7 +100,7 @@ object NerdStats {
 
         /**
          * Whether this is lossy, but at the top of what lossy gets — a 320kbps
-         * AAC or MP3 from a module's HIGH tier, rather than YouTube's 160kbps
+         * AAC or MP3 from a source's HIGH tier, rather than YouTube's 160kbps
          * Opus.
          *
          * Worth naming on screen because it is the honest answer often enough
@@ -112,7 +112,7 @@ object NerdStats {
          * Decided on the bitrate rather than on which source served it: a
          * 256kbps stream is a 256kbps stream wherever it came from — and on
          * [bitrateKbps] rather than on [claimed], for the reason [isLossless]
-         * gives at length. A module that offers a LOSSLESS tier and then
+         * gives at length. A source that offers a LOSSLESS tier and then
          * serves SoundCloud at 128kbps is the ordinary case here, not the
          * exotic one.
          */
@@ -192,11 +192,11 @@ object NerdStats {
     val current = MutableStateFlow<Snapshot?>(null)
 
     /**
-     * YouTube video ids with a module lookup racing YouTube's own resolve
+     * YouTube video ids with a source lookup racing YouTube's own resolve
      * for the stream to actually play — see
      * [PlaybackService][com.music.bitchord.playback.PlaybackService]'s
      * resolving data source. Both start together and whichever answers first
-     * plays; the module is the one still worth hearing about, because a
+     * plays; the source is the one still worth hearing about, because a
      * YouTube win only means the search continues under the music — so this
      * is what the UI shows "looking for a better copy" from. A track leaves
      * the set the moment its own lookup settles either way, never on a timer.

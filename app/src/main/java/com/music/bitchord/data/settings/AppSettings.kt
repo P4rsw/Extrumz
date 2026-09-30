@@ -19,10 +19,10 @@ import kotlinx.coroutines.flow.MutableStateFlow
  * actually tells them apart is which other sources are allowed to answer
  * *before* YouTube gets asked. That part is [permits], and the rungs read:
  *
- * - [LOSSLESS] — the user's own addons and JioSaavn both asked.
- * - [HIGH] — the addons skipped, JioSaavn asked.
- * - [MEDIUM] and [LOW] — both skipped; YouTube's own Opus ladder is all there
- *   is, capped at [maxKbps].
+ * - [LOSSLESS] — every source asked, bit-exact where it can serve it.
+ * - [HIGH] — a source that can serve nothing *but* bit-exact audio is left
+ *   out, since this rung is asking for the best streamed rendition.
+ * - [MEDIUM] and [LOW] — YouTube's own Opus ladder, capped at [maxKbps].
  *
  * [hourly] is what the ceiling costs in data over an hour of listening, which
  * is the only part of this a user actually cares about on a metered plan.
@@ -35,8 +35,8 @@ enum class AudioQuality(
 ) {
     LOW(64, "Low", "~64 kbps · smallest download", "29 MB/hr"),
     MEDIUM(Int.MAX_VALUE, "Medium", "Best available · ~171 kbps Opus", "77 MB/hr"),
-    HIGH(Int.MAX_VALUE, "High", "JioSaavn up to 320kbps, YouTube fallback", "144 MB/hr"),
-    LOSSLESS(Int.MAX_VALUE, "Lossless", "Your addons + JioSaavn, bit-exact where available", "300+ MB/hr"),
+    HIGH(Int.MAX_VALUE, "High", "Best rendition on offer, YouTube fallback", "144 MB/hr"),
+    LOSSLESS(Int.MAX_VALUE, "Lossless", "Bit-exact where available, YouTube fallback", "300+ MB/hr"),
     ;
 
     /**
@@ -45,13 +45,13 @@ enum class AudioQuality(
      * Asked per stream rather than written into
      * [SourceConfig.enabled][com.music.bitchord.data.sources.SourceConfig.enabled],
      * which is what this used to do — an `applyQualityPreset` call flipped the
-     * module and JioSaavn switches the moment a rung was picked. Two things
+     * per-source switches the moment a rung was picked. Two things
      * were wrong with that and both were reported together: picking a rung for
      * *mobile data* turned the sources off while sitting on Wi-Fi, and nothing
      * turned them back on when the connection changed, so a Wi-Fi ceiling of
      * Lossless still had no lossless source to reach. A ceiling is a property
-     * of the connection in force; the switches on the Sources screen are the
-     * user's standing choice. Storing the first in the second lost the second.
+     * of the connection in force; the stored switches are the user's standing
+     * choice. Storing the first in the second lost the second.
      *
      * [SourceKind.YOUTUBE] is permitted on every rung: it is what [maxKbps]
      * caps, and it is the only source that can answer at all when the ones
@@ -60,9 +60,8 @@ enum class AudioQuality(
     fun permits(kind: SourceKind): Boolean = when (this) {
         LOSSLESS -> true
         // No lossless answer is wanted here, and a source that can serve one is
-        // the slow half of the list: an addon fronting several catalogues walks
-        // all of them before it answers, which is seconds spent to land on a
-        // transcode JioSaavn already has at 320.
+        // the slow half of the list: seconds spent walking its backends before
+        // it answers, only to land on a transcode that was already available.
         HIGH -> !kind.canServeLossless
         MEDIUM, LOW -> kind == SourceKind.YOUTUBE || kind == SourceKind.TELEGRAM
     }
@@ -264,10 +263,10 @@ object AppSettings {
     /** Whether the active network charges for data. `null` while offline. */
     val meteredConnection = MutableStateFlow<Boolean?>(null)
 
-    // `losslessAudio` used to live here, behind a "Prefer lossless" switch on
-    // the Sources screen. It is gone: sources are asked for their best and each
-    // degrades on its own terms, so the switch's only real effect was to ask a
-    // module for a worse file than it was holding. See
+    // `losslessAudio` used to live here, behind a "Prefer lossless" switch.
+    // It is gone: sources are asked for their best and each degrades on its
+    // own terms, so the switch's only real effect was to ask a source for a
+    // worse file than it was holding. See
     // [SourceResolver.requestForNow][com.music.bitchord.data.sources.SourceResolver.requestForNow],
     // which now reads [effectiveAudioQuality] and nothing else.
 
@@ -328,9 +327,8 @@ object AppSettings {
      * which is *lossy* — a track with an Atmos master is frequently also held
      * as a FLAC, and someone listening on wired headphones may well prefer the
      * bit-exact stereo copy to a spatial mix their output can't render. Turning
-     * this off is how they say so; see
-     * [ModuleSource.unplayable][com.music.bitchord.data.sources.ModuleSource],
-     * which is where the refusal is applied.
+     * this off is how they say so; a rendition refused on arrival never
+     * reaches the player.
      *
      * Independent of whether the device *can* decode it — that question is
      * [DeviceCodecs.playsDolbyAtmos][com.music.bitchord.data.sources.DeviceCodecs],

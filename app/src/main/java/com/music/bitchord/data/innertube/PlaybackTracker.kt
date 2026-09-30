@@ -62,8 +62,8 @@ object PlaybackTracker {
     /**
      * A videoId, as opposed to anything else that can be a media id.
      *
-     * Local files carry their `content://` URI as an id, and a module source
-     * carries whatever that module uses. Asking Google to register a play of one
+     * Local files carry their `content://` URI as an id, and a substitute source
+     * carries whatever that source uses. Asking Google to register a play of one
      * of those is a request that cannot succeed, made once per track, and it was
      * being made — the guard is here rather than at the call site because this
      * object is the thing that knows what an id has to look like to be useful.

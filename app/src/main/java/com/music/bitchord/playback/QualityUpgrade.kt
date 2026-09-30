@@ -19,7 +19,7 @@ import java.util.concurrent.ConcurrentHashMap
  * The live path has to answer in the time a listener will wait for a track to
  * start, and it buys that by giving up on the slow catalogue — which is
  * regularly the one holding the lossless copy. Measured on this device: the
- * fastest module answered a search in 1.3s and the slowest in 5.4s, and the
+ * fastest source answered a search in 1.3s and the slowest in 5.4s, and the
  * slow one then took a further 8.2s to walk its own fallback chain down to a
  * 128kbps MP3. Waiting for all of that costs 14 seconds of silence; not
  * waiting costs the FLAC. Neither is a good trade, and neither has to be made
@@ -28,7 +28,7 @@ import java.util.concurrent.ConcurrentHashMap
  * So: play whatever can be had now, then look again with no time limit, and
  * swap only if the answer is genuinely the same recording *and* genuinely
  * better than what is playing — which is usually the lossless copy that was
- * asked for, but is also a 320kbps module stream against YouTube's 160kbps
+ * asked for, but is also a 320kbps source stream against YouTube's 160kbps
  * Opus. See [SourceResolver.worthSwapping] for where that line is drawn.
  * The swap is not free — ExoPlayer cannot change sources
  * gaplessly mid-track, so there is a short break in the audio — which is why
@@ -93,8 +93,8 @@ object QualityUpgrade {
     /**
      * A second pass to make after a worthwhile lossy upgrade.  The first pass
      * intentionally takes the first source that beats Opus so playback improves
-     * quickly; with lossless requested, JioSaavn can be that answer while a
-     * slower FLAC source is still searching. Once JioSaavn is playing, ask
+     * quickly; with lossless requested, a 320kbps source can be that answer
+     * while a slower FLAC source is still searching. Once it is playing, ask
      * again with its bitrate as the floor: it is then rejected as unchanged and
      * the slower lossless source gets a chance to win. Dolby Atmos is final too:
      * it is lossy by codec definition, but it is the completed immersive tier,
@@ -177,8 +177,8 @@ object QualityUpgrade {
 
     /**
      * Records that [mediaId] is playing on less than was asked for — whether
-     * that is a lossy stream a module handed over, or YouTube's own because no
-     * module answered in time.
+     * that is a lossy stream a source handed over, or YouTube's own because no
+     * source answered in time.
      *
      * Called from the resolving data source, which is the only place that
      * knows both what was requested and what actually came back. The track
@@ -303,7 +303,7 @@ object QualityUpgrade {
      * anything marking the track worth a second look. The tracks that hit this
      * hardest are the ones restored into the queue at startup: their bytes were
      * written by a previous process, so nothing in *this* one has ever asked a
-     * module about them, and they would play at last session's bitrate for the
+     * source about them, and they would play at last session's bitrate for the
      * rest of the session and every session after it, while a freshly queued
      * copy of the same song upgraded within seconds.
      *
@@ -335,7 +335,7 @@ object QualityUpgrade {
      *   The second look ran, found the same 320kbps copy it had swapped in
      *   twenty minutes earlier, and [SourceResolver.worthSwapping] dropped all
      *   three on `playing?.kbps ?: return false`. There is no lossless copy of
-     *   that track behind any configured module — the one advertising FLAC in
+     *   that track behind any configured source — the one advertising FLAC in
      *   search serves AAC from its stream endpoint — so the listener got the
      *   "Upgrading Quality" badge, then silence on it, then Opus for the rest
      *   of the session. Against the real floor the gain is 320 − ~160, which
@@ -482,7 +482,7 @@ object QualityUpgrade {
                 }
             }
             // It finished with nothing better, so the question gets asked
-            // again from scratch — this time waiting on every module, which is
+            // again from scratch — this time waiting on every source, which is
             // what the live path could not afford to do. The source already
             // serving the track is left out — see [SourceResolver.upgradeFor].
             SourceResolver.upgradeFor(
