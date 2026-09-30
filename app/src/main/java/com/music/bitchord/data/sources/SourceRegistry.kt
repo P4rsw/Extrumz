@@ -34,8 +34,8 @@ data class SourceConfig(
     /** What the user called it. Blank falls back to the server's host, or the kind's own label. */
     val label: String = "",
     val baseUrl: String = "",
-    /** JioSaavn is opt-in because catalogue matches can select the wrong recording. */
-    val enabled: Boolean = kind != SourceKind.JIOSAAVN,
+    /** Sources ship on; the one source this build has (Telegram) is never off by default. */
+    val enabled: Boolean = true,
 ) {
     /** What the sources screen and the player show. Never blank. */
     val displayName: String
@@ -51,15 +51,14 @@ data class SourceConfig(
 }
 
 /**
- * The user's sources, always tried in the fixed order [SourceKind] declares:
- * their own addons first, then JioSaavn, then YouTube Music.
+ * The user's sources: exactly one, Telegram.
  *
- * [SourceKind.YOUTUBE] is seeded on first run and cannot be deleted, only
- * disabled — it needs no configuration, so a "remove" would delete something
- * the user could not then re-create by typing anything in, it would just be a
- * switch that hides itself. Addons are entirely optional: with none
- * configured, YouTube is the only active source on a fresh install. JioSaavn
- * is present but off until the user accepts its catalogue-matching risk.
+ * Phase 2 strips every external catalogue. Only [SourceKind.TELEGRAM] is
+ * seeded, stored configs of retired kinds are dropped at [init], and
+ * [enabledConfigs] refuses anything else — so even a config added before the
+ * editors were removed can never produce a resolve. Non-Telegram kinds stay
+ * in the [SourceKind] enum only so stored JSON and the quality gates still
+ * parse; nothing builds them.
  */
 object SourceRegistry {
 
@@ -86,52 +85,32 @@ object SourceRegistry {
         prefs = EncryptedPrefs.open(context, "bitchord_sources", "bitchord_sources_plain")
 
         val stored = prefs.getString(KEY_SOURCES, null)?.let(::decodeStored) ?: emptyList()
-        val jioOptInMigrationDone = prefs.getBoolean(KEY_JIOSAAVN_OPT_IN_V1, false)
-        val after = sourcesForInit(stored, forceJioSaavnOff = !jioOptInMigrationDone)
+        val after = sourcesForInit(stored)
 
-        // Publish state and the migration marker in one preferences edit. If a
-        // process dies after recording the marker but before recording the
-        // disabled source, the next launch would otherwise believe the forced
-        // opt-out had already happened and silently restore the old on state.
+        // Publish state in one preferences edit; a process dying before it
+        // lands only means the retired configs are filtered again next launch.
         publish(after, persist = false)
-        if (after != stored || !jioOptInMigrationDone) {
+        if (after != stored) {
             prefs.edit()
                 .putString(KEY_SOURCES, json.encodeToString(ListSerializer(SourceConfig.serializer()), after))
-                .putBoolean(KEY_JIOSAAVN_OPT_IN_V1, true)
                 .apply()
         }
     }
 
     /**
-     * Built-in seeding and one-time source migrations, kept pure for tests.
+     * Built-in seeding and source retirement, kept pure for tests.
      *
-     * [forceJioSaavnOff] is true exactly once for every install that first runs
-     * this version, including upgrades whose stored config currently says on.
-     * Once the marker is written, a user who deliberately enables JioSaavn is
-     * left enabled on subsequent launches.
+     * Telegram is the only built-in: configs of any other kind — YouTube,
+     * JioSaavn, addon, module — left over from an older install are dropped
+     * rather than kept around switched off, so nothing downstream has to
+     * remember they used to exist.
      */
-    internal fun sourcesForInit(
-        stored: List<SourceConfig>,
-        forceJioSaavnOff: Boolean,
-    ): List<SourceConfig> {
+    internal fun sourcesForInit(stored: List<SourceConfig>): List<SourceConfig> {
         // Seeded rather than persisted-on-first-write, so a build adding a new
-        // built-in kind picks it up for existing installs too. SourceConfig's
-        // default is the policy: JioSaavn off, YouTube on.
-        val seeded = stored + BUILT_IN_KINDS
+        // built-in kind picks it up for existing installs too.
+        return stored.filter { it.kind == SourceKind.TELEGRAM } + BUILT_IN_KINDS
             .filter { kind -> stored.none { it.kind == kind } }
             .map { SourceConfig(kind = it) }
-
-        // The retired built-in module is removed, while a custom module entered
-        // by the user is preserved.
-        return seeded
-            .filterNot { it.kind == SourceKind.MODULE }
-            .map { config ->
-                when {
-                    config.kind == SourceKind.YOUTUBE && !config.enabled -> config.copy(enabled = true)
-                    config.kind == SourceKind.JIOSAAVN && forceJioSaavnOff -> config.copy(enabled = false)
-                    else -> config
-                }
-            }
     }
 
     /**
@@ -167,7 +146,7 @@ object SourceRegistry {
 
     /** The common eligibility gate used by playback and download source walks. */
     internal fun enabledConfigs(configs: List<SourceConfig>): List<SourceConfig> =
-        configs.filter { it.enabled && it.isComplete }
+        configs.filter { it.enabled && it.isComplete && it.kind == SourceKind.TELEGRAM }
 
     /**
      * [active], minus the sources the ceiling on the connection in hand does
@@ -238,16 +217,11 @@ object SourceRegistry {
     /**
      * Turns one source on or off.
      *
-     * YouTube is not switchable and silently ignores a request to disable it.
-     * It is the only source that can supply a home feed, radio or related
-     * tracks, and nothing else holds the full catalogue — switching it off
-     * doesn't even stop it being played, because a YouTube-queued track whose
-     * substitutes all miss still falls back to it. A switch that cannot honour
-     * its own off position is worse than no switch, so it isn't offered one:
-     * see [SourcesScreen][com.music.bitchord.ui.screens.SourcesScreen].
+     * Telegram is the only source, and disabling it is not offered: the app
+     * without Telegram has no catalogue left to resolve from.
      */
     fun setEnabled(configId: String, enabled: Boolean) {
-        if (!enabled && config(configId)?.kind == SourceKind.YOUTUBE) return
+        if (!enabled && config(configId)?.kind == SourceKind.TELEGRAM) return
         publish(configs.value.map { if (it.id == configId) it.copy(enabled = enabled) else it })
     }
 
@@ -451,8 +425,6 @@ object SourceRegistry {
     private val BUILT_IN_KINDS = listOf(SourceKind.TELEGRAM, SourceKind.JIOSAAVN, SourceKind.YOUTUBE)
 
     private const val KEY_SOURCES = "sources"
-    /** One-shot migration: existing users must explicitly opt in again. */
-    private const val KEY_JIOSAAVN_OPT_IN_V1 = "jiosaavn_opt_in_v1"
     private const val PREFIX = "src:"
     private const val SEPARATOR = "::"
 }

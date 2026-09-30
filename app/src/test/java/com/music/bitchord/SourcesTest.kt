@@ -579,54 +579,45 @@ class SourcesTest {
     }
 
     @Test
-    fun `JioSaavn is off by default on a fresh install`() {
-        assertFalse(SourceConfig(kind = SourceKind.JIOSAAVN).enabled)
-        val sources = SourceRegistry.sourcesForInit(emptyList(), forceJioSaavnOff = true)
+    fun `a fresh install seeds only Telegram`() {
+        val sources = SourceRegistry.sourcesForInit(emptyList())
 
-        assertFalse(sources.single { it.kind == SourceKind.JIOSAAVN }.enabled)
-        assertTrue(sources.single { it.kind == SourceKind.YOUTUBE }.enabled)
+        assertEquals(listOf(SourceKind.TELEGRAM), sources.map { it.kind })
+        assertTrue(sources.single().enabled)
     }
 
     @Test
-    fun `the opt-in migration disables JioSaavn once for existing installs`() {
-        val previouslyEnabled = SourceConfig(kind = SourceKind.JIOSAAVN, enabled = true)
+    fun `stored configs of retired kinds are dropped on init`() {
+        val oldJio = SourceConfig(kind = SourceKind.JIOSAAVN, enabled = true)
+        val oldYoutube = SourceConfig(kind = SourceKind.YOUTUBE)
+        val oldAddon = SourceConfig(kind = SourceKind.ADDON, baseUrl = "https://old.example")
+        val telegram = SourceConfig(kind = SourceKind.TELEGRAM, label = "mine")
 
         val migrated = SourceRegistry.sourcesForInit(
-            listOf(previouslyEnabled),
-            forceJioSaavnOff = true,
+            listOf(oldJio, oldYoutube, oldAddon, telegram),
         )
-        assertFalse(migrated.single { it.kind == SourceKind.JIOSAAVN }.enabled)
 
-        val userEnabledAgain = migrated.map {
-            if (it.kind == SourceKind.JIOSAAVN) it.copy(enabled = true) else it
-        }
-        val nextLaunch = SourceRegistry.sourcesForInit(
-            userEnabledAgain,
-            forceJioSaavnOff = false,
-        )
-        assertTrue(nextLaunch.single { it.kind == SourceKind.JIOSAAVN }.enabled)
+        assertEquals(listOf(SourceKind.TELEGRAM), migrated.map { it.kind })
+        assertEquals("mine", migrated.single().label)
     }
 
     @Test
-    fun `disabled JioSaavn and addons are excluded from the source list used by downloads`() {
+    fun `only Telegram survives the playback and download source walk`() {
         val disabledJio = SourceConfig(kind = SourceKind.JIOSAAVN, enabled = false)
-        val disabledAddon = SourceConfig(
-            kind = SourceKind.ADDON,
-            baseUrl = "https://disabled.example",
-            enabled = false,
-        )
         val enabledAddon = SourceConfig(
             kind = SourceKind.ADDON,
             baseUrl = "https://enabled.example",
             enabled = true,
         )
         val youtube = SourceConfig(kind = SourceKind.YOUTUBE)
+        val telegram = SourceConfig(kind = SourceKind.TELEGRAM)
+        val telegramOff = SourceConfig(kind = SourceKind.TELEGRAM, enabled = false)
 
         val enabled = SourceRegistry.enabledConfigs(
-            listOf(disabledJio, disabledAddon, enabledAddon, youtube),
+            listOf(disabledJio, enabledAddon, youtube, telegram, telegramOff),
         )
 
-        assertEquals(listOf(enabledAddon.id, youtube.id), enabled.map { it.id })
+        assertEquals(listOf(telegram.id), enabled.map { it.id })
     }
 
     @Test
