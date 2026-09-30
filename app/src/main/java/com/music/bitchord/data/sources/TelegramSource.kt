@@ -108,11 +108,39 @@ class TelegramSource(
             )
         }
 
-        // Tier 3: pull through TDLib (once) and serve the local file.
+        // Tier 3: pull through TDLib (once) and serve the local file. A file
+        // id can go stale under TDLib ("Not Found" on GetFile/DownloadFile) —
+        // seen once as a transient read-ahead race — so a failed download gets
+        // one refresh from the message itself (fresh audio.id) and one retry,
+        // with both ids logged to make the next occurrence diagnosable.
         val path = runCatching { Telegram.client.getStreamPath(track.fileId) }
-            .getOrElse {
-                TrackLog.w(TAG, "Telegram tier-3 download failed: ${it.message}")
-                return null
+            .getOrElse { firstFailure ->
+                val freshId = runCatching {
+                    Telegram.client.getAudioByMessage(chatId, messageId)?.remoteFileId
+                }.getOrNull()
+                if (freshId == null || freshId == track.fileId) {
+                    TrackLog.w(
+                        TAG,
+                        "Telegram tier-3 download failed: ${firstFailure.message} " +
+                            "(fileId ${track.fileId}, no fresher id)",
+                    )
+                    return null
+                }
+                TrackLog.w(
+                    TAG,
+                    "Telegram tier-3 download failed: ${firstFailure.message}; " +
+                        "refreshing fileId ${track.fileId} -> $freshId and retrying",
+                )
+                // Keep the fresh id so the next play doesn't repeat the dance.
+                runCatching { TelegramDb.trackDao.update(track.copy(fileId = freshId)) }
+                runCatching { Telegram.client.getStreamPath(freshId) }
+                    .getOrElse { retryFailure ->
+                        TrackLog.w(
+                            TAG,
+                            "Telegram tier-3 retry failed: ${retryFailure.message} (fileId $freshId)",
+                        )
+                        return null
+                    }
             }
         val file = File(path)
         if (!file.isFile || file.length() == 0L) return null

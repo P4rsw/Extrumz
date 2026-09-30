@@ -112,6 +112,13 @@ interface MusicTelegramClient {
     /** Chat metadata (title/username/type), or null when unavailable. */
     suspend fun getChatInfo(chatId: Long): ChatInfo?
 
+    /**
+     * Re-reads one message's audio — the way to refresh a [RemoteAudio] whose
+     * file id TDLib has since invalidated ("Not Found" on download). Null when
+     * the message is gone or is not an audio message.
+     */
+    suspend fun getAudioByMessage(chatId: Long, messageId: Long): RemoteAudio?
+
     /** Candidate chats worth scanning (channels/supergroups), capped at [TelegramConfig.MAX_TOP_CHATS]. */
     suspend fun listTrackedCandidateChats(): List<ChatInfo>
 

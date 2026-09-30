@@ -255,6 +255,14 @@ class AndroidMusicTelegramClient(
         return result
     }
 
+    override suspend fun getAudioByMessage(chatId: Long, messageId: Long): RemoteAudio? {
+        awaitReady()
+        return runCatching {
+            val message = send(TdApi.GetMessage(chatId, messageId))
+            (message.content as? TdApi.MessageAudio)?.toRemoteAudio(message)
+        }.getOrNull()
+    }
+
     override suspend fun getStreamPath(fileId: String, offset: Long): String {
         val id = fileId.toIntOrNull() ?: error("Invalid file id")
         awaitReady()
