@@ -12,6 +12,7 @@ import coil3.memory.MemoryCache
 import coil3.request.crossfade
 import com.music.bitchord.auth.AuthStore
 import com.music.bitchord.data.canvas.CanvasCache
+import com.music.bitchord.data.db.TelegramDb
 import com.music.bitchord.data.smb.SmbCoverFetcher
 import com.music.bitchord.data.webdav.WebDavCoilAuth
 import com.music.bitchord.data.canvas.SpotifyToken
@@ -49,6 +50,9 @@ class BitChordApplication : Application(), SingletonImageLoader.Factory {
         // threads racing to create it. Joined before onCreate returns, so
         // nothing that runs after startup can see any of them half open.
         val backgroundInit = thread(name = "startup-init") {
+            // Cheap: only stores the context — the Room database itself opens
+            // lazily on the first DAO call, off the startup critical path.
+            TelegramDb.init(this)
             SourceRegistry.init(this)
             InnerTubeXResolver.init(this)
             // Its own directory: canvas clips are looping video, not audio, and
