@@ -21,7 +21,6 @@ import com.music.bitchord.data.canvas.SpotifyToken
 import com.music.bitchord.playback.AudioCache
 import com.music.bitchord.playback.LastPlayed
 import com.music.bitchord.playback.OriginalVersion
-import com.music.bitchord.data.listentogether.ListenTogether
 import com.music.bitchord.data.scrobbling.LastFM
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.data.settings.SearchHistory
@@ -72,14 +71,8 @@ class BitChordApplication : Application(), SingletonImageLoader.Factory {
         }
         authStore.cookie = restoredSession?.cookie
         AppSettings.init(this, authStore)
-        // Restores a party this device is still a member of, so a process death
-        // mid-session is something the rest of the party never sees. The socket
-        // and the clock offset are not restored — both are re-established on
-        // the next connect, which is the only way to be sure they are current.
-        ListenTogether.init(this)
         SearchHistory.init(this)
         LastPlayed.init(this)
-        com.music.bitchord.playback.PartyPersonalQueueStash.init(this)
         // Which tracks the listener has reverted to YouTube's own upload. Read
         // by [Song.toMediaItem], so it has to be open before the restart
         // snapshot below is turned back into queue items.

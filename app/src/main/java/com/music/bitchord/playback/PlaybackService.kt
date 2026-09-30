@@ -76,7 +76,6 @@ import com.music.bitchord.playback.audio.SourceDescriptor
 import com.music.bitchord.playback.audio.bluetooth.BluetoothAudioTracker
 import com.music.bitchord.playback.audio.bluetooth.BluetoothTelemetry
 import com.music.bitchord.MainActivity
-import com.music.bitchord.data.listentogether.ListenTogether
 import com.music.bitchord.R
 import com.music.bitchord.data.LocalMediaRepository
 import com.music.bitchord.data.innertube.InnertubeParser
@@ -135,7 +134,6 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.drop
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -216,16 +214,6 @@ const val ACTION_REORDER_QUEUE = "com.music.bitchord.action.REORDER_QUEUE"
 /** Where the rearrangement starts, and where each slot's new occupant stands now. */
 const val EXTRA_REORDER_FROM = "bitchord.reorder.from"
 const val EXTRA_REORDER_ORDER = "bitchord.reorder.order"
-
-/**
- * Session command marking the span of a queue drag in the UI — see
- * [PartySync.beginQueueDrag]. Dragging a queue row sends a [Player.moveMediaItem]
- * per neighbour it crosses, same as before; what this brackets is only the
- * party publish those moves would otherwise trigger one at a time, so a jam
- * hears about the reorder once, when the row is dropped, not mid-drag.
- */
-const val ACTION_QUEUE_DRAG = "com.music.bitchord.action.QUEUE_DRAG"
-const val EXTRA_QUEUE_DRAG_ACTIVE = "bitchord.queueDrag.active"
 
 /** A full first page for an explicitly requested station. */
 private const val INITIAL_STATION_TRACKS = 24
@@ -662,14 +650,6 @@ class PlaybackService : MediaLibraryService() {
 
     private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
 
-    /**
-     * Binds playback to a Listen Together party, when there is one.
-     *
-     * Here rather than in the UI because a party has to outlive the app
-     * being backgrounded and the screen going off — see [PartySync].
-     */
-    private var partySync: PartySync? = null
-
     /** Commands exposed as the secondary buttons on the media notification. */
     private val favoriteCommand = SessionCommand(ACTION_TOGGLE_FAVORITE, Bundle.EMPTY)
     private val autoplayCommand = SessionCommand(ACTION_TOGGLE_AUTOPLAY, Bundle.EMPTY)
@@ -682,7 +662,6 @@ class PlaybackService : MediaLibraryService() {
     private val upgradeQualityCommand = SessionCommand(ACTION_UPGRADE_QUALITY, Bundle.EMPTY)
     private val swapVersionCommand = SessionCommand(ACTION_SWAP_VERSION, Bundle.EMPTY)
     private val reorderQueueCommand = SessionCommand(ACTION_REORDER_QUEUE, Bundle.EMPTY)
-    private val queueDragCommand = SessionCommand(ACTION_QUEUE_DRAG, Bundle.EMPTY)
 
     private var favoriteActionJob: Job? = null
     private var stationActionJob: Job? = null
@@ -843,10 +822,6 @@ class PlaybackService : MediaLibraryService() {
          */
         override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
             publishWidgetState(playing = playWhenReady)
-            // The only place the *reason* can be read. A party has to tell a
-            // pause the listener asked for from one another app imposed, and
-            // [Player] does not keep the answer around to be asked later.
-            partySync?.onPlayWhenReadyChanged(playWhenReady, reason)
         }
 
         /**
@@ -904,14 +879,6 @@ class PlaybackService : MediaLibraryService() {
             // keeping the timeline clean and ensuring REPEAT_MODE_ALL loops only CONTEXT items.
             QueueCoordinator.consumePlayedUserQueue(exoPlayer)
 
-            // The queue moving on by itself. Nobody pressed anything, but it
-            // is still this device deciding what the party plays next, and no
-            // other path reports it: an automatic advance never passes through
-            // the session wrapper. A skip does pass through it, and is reported
-            // there; publishing is debounced, so being told twice costs nothing.
-            if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO) {
-                partySync?.onLocalIntent()
-            }
             autoplayLoadJob?.cancel()
             autoplayLoadJob = null
             autoplaySeed = null
@@ -1561,19 +1528,7 @@ class PlaybackService : MediaLibraryService() {
         observeScrobbling()
         observeDiscord()
         watchSleepTimer()
-        val restored = if (PartyPersonalQueueStash.hasStash()) {
-            val stashed = PartyPersonalQueueStash.load()
-            PartyPersonalQueueStash.clear()
-            if (stashed != null && stashed.songs.isNotEmpty()) {
-                persistedQueueStart = 0
-                exoPlayer.setMediaItems(stashed.songs.map { it.toMediaItem() }, stashed.index, stashed.positionMs)
-                true
-            } else {
-                restoreLastQueue(exoPlayer)
-            }
-        } else {
-            restoreLastQueue(exoPlayer)
-        }
+        val restored = restoreLastQueue(exoPlayer)
         if (restored) {
             publishWidgetState()
         } else {
@@ -1584,26 +1539,6 @@ class PlaybackService : MediaLibraryService() {
         // playback starts and when the queue moves on while already playing.
         lastRepeatMode = exoPlayer.repeatMode
         exoPlayer.addListener(playbackListener)
-        // After the player exists and before the session is built: the
-        // session's wrapper reports the user's actions to it.
-        partySync = PartySync(scope) { player }.also { it.start() }
-        // AutoPlay has one shared supplier in a party. The host supplies it
-        // while connected; if they disappear, the lowest stable connected member
-        // ID takes over. That election is deterministic on every phone, so two
-        // listeners never append different recommendations at once.
-        scope.launch {
-            ListenTogether.state
-                .map { state -> Triple(state.code, state.playback.autoplayEnabled, autoplaySupplierId(state)) }
-                .distinctUntilChanged()
-                .collectLatest { (code, enabled, supplierId) ->
-                    if (code != null && enabled && supplierId == ListenTogether.state.value.you?.memberId) {
-                        autoplayLoadJob?.cancel()
-                        autoplayLoadJob = null
-                        autoplaySeed = null
-                        loadAutoplayForCurrentTrack()
-                    }
-                }
-        }
         loadAutoplayForCurrentTrack()
 
         // Only the analytics listener reports the format the audio renderer was
@@ -1623,9 +1558,6 @@ class PlaybackService : MediaLibraryService() {
             SessionPlayer(
                 exoPlayer,
                 controller,
-                onUserIntent = { partySync?.onLocalIntent() },
-            deferPlayToParty = { partySync?.shouldDeferPlay() == true },
-            lockedTransport = { playing -> partySync?.onLockedTransport(playing) == true },
             ) { lastPublishedSubtitle },
             MediaLibraryCallback(),
         )
@@ -1808,15 +1740,6 @@ class PlaybackService : MediaLibraryService() {
         val currentIndex = activePlayer.currentMediaItemIndex
         if (currentIndex !in 0 until activePlayer.mediaItemCount) return
         val currentItem = activePlayer.currentMediaItem ?: return
-        // Listen Together plays the one track every member has, and a version
-        // swap is a purely local choice about which cut of it to hear — see
-        // [ListenTogether]'s own note on why Automix stays off in a party for
-        // the same reason. The toggle is hidden client-side for this, but the
-        // command can still arrive from a controller that predates the hide.
-        if (ListenTogether.state.value.inParty) {
-            TrackLog.d("BitChord", "version swap ignored: in a Listen Together party", about = currentItem.mediaId)
-            return
-        }
         // Never while Automix is mid-blend: both fades share the same
         // active/standby pair, and starting a version swap here would tear
         // the standby player away from a transition already using it. The
@@ -2178,9 +2101,6 @@ class PlaybackService : MediaLibraryService() {
         mediaSession?.player = SessionPlayer(
             incoming,
             requireNotNull(crossfade),
-            onUserIntent = { partySync?.onLocalIntent() },
-            deferPlayToParty = { partySync?.shouldDeferPlay() == true },
-            lockedTransport = { playing -> partySync?.onLockedTransport(playing) == true },
         ) { lastPublishedSubtitle }
 
         incoming.volume = 1f
@@ -2261,17 +2181,8 @@ class PlaybackService : MediaLibraryService() {
     }
 
     private fun toggleAutoplayFromNotification() {
-        val party = ListenTogether.state.value
-        val enabled = if (party.inParty) !party.playback.autoplayEnabled else !AppSettings.autoplay.value
+        val enabled = !AppSettings.autoplay.value
         AppSettings.setAutoplay(enabled)
-        if (party.inParty) {
-            // The party owns this setting while connected. The state frame
-            // wakes whichever connected member currently won the supplier
-            // election, including after the host has become unreachable.
-            ListenTogether.setAutoplay(enabled)
-            refreshCustomLayouts()
-            return
-        }
         if (enabled) {
             autoplayLoadJob?.cancel()
             autoplayLoadJob = null
@@ -2300,13 +2211,7 @@ class PlaybackService : MediaLibraryService() {
      */
     private fun loadAutoplayForCurrentTrack() {
         val exoPlayer = player ?: return
-        val party = ListenTogether.state.value
-        if (!autoplayEnabled(party) ||
-            exoPlayer.repeatMode == Player.REPEAT_MODE_ALL ||
-            (party.inParty && autoplaySupplierId(party) != party.you?.memberId)
-        ) {
-            return
-        }
+        if (!autoplayEnabled() || exoPlayer.repeatMode == Player.REPEAT_MODE_ALL) return
         val current = exoPlayer.currentMediaItem?.toSong() ?: return
         if (AppSettings.dontRepeatSuggestions.value) sessionSongHistory += current
         val queuedAutoplay = (exoPlayer.currentMediaItemIndex + 1 until exoPlayer.mediaItemCount)
@@ -2320,11 +2225,9 @@ class PlaybackService : MediaLibraryService() {
             var emptyRefreshesRemaining = MAX_AUTOPLAY_EMPTY_REFRESHES
             while (isActive) {
                 val activePlayer = player ?: return@launch
-                val activeParty = ListenTogether.state.value
-                if (!autoplayEnabled(activeParty) ||
+                if (!autoplayEnabled() ||
                     activePlayer.repeatMode == Player.REPEAT_MODE_ALL ||
-                    activePlayer.currentMediaItem?.mediaId != current.videoId ||
-                    (activeParty.inParty && autoplaySupplierId(activeParty) != activeParty.you?.memberId)
+                    activePlayer.currentMediaItem?.mediaId != current.videoId
                 ) {
                     return@launch
                 }
@@ -2345,52 +2248,14 @@ class PlaybackService : MediaLibraryService() {
                     emptyList()
                 }
                 val latestPlayer = player ?: return@launch
-                val latestParty = ListenTogether.state.value
-                if (!autoplayEnabled(latestParty) ||
+                if (!autoplayEnabled() ||
                     latestPlayer.repeatMode == Player.REPEAT_MODE_ALL ||
-                    latestPlayer.currentMediaItem?.mediaId != current.videoId ||
-                    (latestParty.inParty && autoplaySupplierId(latestParty) != latestParty.you?.memberId)
+                    latestPlayer.currentMediaItem?.mediaId != current.videoId
                 ) {
                     return@launch
                 }
                 if (resolved.isNotEmpty()) {
-                    if (latestParty.inParty) {
-                        // Do not mutate ExoPlayer directly here. The server's
-                        // state broadcast reconciles every device atomically,
-                        // including this one, and keeps the AutoPlay section
-                        // identical for all listeners.
-                        ListenTogether.queueAdd(resolved.map { it.toPartyTrack(0L) })
-                        // A party control is a request, not a write, and the
-                        // server does refuse these: a queue already at its
-                        // upcoming limit, or a party locked to a host this
-                        // device is not. The refusal comes back on a frame
-                        // nothing here is waiting for, so a refused top-up was
-                        // indistinguishable from a successful one — and
-                        // [autoplaySeed] stayed latched to this track either
-                        // way, which is what left AutoPlay visibly on and
-                        // silently doing nothing until the queue moved on by
-                        // itself. The party's own copy of the queue is the
-                        // only confirmation available.
-                        val added = resolved.first().videoId
-                        val landed = withTimeoutOrNull(PARTY_QUEUE_ECHO_TIMEOUT_MS) {
-                            ListenTogether.state.first { state ->
-                                state.queue.items.any { it.videoId == added }
-                            }
-                        } != null
-                        if (!landed) {
-                            TrackLog.w(
-                                "BitChord",
-                                "party did not take AutoPlay's tracks; releasing the seed to retry",
-                                about = current.videoId,
-                            )
-                            // Nothing was queued, so these are still unheard and
-                            // must not be written off as already suggested.
-                            autoplaySeed = null
-                            return@launch
-                        }
-                    } else {
-                        latestPlayer.addMediaItems(resolved.map { it.toMediaItem() })
-                    }
+                    latestPlayer.addMediaItems(resolved.map { it.toMediaItem() })
                     if (AppSettings.dontRepeatSuggestions.value) sessionSongHistory += resolved
                     return@launch
                 }
@@ -2414,7 +2279,7 @@ class PlaybackService : MediaLibraryService() {
     private fun refreshAutoplayIfQueueEmpty() {
         val exoPlayer = player ?: return
         if (!autoplayQueueNeedsRefresh(
-                enabled = autoplayEnabled(ListenTogether.state.value),
+                enabled = autoplayEnabled(),
                 repeatAll = exoPlayer.repeatMode == Player.REPEAT_MODE_ALL,
                 currentIndex = exoPlayer.currentMediaItemIndex,
                 itemCount = exoPlayer.mediaItemCount,
@@ -2429,8 +2294,7 @@ class PlaybackService : MediaLibraryService() {
     }
 
     /** @see autoplayEnabledFor — shared with the player, which draws the toggle. */
-    private fun autoplayEnabled(party: ListenTogether.State): Boolean =
-        autoplayEnabledFor(party, AppSettings.autoplay.value)
+    private fun autoplayEnabled(): Boolean = autoplayEnabledFor(AppSettings.autoplay.value)
 
     /**
      * Takes back what AutoPlay queued and hasn't played yet — what switching
@@ -2486,7 +2350,7 @@ class PlaybackService : MediaLibraryService() {
         autoplayLoadJob?.cancel()
         autoplayLoadJob = null
         autoplaySeed = null
-        if (stashed.isEmpty() || !autoplayEnabled(ListenTogether.state.value)) return
+        if (stashed.isEmpty() || !autoplayEnabled()) return
         if (exoPlayer.currentMediaItem?.mediaId != seed) return
         // A track the listener queued by hand during the loop is not queued
         // twice for having been in the mix before it.
@@ -2572,9 +2436,6 @@ class PlaybackService : MediaLibraryService() {
         mediaSession?.player = SessionPlayer(
             incoming,
             requireNotNull(crossfade),
-            onUserIntent = { partySync?.onLocalIntent() },
-            deferPlayToParty = { partySync?.shouldDeferPlay() == true },
-            lockedTransport = { playing -> partySync?.onLockedTransport(playing) == true },
         ) { lastPublishedSubtitle }
 
         // The queue moving on used to arrive here as an item transition on the
@@ -3992,17 +3853,8 @@ class PlaybackService : MediaLibraryService() {
             // it — the upgrade is already audible and this only decides whether
             // the *next* transition can be a real mix.
             //
-            // Which in a party it cannot be: the transition there is the plain
-            // one everybody moves through together, and nothing is analysed for
-            // it — see [CrossfadeController] and
-            // [com.music.bitchord.playback.smart.TrackAnalyzer]. This is the one
-            // fetch Automix makes that neither of those two gates, and a
-            // megabyte pulled for an analysis that will not run is a megabyte
-            // taken off the connection the party is syncing over.
-            if (!ListenTogether.state.value.inParty) {
-                launch(Dispatchers.IO) {
-                    AudioCache.warmRange(Uri.parse(upgradedUri), 0, ANALYSIS_HEAD_BYTES)
-                }
+            launch(Dispatchers.IO) {
+                AudioCache.warmRange(Uri.parse(upgradedUri), 0, ANALYSIS_HEAD_BYTES)
             }
         }
     }
@@ -4830,7 +4682,6 @@ class PlaybackService : MediaLibraryService() {
 
     /** Serialize only the bounded window needed for a future cold-start resume. */
     private fun saveQueueSnapshot(player: ExoPlayer) {
-        if (ListenTogether.state.value.inParty) return
         if (player.mediaItemCount == 0) {
             persistedQueueStart = 0
             LastPlayed.clear()
@@ -4848,7 +4699,6 @@ class PlaybackService : MediaLibraryService() {
 
     /** Make the newly installed radio queue the durable cold-start boundary. */
     private fun saveQueueSnapshotImmediately(player: ExoPlayer) {
-        if (ListenTogether.state.value.inParty) return
         if (player.mediaItemCount == 0) {
             persistedQueueStart = 0
             LastPlayed.clearImmediately()
@@ -5519,9 +5369,6 @@ class PlaybackService : MediaLibraryService() {
         mediaSession?.player = SessionPlayer(
             newActive,
             newCrossfade,
-            onUserIntent = { partySync?.onLocalIntent() },
-            deferPlayToParty = { partySync?.shouldDeferPlay() == true },
-            lockedTransport = { playing -> partySync?.onLockedTransport(playing) == true },
         ) { lastPublishedSubtitle }
         applyOutputRoute()
         if (items.isNotEmpty()) newActive.prepare()
@@ -6105,8 +5952,6 @@ class PlaybackService : MediaLibraryService() {
         closeAudioEffectSession()
         bluetoothTracker.stop()
         audioManager?.unregisterAudioDeviceCallback(outputDeviceCallback)
-        partySync?.stop()
-        partySync = null
         player?.let(::savePlaybackState)
         // And to leave the widgets showing a play button. Nothing else reports a
         // swipe-away, so a widget left on the home screen would sit there with a
@@ -6314,187 +6159,8 @@ class PlaybackService : MediaLibraryService() {
     private class SessionPlayer(
         player: Player,
         private val crossfade: CrossfadeController,
-        /**
-         * Reports that what just came through here was the *user's* doing.
-         *
-         * This wrapper is the door every external surface knocks on — the
-         * app, the notification, a headset button, Android Auto — while the
-         * service's own programmatic moves go straight to the ExoPlayer
-         * underneath it. That asymmetry is the whole reason a party can tell
-         * a listener's action from its own corrections. See [PartySync].
-         */
-        private val onUserIntent: () -> Unit,
-        /** @see PartySync.shouldDeferPlay */
-        private val deferPlayToParty: () -> Boolean,
-        /** @see PartySync.onLockedTransport */
-        private val lockedTransport: (Boolean) -> Boolean,
         private val getSubtitle: () -> String?,
     ) : ForwardingPlayer(player) {
-
-        /**
-         * Whether this device is a listener in a party its host has taken
-         * control of — see [ListenTogether.State.controlsLocked].
-         *
-         * Checked here, at the door, rather than only in the app: the
-         * notification, a headset button and Android Auto all arrive through
-         * this wrapper too, and a listener who can skip the party's track from
-         * their lock screen is not restricted at all.
-         *
-         * What this is not is the enforcement. The server refuses these actions
-         * from a listener independently; this is what stops a surface from
-         * appearing to work and then being silently overruled.
-         */
-        private fun locked(): Boolean = ListenTogether.state.value.controlsLocked
-
-        override fun play() {
-            // Locked, this plays only here — the party carries on untouched and
-            // this device rejoins it wherever it has got to. See
-            // [PartySync.onLockedTransport], which owns that catch-up.
-            if (lockedTransport(true)) return
-            onUserIntent()
-            // Held back only when a party will schedule the start for everyone
-            // at once — see [PartySync.shouldDeferPlay], which starts the player
-            // itself on the party's instant, and starts it anyway if the party
-            // never answers. Outside a party this is an ordinary play().
-            if (deferPlayToParty()) return
-            super.play()
-        }
-
-        override fun pause() {
-            if (lockedTransport(false)) return
-            onUserIntent()
-            super.pause()
-        }
-
-        // Not blocked when locked: stopping is this device going quiet, which
-        // is the listener's own business, and the lifecycle paths that call it
-        // are not asking to move the party.
-        override fun stop() {
-            if (locked()) { super.stop(); return }
-            onUserIntent()
-            super.stop()
-        }
-
-        override fun setPlayWhenReady(playWhenReady: Boolean) {
-            if (lockedTransport(playWhenReady)) return
-            onUserIntent()
-            if (playWhenReady && deferPlayToParty()) return
-            super.setPlayWhenReady(playWhenReady)
-        }
-
-        // The playhead belongs to the party while locked: it goes where the
-        // host puts it, and a local seek would only be dragged back by the next
-        // reconcile anyway.
-        override fun seekTo(positionMs: Long) {
-            if (locked()) return
-            onUserIntent()
-            super.seekTo(positionMs)
-        }
-
-        override fun seekBack() {
-            if (locked()) return
-            onUserIntent()
-            super.seekBack()
-        }
-
-        override fun seekForward() {
-            if (locked()) return
-            onUserIntent()
-            super.seekForward()
-        }
-
-        override fun seekToPrevious() {
-            if (locked()) return
-            onUserIntent()
-            super.seekToPrevious()
-        }
-
-        override fun seekToDefaultPosition() {
-            if (locked()) return
-            onUserIntent()
-            super.seekToDefaultPosition()
-        }
-
-        override fun seekToDefaultPosition(mediaItemIndex: Int) {
-            if (locked()) return
-            onUserIntent()
-            super.seekToDefaultPosition(mediaItemIndex)
-        }
-
-        override fun setMediaItems(mediaItems: List<MediaItem>, resetPosition: Boolean) {
-            if (locked()) return
-            onUserIntent()
-            super.setMediaItems(mediaItems, resetPosition)
-        }
-
-        override fun setMediaItems(
-            mediaItems: List<MediaItem>,
-            startIndex: Int,
-            startPositionMs: Long,
-        ) {
-            if (locked()) return
-            onUserIntent()
-            super.setMediaItems(mediaItems, startIndex, startPositionMs)
-        }
-
-        // Every other way the running order can change from outside: Play next,
-        // Add to queue, removing a row, dragging one. None of these move the
-        // playhead, so before they were reported the party's copy of the queue
-        // silently went stale and only caught up at the next track change.
-        //
-        // All refused while locked: the queue is what plays next, so a listener
-        // who can reorder it is still choosing the music.
-        override fun addMediaItems(index: Int, mediaItems: List<MediaItem>) {
-            if (locked()) return
-            onUserIntent()
-            super.addMediaItems(index, mediaItems)
-        }
-
-        override fun addMediaItems(mediaItems: List<MediaItem>) {
-            if (locked()) return
-            onUserIntent()
-            super.addMediaItems(mediaItems)
-        }
-
-        override fun removeMediaItem(index: Int) {
-            if (locked()) return
-            onUserIntent()
-            super.removeMediaItem(index)
-        }
-
-        override fun removeMediaItems(fromIndex: Int, toIndex: Int) {
-            if (locked()) return
-            onUserIntent()
-            super.removeMediaItems(fromIndex, toIndex)
-        }
-
-        override fun moveMediaItem(currentIndex: Int, newIndex: Int) {
-            if (locked()) return
-            onUserIntent()
-            super.moveMediaItem(currentIndex, newIndex)
-        }
-
-        override fun moveMediaItems(fromIndex: Int, toIndex: Int, newIndex: Int) {
-            if (locked()) return
-            onUserIntent()
-            super.moveMediaItems(fromIndex, toIndex, newIndex)
-        }
-
-        override fun replaceMediaItems(
-            fromIndex: Int,
-            toIndex: Int,
-            mediaItems: List<MediaItem>,
-        ) {
-            if (locked()) return
-            onUserIntent()
-            super.replaceMediaItems(fromIndex, toIndex, mediaItems)
-        }
-
-        override fun clearMediaItems() {
-            if (locked()) return
-            onUserIntent()
-            super.clearMediaItems()
-        }
 
         override fun getMediaMetadata(): MediaMetadata {
             val base = wrappedPlayer.mediaMetadata
@@ -6507,8 +6173,6 @@ class PlaybackService : MediaLibraryService() {
         }
 
         override fun seekTo(mediaItemIndex: Int, positionMs: Long) {
-            if (locked()) return
-            onUserIntent()
             crossfade.onSkipRequested()
             if (mediaItemIndex !in 0 until wrappedPlayer.mediaItemCount) return
             val skipped = skippedByQueueJump(currentMediaItemIndex, mediaItemIndex)
@@ -6553,22 +6217,16 @@ class PlaybackService : MediaLibraryService() {
         }
 
         override fun seekToPreviousMediaItem() {
-            if (locked()) return
-            onUserIntent()
             crossfade.onSkipRequested()
             wrappedPlayer.seekToPrevious()
         }
 
         override fun seekToNextMediaItem() {
-            if (locked()) return
-            onUserIntent()
             crossfade.onSkipRequested()
             wrappedPlayer.seekToNextMediaItem()
         }
 
         override fun seekToNext() {
-            if (locked()) return
-            onUserIntent()
             crossfade.onSkipRequested()
             wrappedPlayer.seekToNext()
         }
@@ -6596,7 +6254,6 @@ class PlaybackService : MediaLibraryService() {
                 .add(upgradeQualityCommand)
                 .add(swapVersionCommand)
                 .add(reorderQueueCommand)
-                .add(queueDragCommand)
                 .build()
             return MediaSession.ConnectionResult.AcceptedResultBuilder(session)
                 .setAvailablePlayerCommands(MediaSession.ConnectionResult.DEFAULT_PLAYER_COMMANDS)
@@ -6638,13 +6295,6 @@ class PlaybackService : MediaLibraryService() {
                     }
                 }
                 ACTION_REORDER_QUEUE -> player?.let { QueueShuffle.reorderFromCommand(it, args) }
-                ACTION_QUEUE_DRAG -> {
-                    if (args.getBoolean(EXTRA_QUEUE_DRAG_ACTIVE, false)) {
-                        partySync?.beginQueueDrag()
-                    } else {
-                        partySync?.endQueueDrag()
-                    }
-                }
                 ACTION_TOGGLE_FAVORITE -> session.player.currentMediaItem?.mediaId?.let {
                     toggleFavoriteFromNotification(it)
                 }
@@ -7709,15 +7359,5 @@ class PlaybackService : MediaLibraryService() {
         /** One fresh request is the fallback; normal track/queue changes re-arm it. */
         const val MAX_AUTOPLAY_EMPTY_REFRESHES = 1
 
-        /**
-         * How long AutoPlay waits for the party to echo back the tracks it just
-         * sent, before assuming they were refused.
-         *
-         * A queue control is applied and broadcast in the same handler, so the
-         * echo is one round trip — generous here because the cost of being
-         * wrong is only a retry, while being impatient on a slow connection
-         * would throw away a top-up that did land.
-         */
-        const val PARTY_QUEUE_ECHO_TIMEOUT_MS = 5_000L
     }
 }

@@ -34,7 +34,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 /**
- * A party invite as a square somebody else can point a camera at.
+ * A QR code as a square somebody else can point a camera at.
  *
  * Drawn rather than decoded into a bitmap. ZXing hands back a bit matrix and
  * this paints it, which costs nothing extra — the matrix is the expensive part
