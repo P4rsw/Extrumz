@@ -53,6 +53,34 @@ val listenTogetherServer: String = (
     ).trim().trimEnd('/')
 
 /*
+ * Telegram (TDLib) credentials and egress proxy, supplied locally and never
+ * committed — same contract as the Last.fm pair above. A fresh checkout
+ * without these lines still builds: apiId degrades to 0 (TelegramAuth treats
+ * that as "not configured" and refuses to start) and the proxy fields degrade
+ * to system-default networking.
+ */
+val tgApiId: Int = (
+    localProps.getProperty("TG_API_ID")
+        ?: System.getenv("TG_API_ID")
+        ?: ""
+    ).trim().toIntOrNull() ?: 0
+val tgApiHash: String = (
+    localProps.getProperty("TG_API_HASH")
+        ?: System.getenv("TG_API_HASH")
+        ?: ""
+    ).trim()
+val proxyHost: String = (
+    localProps.getProperty("PROXY_HOST")
+        ?: System.getenv("PROXY_HOST")
+        ?: ""
+    ).trim()
+val proxyPort: Int = (
+    localProps.getProperty("PROXY_PORT")
+        ?: System.getenv("PROXY_PORT")
+        ?: ""
+    ).trim().toIntOrNull() ?: 0
+
+/*
  * Bump this by hand before cutting each sideloaded test build ("beta2",
  * "beta3", ...) and blank it out before cutting the real release. Marks the
  * versionName below as a pre-release: AppUpdateChecker.isNewer() treats any
@@ -93,6 +121,12 @@ android {
             "LISTEN_TOGETHER_SERVER",
             "\"${listenTogetherServer.replace("\\", "\\\\").replace("\"", "\\\"")}\"",
         )
+
+        // Telegram API credentials + proxy (see local.properties, never committed).
+        buildConfigField("int", "TG_API_ID", "$tgApiId")
+        buildConfigField("String", "TG_API_HASH", "\"${tgApiHash.replace("\\", "\\\\").replace("\"", "\\\"")}\"")
+        buildConfigField("String", "PROXY_HOST", "\"${proxyHost.replace("\\", "\\\\").replace("\"", "\\\"")}\"")
+        buildConfigField("int", "PROXY_PORT", "$proxyPort")
     }
 
     splits {
@@ -119,7 +153,7 @@ android {
         create("dev") {
             dimension = "env"
             applicationId = "com.dev.bitchord"
-            resValue("string", "app_name", "BitChord Dev")
+            resValue("string", "app_name", "TeleMusic Dev")
         }
         create("prod") {
             dimension = "env"
