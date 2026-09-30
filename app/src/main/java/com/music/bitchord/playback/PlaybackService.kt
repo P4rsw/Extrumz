@@ -3055,12 +3055,12 @@ class PlaybackService : MediaLibraryService() {
         ) {
             return
         }
-        // An addon/JioSaavn stream gets one chance. If it fails after selection,
-        // retrying the ordinary item only lets the same deterministic lookup win
-        // again. Rebuild it as an explicit YouTube request instead. This also
-        // clears a DASH/HLS MIME left on an upgraded item, which otherwise makes
-        // Media3 parse YouTube's WebM bytes as a manifest forever.
-        if (fallbackFailedAlternativeToYouTube(item, uri, position)) return
+        // Phase 2: no YouTube fallback. A failed alternative — addon, module,
+        // quality upgrade — used to be rebuilt as an explicit YouTube request
+        // (this is also where the round-2 `t=tg_` exception lived). Every
+        // external source is gone: a telegram track gets exactly one resolve
+        // (the `authority == "source"` branch above) and a failure here falls
+        // through to the retry/verdict path below and ends as a clean error.
         // A manifest read as audio is not a broken stream, and everything below
         // this line would treat it as one. Ahead of the verdict and the attempt
         // budget for the same reason as the local-file case above: this is not
@@ -3204,64 +3204,6 @@ class PlaybackService : MediaLibraryService() {
                 player.prepare()
             }
         }
-    }
-
-    /**
-     * Replaces a failed addon/JioSaavn/quality-upgrade rendition with YouTube
-     * audio and never offers the failed source again during this playback.
-     */
-    private fun fallbackFailedAlternativeToYouTube(
-        item: MediaItem,
-        uri: Uri?,
-        position: Long,
-    ): Boolean {
-        val playbackUri = uri ?: return false
-        val videoId = playbackUri.getQueryParameter("v")
-        val substituted = videoId?.let(StreamChoice::isSubstitute) == true
-        if (!PlaybackFallback.isAlternative(playbackUri.toString(), substituted)) return false
-        // A Telegram track (`t=tg_…`) resolves to bytes already on the device:
-        // a title search on YouTube is a coin flip that spends this track's
-        // attempt budget on a query YouTube cannot answer ("No YouTube audio
-        // fallback matched <title>"), and the product is Telegram's. Let the
-        // ordinary retry/verdict path decide instead.
-        if (playbackUri.getQueryParameter("t")?.startsWith("tg_") == true) {
-            TrackLog.d(
-                "BitChord",
-                "${item.mediaId}: keeping the Telegram source; no YouTube fallback for tg_ track",
-                about = item.mediaId,
-            )
-            return false
-        }
-        val fallback = item.toYouTubeFallbackMediaItem() ?: return false
-        val mediaId = item.mediaId
-
-        QualityUpgrade.forget(mediaId)
-        QualityUpgrade.refuseUpgrades(mediaId)
-        videoId?.let {
-            StreamChoice.refuseSubstitutes(it)
-            StreamChoice.forget(it)
-        }
-        NerdStats.clearDeclared(mediaId)
-        recoveries.remove(mediaId)
-        TrackLog.w(
-            "BitChord",
-            "$mediaId failed on a higher-quality source; falling back to YouTube audio",
-            about = mediaId,
-        )
-
-        scope.launch(TrackLog.about(mediaId)) {
-            delay(RECOVERY_DELAY_MS)
-            withContext(Dispatchers.IO) { AudioCache.discard(playbackUri) }
-            withContext(Dispatchers.Main) {
-                val live = this@PlaybackService.player ?: return@withContext
-                if (live.currentMediaItem?.mediaId != mediaId) return@withContext
-                swappingMediaId = mediaId
-                live.replaceMediaItem(live.currentMediaItemIndex, fallback)
-                live.seekTo(live.currentMediaItemIndex, position)
-                live.prepare()
-            }
-        }
-        return true
     }
 
     /**
