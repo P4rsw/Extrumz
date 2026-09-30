@@ -21,7 +21,6 @@ import com.music.bitchord.data.canvas.SpotifyToken
 import com.music.bitchord.playback.AudioCache
 import com.music.bitchord.playback.LastPlayed
 import com.music.bitchord.playback.OriginalVersion
-import com.music.bitchord.data.scrobbling.LastFM
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.data.settings.SearchHistory
 import com.music.bitchord.data.sources.SourceRegistry
@@ -106,8 +105,6 @@ class BitChordApplication : Application(), SingletonImageLoader.Factory {
                 loader.diskCache?.clear()
             }
         }
-        // Initialize LastFM with saved settings if available
-        initLastfm()
         backgroundInit.join()
     }
 
@@ -147,21 +144,6 @@ class BitChordApplication : Application(), SingletonImageLoader.Factory {
             // it scrolls; a short fade reads as them developing.
             .crossfade(200)
             .build()
-
-    private fun initLastfm() {
-        val sessionKey = AppSettings.lastfmSessionKey.value
-        if (sessionKey.isBlank()) return
-        val endpoint = AppSettings.lastfmEndpoint.value.ifBlank { LastFM.DEFAULT_API_ENDPOINT }
-        val apiKey = AppSettings.lastfmApiKey.value.trim()
-        val secret = AppSettings.lastfmSecret.value.trim()
-        if (apiKey.isBlank() || secret.isBlank()) return
-        LastFM.configure(
-            endpoint = endpoint,
-            apiKey = apiKey,
-            secret = secret,
-            sessionKey = sessionKey,
-        )
-    }
 
     companion object {
         lateinit var authStore: AuthStore

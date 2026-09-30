@@ -126,7 +126,7 @@ object ListeningStats {
      * minutes are what actually came out of the speaker and are added on every
      * sample; a *play* is a whole listen and is counted once, by whoever is
      * watching the track rather than here — see [ListeningRecorder], which holds
-     * the same threshold the scrobbler uses.
+     * the same threshold.
      */
     fun record(song: Song, playedMs: Long, countsAsPlay: Boolean) {
         if (!ready) return
@@ -172,8 +172,7 @@ object ListeningStats {
             primaryArtist(song.artist)?.let { name ->
                 // Asked here rather than in the recorder, because here is where
                 // the credit has already been reduced to a person: asking about
-                // "Cheema Y & Gur Sidhu" gets a picture of nobody and a genre of
-                // nothing.
+                // "Cheema Y & Gur Sidhu" gets a picture of nobody.
                 ArtistFacts.noticed(name)
                 val artist = bucket.artists.getOrPut(name.lowercase(Locale.ROOT)) {
                     NameEntry(name = name, art = song.thumbnailUrl)
@@ -527,19 +526,6 @@ object ListeningStats {
                 .sortedWith(compareByDescending<NameEntry> { it.ms }.thenByDescending { it.plays })
                 .map { RankedEntry(it.name, it.sub, it.art, it.id, it.ms, it.plays) }
 
-            // Genres are derived rather than stored — see [ArtistFacts]. An
-            // artist with no tag yet simply doesn't vote, which is why this can
-            // be an empty list on a page whose other charts are full.
-            val genreMs = LinkedHashMap<String, Long>()
-            val genrePlays = LinkedHashMap<String, Int>()
-            val genreArt = LinkedHashMap<String, String?>()
-            rankedArtists.forEach { artist ->
-                ArtistFacts.genresFor(artist.title).forEach { genre ->
-                    genreMs[genre] = (genreMs[genre] ?: 0L) + artist.ms
-                    genrePlays[genre] = (genrePlays[genre] ?: 0) + artist.plays
-                    if (genreArt[genre] == null) genreArt[genre] = artist.artworkUrl
-                }
-            }
             // Anything still missing a picture is asked about now, so opening
             // the page is a second way for these to fill in — the first being
             // playing the music, which is no help to someone who has just
@@ -547,19 +533,6 @@ object ListeningStats {
             rankedArtists.take(ARTISTS_TO_RESOLVE)
                 .filter { it.artworkUrl == null || it.browseId == null }
                 .forEach { ArtistFacts.noticed(it.title) }
-
-            val rankedGenres = genreMs.entries
-                .sortedByDescending { it.value }
-                .map {
-                    RankedEntry(
-                        title = it.key,
-                        subtitle = null,
-                        artworkUrl = genreArt[it.key],
-                        browseId = null,
-                        ms = it.value,
-                        plays = genrePlays[it.key] ?: 0,
-                    )
-                }
 
             val busiest = days.entries.maxByOrNull { it.value }
             return ReplaySummary(
@@ -570,7 +543,7 @@ object ListeningStats {
                 songs = rankedSongs,
                 artists = rankedArtists,
                 albums = rankedAlbums,
-                genres = rankedGenres,
+                genres = emptyList(),
                 hourOfDay = hours.toList(),
                 busiestDay = busiest?.key,
                 busiestDayMs = busiest?.value ?: 0L,

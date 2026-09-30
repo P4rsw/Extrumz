@@ -24,20 +24,10 @@ val localProps = Properties().apply {
     val file = rootProject.file("local.properties")
     if (file.exists()) file.inputStream().use { load(it) }
 }
-val lastfmApiKey: String = (
-    localProps.getProperty("LASTFM_API_KEY")
-        ?: System.getenv("LASTFM_API_KEY")
-        ?: ""
-    ).trim()
-val lastfmSecret: String = (
-    localProps.getProperty("LASTFM_SECRET")
-        ?: System.getenv("LASTFM_SECRET")
-        ?: ""
-    ).trim()
 
 /*
  * Telegram (TDLib) credentials and egress proxy, supplied locally and never
- * committed — same contract as the Last.fm pair above. A fresh checkout
+ * committed. A fresh checkout
  * without these lines still builds: apiId degrades to 0 (TelegramAuth treats
  * that as "not configured" and refuses to start) and the proxy fields degrade
  * to system-default networking.
@@ -96,9 +86,6 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
-        // Last.fm credentials are supplied locally and never committed.
-        buildConfigField("String", "LASTFM_API_KEY", "\"${lastfmApiKey.replace("\\", "\\\\").replace("\"", "\\\"")}\"")
-        buildConfigField("String", "LASTFM_SECRET", "\"${lastfmSecret.replace("\\", "\\\\").replace("\"", "\\\"")}\"")
         // Telegram API credentials + proxy (see local.properties, never committed).
         buildConfigField("int", "TG_API_ID", "$tgApiId")
         buildConfigField("String", "TG_API_HASH", "\"${tgApiHash.replace("\\", "\\\\").replace("\"", "\\\"")}\"")

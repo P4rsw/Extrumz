@@ -38,8 +38,8 @@ import kotlin.math.min
  * ## Minutes and plays are different questions
  *
  * Minutes accumulate continuously. A *play* is counted once, when enough of the
- * track has gone by to call it listened to — the same half-or-four-minutes rule
- * the scrobbler uses, so the two never disagree about what a play is.
+ * track has gone by to call it listened to — a half-or-four-minutes rule held
+ * here, so a play means the same thing wherever it is reported.
  */
 object ListeningRecorder {
 

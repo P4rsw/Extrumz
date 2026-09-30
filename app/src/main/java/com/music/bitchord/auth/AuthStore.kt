@@ -10,7 +10,7 @@ import android.content.SharedPreferences
  * passwords. The cookie is not typed in as a password at all — it is picked
  * up from a login inside accounts.google.com's WebView — but all of them
  * grant full access to their account or share, so they don't go in the plain
- * prefs the scrobbler tokens use.
+ * prefs.
  *
  * A restored file whose keyset this device can't unwrap is recreated, and a
  * Keystore that can't be used at all degrades to plain prefs rather than

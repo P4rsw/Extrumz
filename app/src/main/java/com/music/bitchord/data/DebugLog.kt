@@ -7,7 +7,7 @@ import com.music.bitchord.BuildConfig
  * `android.util.Log`, minus the release build.
  *
  * For call sites outside the playback/resolve path that [TrackLog] covers —
- * feeds, artwork, library scans, scrobbling — where there's no Copy Log
+ * feeds, artwork, library scans — where there's no Copy Log
  * reader depending on the output, so there's nothing to preserve in prod.
  * Import as `import com.music.bitchord.data.DebugLog as Log` to drop in
  * without touching call sites.

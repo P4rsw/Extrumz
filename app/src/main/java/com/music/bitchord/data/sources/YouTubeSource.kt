@@ -18,7 +18,7 @@ import com.music.bitchord.data.model.Song
  * Tracks keep their bare video ids rather than being wrapped in a
  * [SourceRegistry.trackKey]. Half the app knows what a YouTube video id is —
  * the like button, the lyrics lookup keyed on it, the radio endpoint, the
- * canvas lookup, the scrobbler — and re-keying them here would break every one
+ * canvas lookup — and re-keying them here would break every one
  * of those for no gain, since an unwrapped id already routes to exactly this
  * source by default.
  */

@@ -52,125 +52,6 @@ import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 import dev.chrisbanes.haze.materials.HazeMaterials
 
 /**
- * Same UIAlertController shape as [UpdateAvailableDialog] — frosted card,
- * hairline rules, full-width stacked actions — but with a text field for the
- * one bit of input this alert needs.
- */
-@OptIn(ExperimentalHazeMaterialsApi::class)
-@Composable
-fun ListenBrainzTokenAlert(
-    hazeState: HazeState,
-    tokenInput: String,
-    onTokenInputChange: (String) -> Unit,
-    onSave: () -> Unit,
-    onDismiss: () -> Unit,
-) {
-    AlertScaffold(hazeState = hazeState, onDismiss = onDismiss) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 19.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            Text(
-                text = stringResource(R.string.listenbrainz_token),
-                style = MaterialTheme.typography.bodyLarge.copy(fontSize = 17.sp, fontWeight = FontWeight.W600),
-                color = MaterialTheme.colorScheme.onSurface,
-                textAlign = TextAlign.Center,
-            )
-            Text(
-                text = stringResource(R.string.listenbrainz_token_description),
-                modifier = Modifier.padding(top = 4.dp, bottom = 14.dp),
-                style = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.sp, lineHeight = 17.sp),
-                color = MaterialTheme.colorScheme.onSurface,
-                textAlign = TextAlign.Center,
-            )
-            PillTextField(
-                value = tokenInput,
-                onValueChange = onTokenInputChange,
-                placeholder = stringResource(R.string.api_token),
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                keyboardActions = KeyboardActions(onDone = { onSave() }),
-            )
-        }
-        AlertRule()
-        AlertAction(label = stringResource(R.string.save), emphasised = true, onClick = onSave)
-        AlertRule()
-        AlertAction(label = stringResource(R.string.cancel), emphasised = false, onClick = onDismiss)
-    }
-}
-
-@OptIn(ExperimentalHazeMaterialsApi::class)
-@Composable
-fun LastfmLoginAlert(
-    hazeState: HazeState,
-    usernameInput: String,
-    onUsernameInputChange: (String) -> Unit,
-    passwordInput: String,
-    onPasswordInputChange: (String) -> Unit,
-    error: String?,
-    loading: Boolean,
-    onSignIn: () -> Unit,
-    onDismiss: () -> Unit,
-) {
-    AlertScaffold(hazeState = hazeState, onDismiss = onDismiss) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 19.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            Text(
-                text = stringResource(R.string.lastfm_login),
-                style = MaterialTheme.typography.bodyLarge.copy(fontSize = 17.sp, fontWeight = FontWeight.W600),
-                color = MaterialTheme.colorScheme.onSurface,
-                textAlign = TextAlign.Center,
-            )
-            Text(
-                text = error ?: stringResource(R.string.lastfm_login_description),
-                modifier = Modifier.padding(top = 4.dp, bottom = 14.dp),
-                style = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.sp, lineHeight = 17.sp),
-                color = if (error != null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
-                textAlign = TextAlign.Center,
-            )
-            PillTextField(
-                value = usernameInput,
-                onValueChange = onUsernameInputChange,
-                placeholder = stringResource(R.string.username),
-                enabled = !loading,
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
-            )
-            Spacer(Modifier.height(8.dp))
-            PillTextField(
-                value = passwordInput,
-                onValueChange = onPasswordInputChange,
-                placeholder = stringResource(R.string.password),
-                enabled = !loading,
-                isPassword = true,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
-                keyboardActions = KeyboardActions(
-                    onDone = { if (usernameInput.isNotBlank() && passwordInput.isNotBlank()) onSignIn() },
-                ),
-            )
-        }
-        AlertRule()
-        AlertAction(
-            label = if (loading) stringResource(R.string.signing_in) else stringResource(R.string.sign_in),
-            emphasised = true,
-            onClick = onSignIn,
-            enabled = !loading && usernameInput.isNotBlank() && passwordInput.isNotBlank(),
-        )
-        AlertRule()
-        AlertAction(
-            label = stringResource(R.string.cancel),
-            emphasised = false,
-            onClick = onDismiss,
-            enabled = !loading,
-        )
-    }
-}
-
-/**
  * One free-text field — an activity name, a button label.
  *
  * [message] is where the caller explains the field, including which `{...}`
@@ -457,8 +338,7 @@ fun ServerEditorHost(
  * [status] is the one thing here that no other alert in the file needs:
  * testing an address has *three* outcomes rather than the usual two, and "it
  * answered, but not with something this app can use" is the one worth reading
- * — so a result replaces the description in place, coloured by [statusIsGood],
- * the way [LastfmLoginAlert] surfaces a failed sign-in.
+ * — so a result replaces the description in place, coloured by [statusIsGood].
  */
 @OptIn(ExperimentalHazeMaterialsApi::class)
 @Composable

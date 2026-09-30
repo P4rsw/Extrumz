@@ -1353,7 +1353,7 @@ object InnertubeParser {
      * line because the card shows it as billed, but starting a radio off the
      * card and carrying that line into [Song.artist] would print the label
      * everywhere the field is read afterwards: the player, the mini player,
-     * a shared link, a scrobble. Same split as [parseResponsiveListItem]'s
+     * a shared link. Same split as [parseResponsiveListItem]'s
      * subtitle, so a "Song" or "Single" heading drops out the same way.
      */
     fun artistFromSubtitle(subtitle: String): String {
