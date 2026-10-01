@@ -89,8 +89,6 @@ data class PlayerState(
      */
     val hasPrevious: Boolean = false,
     val hasNext: Boolean = false,
-    /** True while the current item is the replacement installed by a quality upgrade. */
-    val isQualityUpgraded: Boolean = false,
 )
 
 /** Binds to [PlaybackService] for the lifetime of the composition. */
@@ -153,16 +151,6 @@ suspend fun MediaController.beginRadioQueue() {
 fun MediaController.upgradeQuality() {
     sendCustomCommand(
         SessionCommand(ACTION_UPGRADE_QUALITY, Bundle.EMPTY),
-        Bundle.EMPTY,
-    )
-}
-
-/**
- * Asks the service to revert the playing track to YouTube's original stream.
- */
-fun MediaController.revertToOriginal() {
-    sendCustomCommand(
-        SessionCommand(ACTION_REVERT_TO_ORIGINAL, Bundle.EMPTY),
         Bundle.EMPTY,
     )
 }
@@ -290,8 +278,6 @@ fun rememberPlayerState(controller: MediaController?): PlayerState {
                 queueIndex = player.currentMediaItemIndex,
                 hasPrevious = player.hasPreviousMediaItem(),
                 hasNext = player.hasNextMediaItem(),
-                isQualityUpgraded = item?.mediaMetadata?.extras
-                    ?.getBoolean(EXTRA_QUALITY_UPGRADED) == true,
             )
         }
 
@@ -448,9 +434,6 @@ private const val EXTRA_EXPLICIT = "bitchord.explicit"
 private const val EXTRA_IS_VIDEO = "bitchord.isVideo"
 private const val EXTRA_VIDEO_ORIGIN = "bitchord.isVideoOrigin"
 
-/** Set only on the replacement item produced by [QualityUpgrade]. */
-const val EXTRA_QUALITY_UPGRADED = "bitchord.qualityUpgraded"
-
 /** Whether this item was selected from a music-video row, even after conversion. */
 val MediaItem.isVideoOrigin: Boolean
     get() = mediaMetadata.extras?.getBoolean(EXTRA_VIDEO_ORIGIN) == true ||
@@ -564,13 +547,6 @@ fun Song.toMediaItem(): MediaItem {
         // option either.
         sourceTrack != null -> SourceRegistry.trackUri(sourceTrack.first, sourceTrack.second)
             .let { "$it${matchQuery()}" }
-        // A track the listener reverted by hand stays reverted — see
-        // [OriginalVersion]. Applied here rather than at the one menu that
-        // reverts, because "stays" has to mean the next queue entry built for
-        // this song too: another play from a list, a restored queue, Android
-        // Auto. Everything downstream reads the item's URI and nothing reads
-        // the preference, so this is the only place it has to be said.
-        OriginalVersion.isPinned(videoId) -> directYouTubeUri()
         // The same three fields, for the same reason: a cross-source match is
         // made on them and the loader thread has no other way to reach the
         // session's metadata.
@@ -651,54 +627,6 @@ fun Song.toMediaItem(): MediaItem {
     )
     .build()
 }
-
-/**
- * The current song reopened through its own upload, bypassing the
- * quality-upgrade path.  The separate rendition tag is essential: the
- * base cache key may currently hold an upgraded copy, and resuming
- * that entry as though it were the original corrupts the stream.
- */
-fun Song.toDirectYouTubeMediaItem(): MediaItem =
-    toMediaItem().buildUpon()
-        .setUri(directYouTubeUri())
-        .build()
-
-private fun Song.directYouTubeUri(): String =
-    "bitchord://watch?v=$videoId${matchQuery()}&q=original"
-
-/**
- * Whether there is an original upload behind this song to go back *to* — the
- * question "Revert to original" only means something for.
- *
- * Offered for any track that has one rather than only for a track a quality
- * upgrade has visibly swapped, because the swap is not the only way to end up
- * on a copy that is wrong. Another source gets first refusal on
- * every track, so a song can be playing another source's idea of it from its
- * very first second, with
- * nothing on screen having changed and nothing to undo. Those are precisely the
- * ones worth doubting: the match is made on title, artist and runtime, and a
- * live version, a remaster or a different mix agreeing on all three is a
- * catalogue's ordinary business. The listener is the only one who can hear that
- * it is the wrong recording, and until this was always available they had no
- * way to say so.
- *
- * The three exclusions are all "there is no such upload", not "reverting would
- * be unwise":
- *
- *  - a track queued from another source's own catalogue has no video id at
- *    all, only a source-and-track key that would build a nonsense URI;
- *  - a file on the device is identified by its own `content://` or `file://`
- *    URI, for the same reason;
- *  - a music video *is* the upload, so there is nowhere for it to go.
- *    Its catalogue match is a separate control with its own way back — see
- *    `VideoAudioVersionButton`.
- */
-fun Song.hasYouTubeOriginal(): Boolean =
-    videoId.isNotBlank() &&
-        !videoId.startsWith("content://") &&
-        !videoId.startsWith("file://") &&
-        !isVideo &&
-        SourceRegistry.parseTrackKey(videoId) == null
 
 /**
  * Which track a playback URI is for, as a media id — the inverse of the URI

@@ -73,7 +73,7 @@ object SourceRegistry {
     private var instances: Map<String, MusicSource> = emptyMap()
 
     fun init(context: Context) {
-        // Same repair and degradation as AuthStore; see EncryptedPrefs.
+        // Repair and degradation are EncryptedPrefs' own; see EncryptedPrefs.
         prefs = EncryptedPrefs.open(context, "bitchord_sources", "bitchord_sources_plain")
 
         val stored = prefs.getString(KEY_SOURCES, null)?.let(::decodeStored) ?: emptyList()

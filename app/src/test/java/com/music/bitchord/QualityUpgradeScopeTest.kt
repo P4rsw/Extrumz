@@ -57,16 +57,6 @@ class QualityUpgradeScopeTest {
         assertTrue(QualityUpgrade.hasAnsweredFor(mediaId))
     }
 
-    /** A hand-reverted track is playing `q=original`, which is equally not a fresh copy. */
-    @Test
-    fun `a reverted item does not re-open its own verdict either`() {
-        QualityUpgrade.markAnsweredForTest(mediaId)
-
-        QualityUpgrade.onPlaybackStarted(mediaId, rendition = "original")
-
-        assertTrue(QualityUpgrade.hasAnsweredFor(mediaId))
-    }
-
     /** One track's replay says nothing about another's. */
     @Test
     fun `re-opening one track leaves the rest alone`() {

@@ -212,10 +212,6 @@ internal fun localizeShelfSubtitle(subtitle: String): String {
             trimmed.equals("Từ cộng đồng", ignoreCase = true) ||
             trimmed.equals("コミュニティより", ignoreCase = true) ->
             stringResource(R.string.shelf_from_the_community)
-        trimmed.equals("YouTube Charts", ignoreCase = true) ||
-            trimmed.equals("Bảng xếp hạng YouTube", ignoreCase = true) ||
-            trimmed.equals("YouTube チャート", ignoreCase = true) ->
-            stringResource(R.string.shelf_youtube_charts)
         else -> subtitle
     }
 }

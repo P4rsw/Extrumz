@@ -1277,7 +1277,7 @@ fun SettingsScreen(
                 withLink(LinkAnnotation.Url("https://bitchord.kushagrasingh.in/", linkStyles)) {
                     append("Website")
                 }
-                append("\n~YouTube Music & Listen Together Backend")
+                append("\n~Telegram & Listen Together Backend")
             },
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,

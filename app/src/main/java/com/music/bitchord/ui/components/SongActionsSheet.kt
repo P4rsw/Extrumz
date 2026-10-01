@@ -25,7 +25,6 @@ import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
 import androidx.compose.material.icons.automirrored.rounded.PlaylistPlay
 import androidx.compose.material.icons.automirrored.rounded.QueueMusic
-import androidx.compose.material.icons.automirrored.rounded.Undo
 import androidx.compose.material.icons.rounded.Album
 import androidx.compose.material.icons.rounded.Bedtime
 import androidx.compose.material.icons.rounded.BugReport
@@ -131,18 +130,9 @@ fun SongActionsSheet(
     modifier: Modifier = Modifier,
     showSleepTimer: Boolean = false,
     /**
-     * Sends the playing track back to YouTube's own upload, and keeps it there.
-     * Offered for any player item that has one behind it — a substituted copy
-     * can be the wrong recording from the first second, not only after a
-     * visible upgrade. See
-     * [com.music.bitchord.playback.hasYouTubeOriginal].
-     */
-    onRollbackToOriginal: (() -> Unit)? = null,
-    /**
-     * The way back from a revert: available only for a player item the listener
-     * has pinned to YouTube's own upload, where nothing will go looking for a
-     * better copy again until they ask.
-     * See [com.music.bitchord.playback.OriginalVersion].
+     * Goes looking for a better copy of the playing track because the listener
+     * asked for one. Only the player ever offers it: the question is about
+     * what is in the speaker right now, and it needs the item's own URI.
      */
     onUpgradeQuality: (() -> Unit)? = null,
     /** Keeps the upgrade row visible but untappable while its lookup is running. */
@@ -197,28 +187,13 @@ fun SongActionsSheet(
         // is the one question that has to be answered before any of the rows
         // below mean anything — there is no point rating, queueing or
         // downloading the wrong version of a song.
-        //
-        // The two are never both present — one is offered for a track playing
-        // a substituted copy, the other for a track held on YouTube's own —
-        // and between them they are the whole of the choice, which is why they
-        // sit in the same place under the same divider.
-        if (onRollbackToOriginal != null || onUpgradeQuality != null || onToggleAudioVersion != null) {
-            (onRollbackToOriginal ?: onUpgradeQuality)?.let {
+        if (onUpgradeQuality != null || onToggleAudioVersion != null) {
+            onUpgradeQuality?.let {
                 ActionRow(
-                    icon = if (onRollbackToOriginal != null) {
-                        Icons.AutoMirrored.Rounded.Undo
-                    } else {
-                        Icons.Rounded.HighQuality
-                    },
-                    label = stringResource(
-                        if (onRollbackToOriginal != null) {
-                            R.string.revert_to_original
-                        } else {
-                            R.string.upgrade_quality
-                        },
-                    ),
+                    icon = Icons.Rounded.HighQuality,
+                    label = stringResource(R.string.upgrade_quality),
                     accent = palette.accent,
-                    enabled = onRollbackToOriginal != null || !upgradeQualityInProgress,
+                    enabled = !upgradeQualityInProgress,
                     onClick = it,
                 )
             }
@@ -344,7 +319,7 @@ fun SongActionsSheet(
  *
  * The row list is capped to a fraction of the screen and scrolls internally.
  * Left unbounded, a track with every optional row present — playlist removal,
- * revert, share, the log — runs past the bottom of the screen with no way to
+ * upgrade, share, the log — runs past the bottom of the screen with no way to
  * reach what's cut off: a plain Column neither scrolls nor shrinks, so the
  * sheet just grows past the window and sits there stuck at full height.
  */

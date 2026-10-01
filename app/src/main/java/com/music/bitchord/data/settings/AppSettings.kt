@@ -6,7 +6,6 @@ import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkCapabilities
 import androidx.media3.common.Player
-import com.music.bitchord.auth.AuthStore
 import com.music.bitchord.data.lyrics.LyricsSource
 import com.music.bitchord.data.sources.SourceKind
 import com.music.bitchord.playback.EqLayout
@@ -1403,11 +1402,7 @@ object AppSettings {
      * chat, and an API secret in it is a credential that has left the device in
      * plain text. Signing back in after a restore is a minute; a leaked session
      * key is not recoverable at all.
-     *
-     * The YouTube cookie is not here for the same reason and one more: it
-     * never reaches this file. It lives in the encrypted store — see
-     * [AuthStore] — so it cannot be exported by accident.
-     */
+     *     */
     fun exportPrefs(): Map<String, Any?> {
         if (!this::prefs.isInitialized) return emptyMap()
         return prefs.all.filterKeys { it !in SECRETS && it !in DEVICE_LOCAL }

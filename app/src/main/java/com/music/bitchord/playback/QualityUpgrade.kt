@@ -54,9 +54,6 @@ object QualityUpgrade {
     const val MARKER = "q"
     private const val UPGRADED = "hifi"
 
-    /** What a revert tags its rendition with — see [Song.toDirectYouTubeMediaItem]. */
-    private const val ORIGINAL = "original"
-
     /**
      * A track playing on less than was asked for.
      *
@@ -280,9 +277,8 @@ object QualityUpgrade {
             uri.getQueryParameter("m") == "1"
         ) return false
         // Already upgraded: this *is* the better copy. Except when the listener
-        // has asked by hand, where the marker is on a *reverted* item and
-        // saying "this is the copy that was chosen" is the very thing being
-        // overruled — see [askByHand].
+        // has asked by hand, where the marked copy is what is playing and
+        // asking again is the whole point — see [askByHand].
         if (mediaId !in handAsked && uri.getQueryParameter(MARKER) != null) return false
         if (mediaId in asked || mediaId in refused || pending.containsKey(mediaId)) return false
         // Same widening as [settledForLess]: a track playing off the cache is
@@ -559,15 +555,15 @@ object QualityUpgrade {
      * check, so nothing is logged when it says no.
      *
      * Guarded on the marker rather than cleared unconditionally. An item that
-     * *is* the upgraded copy — or a hand-reverted `q=original` — is already
-     * excluded by [couldStillUpgrade] on its own terms, and re-opening those
-     * would have the swap that just happened looked for again. And this is a
+     * *is* the upgraded copy is already excluded by [couldStillUpgrade] on its
+     * own terms, and re-opening it would have the swap that just happened
+     * looked for again. And this is a
      * transition, not a progress sample, so it cannot reinstate the every-five-
      * seconds offer that [asked] exists to prevent: pausing and resuming does
      * not come through here.
      *
      * @param rendition the item's [MARKER], via [cacheTag] — null for an
-     *   ordinary queue entry, set on an upgraded or hand-reverted one. Taken
+     *   ordinary queue entry, set on an upgraded one. Taken
      *   as the marker rather than as the `Uri` it came from because that is
      *   the whole of what this reads, and because `Uri` is a framework stub
      *   under unit test.
@@ -575,38 +571,6 @@ object QualityUpgrade {
     fun onPlaybackStarted(mediaId: String, rendition: String?) {
         if (rendition != null) return
         asked -= mediaId
-    }
-
-    /**
-     * Whether [mediaId] is *known* to be playing YouTube's own copy, so the
-     * player menu should offer to upgrade it rather than to revert it.
-     *
-     * The menu used to read this off [OriginalVersion][com.music.bitchord.playback.OriginalVersion]'s
-     * pin alone, which only a listener's own revert ever sets. An upgrade that
-     * is found, swapped in and then fails to prove itself puts the track back
-     * on the stream it came from — see the revert path in
-     * [PlaybackService][com.music.bitchord.playback.PlaybackService] — and
-     * nothing pins anything, so the menu went on offering "Revert to original"
-     * for a track already playing YouTube's Opus. The row did nothing, and the
-     * one row that would have helped was the one it was standing in front of.
-     *
-     * Both halves are required, and each rules out a different wrong answer:
-     *
-     *  - **No upgrade marker on the item.** [StreamChoice] records the copy the
-     *    *first* resolve settled on and is not cleared when an upgrade swaps a
-     *    better one in, so on a successfully upgraded track it still names
-     *    YouTube. The marker is what says the swap happened, and a track
-     *    playing its upgraded copy is exactly the one that should be offered
-     *    the revert.
-     *  - **A recorded choice that is not a substitute.** `null` means nothing
-     *    resolved this track in this process — it is playing off the disk cache
-     *    — and what is in that entry is genuinely unknown. Today's behaviour is
-     *    kept there deliberately: revert stays on offer as the escape hatch for
-     *    a substitution nothing announced, which is the case it was written for.
-     */
-    fun isKnownToBePlayingYouTubesOwn(mediaId: String, rendition: String?): Boolean {
-        if (rendition != null) return false
-        return StreamChoice.of(mediaId) != null && !StreamChoice.isSubstitute(mediaId)
     }
 
     /**
@@ -641,8 +605,8 @@ object QualityUpgrade {
      * Tracks the listener has asked to upgrade themselves.
      *
      * The one exemption from [couldStillUpgrade]'s marker rule, and it needs to
-     * be an exemption rather than a rewritten item. A reverted track is playing
-     * its `q=original` rendition; the ordinary way to make it a candidate again
+     * be an exemption rather than a rewritten item. The marked item is playing
+     * its upgraded rendition; the ordinary way to make it a candidate again
      * would be to put the unmarked item back, and that costs a break in the
      * audio *before* anything better has even been looked for — the listener
      * hears the same copy stop and restart, and then stop again when
@@ -765,12 +729,6 @@ object QualityUpgrade {
         val previous = uri.substringAfter(markerStart, missingDelimiterValue = "")
             .substringBefore('&')
             .ifBlank { null }
-            // The rendition a revert installed is not a generation of upgrade
-            // to count from — it is the thing being upgraded away from. Read as
-            // one, the first swap after a revert came out as `hifi-2`, which
-            // [PlaybackService.swapPointFor] refuses outright, so the lossless
-            // pass that normally follows a lossy improvement could never run.
-            ?.takeUnless { it == ORIGINAL }
         val previousGeneration = previous
             ?.removePrefix("$UPGRADED-")
             ?.toIntOrNull()

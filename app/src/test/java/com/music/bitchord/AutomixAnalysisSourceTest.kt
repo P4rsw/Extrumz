@@ -9,18 +9,15 @@ import org.junit.Test
 
 class AutomixAnalysisSourceTest {
     @Test
-    fun `YouTube analysis accepts only its canonical Opus cache key`() {
-        assertTrue(AutomixAnalysisSource.isCanonicalYouTubeRendition("video", "video"))
-        assertFalse(AutomixAnalysisSource.isCanonicalYouTubeRendition("video", "video#alt"))
-        assertFalse(AutomixAnalysisSource.isCanonicalYouTubeRendition("video", "video#hifi"))
+    fun `analysis accepts only its canonical cache key`() {
+        assertTrue(AutomixAnalysisSource.isCanonicalRendition("video", "video"))
+        assertFalse(AutomixAnalysisSource.isCanonicalRendition("video", "video#alt"))
+        assertFalse(AutomixAnalysisSource.isCanonicalRendition("video", "video#hifi"))
     }
 
     @Test
     fun `analysis URI asks the resolver to bypass playback substitutions`() {
         assertTrue(AutomixAnalysisSource.opusUri("video").contains("v=video&automix_opus=1"))
-        assertTrue(AutomixAnalysisSource.requestsYouTubeOpus("1"))
-        assertFalse(AutomixAnalysisSource.requestsYouTubeOpus(null))
-        assertFalse(AutomixAnalysisSource.requestsYouTubeOpus("0"))
     }
 
     @Test

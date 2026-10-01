@@ -65,7 +65,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.Undo
 import androidx.compose.material.icons.rounded.FastForward
 import androidx.compose.material.icons.rounded.FastRewind
 import androidx.compose.material.icons.rounded.MoreHoriz
@@ -190,9 +189,6 @@ internal const val ART_RETRY_DELAY_MS = 1_500L
  * enough not to be noticed on a track that has no album to find.
  */
 internal const val ALBUM_SETTLE_MS = 700L
-
-/** Long enough for the post-upgrade rollback cue to be noticed without lingering. */
-private const val REVERT_CUE_MS = 2_600L
 
 /**
  * How close the player's reported position has to get to a released scrub
@@ -520,8 +516,6 @@ fun NowPlayingScreen(
     /** A version switch (video vs audio-only), triggered from the player's
      * menu, is fetching and measuring the target cut. */
     audioVersionSwitching: Boolean,
-    /** The player has just swapped this item to a higher-quality source. */
-    qualityUpgraded: Boolean,
     queue: List<Song>,
     queueIndex: Int,
     hasPrevious: Boolean,
@@ -782,20 +776,6 @@ fun NowPlayingScreen(
     // so the words change underneath them and the panel stays. Closing it
     // dropped them back onto the artwork every few minutes with no gesture of
     // their own behind it.
-    // A brief, non-modal confirmation that the three-dot menu now contains a
-    // way back to the original YouTube rendition. The control keeps its usual
-    // action — opening the menu — so the cue teaches rather than surprises.
-    var showRevertCue by remember(song.videoId) { mutableStateOf(false) }
-    LaunchedEffect(song.videoId, qualityUpgraded) {
-        if (!qualityUpgraded) {
-            showRevertCue = false
-            return@LaunchedEffect
-        }
-        showRevertCue = true
-        delay(REVERT_CUE_MS)
-        showRevertCue = false
-    }
-
     // Lyrics are meant to be read continuously, so hold off the device's normal
     // screen timeout — but only while the panel is actually up. Closing it hands
     // the screen back, and the system starts its own timeout from that moment
@@ -1434,7 +1414,6 @@ fun NowPlayingScreen(
                                 song = song,
                                 signedIn = signedIn,
                                 likeStatus = likeStatus,
-                                showRevertCue = showRevertCue,
                                 onToggleLike = onToggleLike,
                                 onOpenMenu = onOpenMenu,
                                 onOpenAlbum = onOpenAlbum,
@@ -2607,7 +2586,7 @@ fun NowPlayingScreen(
                         Spacer(Modifier.width(8.dp))
                     }
                     CircleGlyph(
-                        icon = if (showRevertCue) Icons.AutoMirrored.Rounded.Undo else Icons.Rounded.MoreHoriz,
+                        icon = Icons.Rounded.MoreHoriz,
                         contentDescription = stringResource(R.string.more),
                         onClick = onOpenMenu,
                     )

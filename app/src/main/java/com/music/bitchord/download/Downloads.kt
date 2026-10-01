@@ -647,7 +647,7 @@ object Downloads {
                     migratedAddedByUri[meta.uri] = dateAddedSeconds
                 }
                 val downloadFormat = meta.downloadFormat
-                    ?: legacyYoutubeDownloadBadge(context, uri)?.also {
+                    ?: legacyFormatBadge(context, uri)?.also {
                         migratedFormatByUri[meta.uri] = it
                     }
                 result.add(
@@ -738,7 +738,7 @@ object Downloads {
                     durationText = meta.durationText,
                     albumName = meta.albumName,
                     localUri = uriString,
-                    downloadFormat = meta.downloadFormat ?: legacyYoutubeDownloadBadge(context, uri),
+                    downloadFormat = meta.downloadFormat ?: legacyFormatBadge(context, uri),
                     localDateAddedSeconds = dateAddedSeconds,
                     localDateModifiedSeconds = dateModifiedSeconds,
                 )
@@ -1327,19 +1327,19 @@ private fun StreamFormat.downloadBadge(): String? = when {
 }
 
 /**
- * YouTube does not expose a named quality tier once the resolved file has been
- * saved, so retain the concrete codec/container choice and bitrate alongside
- * the download. This is display metadata only: the bytes are still the exact
- * WebM/Opus or MP4/AAC rendition returned by YouTube.
+ * A saved file carries no named quality tier of its own, so retain the
+ * concrete codec/container choice and bitrate alongside the download. This is
+ * display metadata only: the bytes are still the exact WebM/Opus or MP4/AAC
+ * rendition that was saved.
  */
-internal fun youtubeDownloadBadge(extension: String, kbps: Int): String? {
+internal fun formatBadge(extension: String, kbps: Int): String? {
     if (kbps <= 0) return null
     val codec = if (extension.equals("m4a", ignoreCase = true)) "AAC" else "OPUS"
     return "$codec · $kbps kbps"
 }
 
-/** Recover display metadata for private YouTube downloads made before it was persisted. */
-private fun legacyYoutubeDownloadBadge(context: Context, uri: Uri): String? {
+/** Recover display metadata for downloads made before it was persisted. */
+private fun legacyFormatBadge(context: Context, uri: Uri): String? {
     if (!uri.lastPathSegment.orEmpty().substringBefore('?').endsWith(".webm", ignoreCase = true)) {
         return null
     }
@@ -1353,7 +1353,7 @@ private fun legacyYoutubeDownloadBadge(context: Context, uri: Uri): String? {
         }
     }.getOrNull() ?: return null
     val kbps = ((bitsPerSecond + 500L) / 1_000L).toInt()
-    return youtubeDownloadBadge("webm", kbps)
+    return formatBadge("webm", kbps)
 }
 
 /**

@@ -31,7 +31,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.Undo
 import androidx.compose.material.icons.rounded.MoreHoriz
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -378,8 +377,6 @@ internal fun LandscapeCredits(
     song: Song,
     signedIn: Boolean,
     likeStatus: LikeStatus,
-    /** The menu glyph is briefly the undo arrow after a quality upgrade. */
-    showRevertCue: Boolean,
     onToggleLike: () -> Unit,
     onOpenMenu: () -> Unit,
     onOpenAlbum: (String) -> Unit,
@@ -437,7 +434,7 @@ internal fun LandscapeCredits(
             Spacer(Modifier.width(8.dp))
         }
         CircleGlyph(
-            icon = if (showRevertCue) Icons.AutoMirrored.Rounded.Undo else Icons.Rounded.MoreHoriz,
+            icon = Icons.Rounded.MoreHoriz,
             contentDescription = stringResource(R.string.more),
             onClick = onOpenMenu,
         )

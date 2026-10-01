@@ -242,7 +242,7 @@ class TrackAnalyzer(private val context: Context, private val cache: AudioCache)
             emptyList()
         } else {
             cache.renditionsOf(analysisUri)
-                .filter { AutomixAnalysisSource.isCanonicalYouTubeRendition(analysisUri.getQueryParameter("v"), it.key) }
+                .filter { AutomixAnalysisSource.isCanonicalRendition(analysisUri.getQueryParameter("v"), it.key) }
                 .filter { it.isComplete && it.key !in badRenditions }
         }
         val usableComplete = local || complete.isNotEmpty()
@@ -430,7 +430,7 @@ class TrackAnalyzer(private val context: Context, private val cache: AudioCache)
         // minutes earlier reported zero here, because the question was being
         // asked of the wrong copy of it.
         val candidate = cache.renditionsOf(uri)
-            .filter { AutomixAnalysisSource.isCanonicalYouTubeRendition(uri.getQueryParameter("v"), it.key) }
+            .filter { AutomixAnalysisSource.isCanonicalRendition(uri.getQueryParameter("v"), it.key) }
             .filter { it.cachedPrefix > 0L && it.key !in badRenditions }
             // The growth guard, applied as a filter rather than to the winner.
             // Applied afterwards it did not skip a copy, it ended the search: the
@@ -645,7 +645,7 @@ class TrackAnalyzer(private val context: Context, private val cache: AudioCache)
         durationSeconds: Double,
     ): AudioCache.Rendition? {
         val complete = cache.renditionsOf(uri)
-            .filter { AutomixAnalysisSource.isCanonicalYouTubeRendition(uri.getQueryParameter("v"), it.key) }
+            .filter { AutomixAnalysisSource.isCanonicalRendition(uri.getQueryParameter("v"), it.key) }
             .filter { it.isComplete && it.key !in badRenditions }
         if (complete.isEmpty()) return null
 

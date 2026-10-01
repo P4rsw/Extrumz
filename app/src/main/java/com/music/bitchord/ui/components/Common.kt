@@ -650,38 +650,6 @@ fun PullToRefresh(
     }
 }
 
-/** Slim dismissible-looking prompt shown atop Home while signed out. */
-@Composable
-fun SignInBanner(onSignIn: () -> Unit, modifier: Modifier = Modifier) {
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = PAGE_GUTTER, vertical = 8.dp)
-            .clip(RoundedCornerShape(16.dp))
-            .background(MaterialTheme.colorScheme.surfaceVariant)
-            .clickable(onClick = onSignIn)
-            .padding(horizontal = 14.dp, vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Column(Modifier.weight(1f)) {
-            Text(
-                text = stringResource(R.string.sign_in_youtube_music),
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurface,
-            )
-            Text(
-                text = stringResource(R.string.personalized_recommendations),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-        }
-        Spacer(Modifier.width(12.dp))
-        Button(onClick = onSignIn) { Text(stringResource(R.string.sign_in)) }
-    }
-}
-
 @Composable
 fun MessageState(
     message: String,

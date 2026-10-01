@@ -9,7 +9,7 @@ import com.music.bitchord.data.sources.StreamRequest
 import com.music.bitchord.download.DownloadStore
 import com.music.bitchord.download.SavedSongMetadata
 import com.music.bitchord.download.resolvedDownloadDates
-import com.music.bitchord.download.youtubeDownloadBadge
+import com.music.bitchord.download.formatBadge
 import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -109,10 +109,10 @@ class DownloadStoreTest {
     }
 
     @Test
-    fun `youtube downloads retain their codec and resolved bitrate`() {
-        assertEquals("OPUS · 160 kbps", youtubeDownloadBadge("webm", 160))
-        assertEquals("AAC · 128 kbps", youtubeDownloadBadge("m4a", 128))
-        assertNull(youtubeDownloadBadge("webm", 0))
+    fun `downloads retain their codec and resolved bitrate`() {
+        assertEquals("OPUS · 160 kbps", formatBadge("webm", 160))
+        assertEquals("AAC · 128 kbps", formatBadge("m4a", 128))
+        assertNull(formatBadge("webm", 0))
     }
 
     // ---- What the file is called -------------------------------------------

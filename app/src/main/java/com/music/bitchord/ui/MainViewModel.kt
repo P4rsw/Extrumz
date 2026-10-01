@@ -4,10 +4,6 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.music.bitchord.R
-import com.music.bitchord.auth.AuthStore
-import com.music.bitchord.auth.GoogleAccountSession
-import com.music.bitchord.auth.YouTubeProfile
-import com.music.bitchord.auth.adjacentProfile
 import com.music.bitchord.data.LocalMediaRepository
 import com.music.bitchord.data.LikeState
 import com.music.bitchord.data.stats.ListeningStats
@@ -16,6 +12,8 @@ import com.music.bitchord.data.lyrics.LyricLine
 import com.music.bitchord.data.lyrics.LyricsRepository
 import com.music.bitchord.data.lyrics.LyricsSource
 import com.music.bitchord.data.settings.AppSettings
+import com.music.bitchord.data.telegram.Telegram
+import com.music.bitchord.data.telegram.TelegramAuthState
 import com.music.bitchord.data.model.Account
 import com.music.bitchord.data.model.BrowseType
 import com.music.bitchord.data.model.DetailPage
@@ -61,9 +59,9 @@ enum class LyricsProviderState {
 
 class MainViewModel(app: Application) : AndroidViewModel(app) {
 
-    private val authStore = AuthStore(app)
-
-    private val _signedIn = MutableStateFlow(authStore.isSignedIn)
+    private val _signedIn = MutableStateFlow(
+        Telegram.client.authState.value is TelegramAuthState.Ready,
+    )
     val signedIn: StateFlow<Boolean> = _signedIn.asStateFlow()
 
     private val _query = MutableStateFlow("")
@@ -402,30 +400,6 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     private val _account = MutableStateFlow<Account?>(null)
     val account: StateFlow<Account?> = _account.asStateFlow()
 
-    /**
-     * The chosen channel's page id, or null while the app is acting as
-     * whichever channel the session serves by default.
-     */
-    private val _selectedChannelKey = MutableStateFlow(
-        authStore.activeSession?.activeProfileId ?: authStore.channelPageId ?: authStore.channelDataSyncId,
-    )
-    val selectedChannelKey: StateFlow<String?> = _selectedChannelKey.asStateFlow()
-
-    private val _selectedChannelName = MutableStateFlow(
-        authStore.activeSession?.let { session ->
-            session.profiles.firstOrNull { it.profileId == session.activeProfileId }?.name
-        } ?: authStore.channelName,
-    )
-    val selectedChannelName: StateFlow<String?> = _selectedChannelName.asStateFlow()
-
-    /** Source of truth for Google sessions and their YouTube identities. */
-    private val _googleAccounts = MutableStateFlow(authStore.sessions)
-    val googleAccounts: StateFlow<List<GoogleAccountSession>> = _googleAccounts.asStateFlow()
-    private val _activeAccountId = MutableStateFlow(authStore.activeSession?.accountId)
-    val activeAccountId: StateFlow<String?> = _activeAccountId.asStateFlow()
-    private val _activeProfileId = MutableStateFlow(authStore.activeSession?.activeProfileId)
-    val activeProfileId: StateFlow<String?> = _activeProfileId.asStateFlow()
-
     private val _history = MutableStateFlow<UiState<List<Song>>>(UiState.Loading)
     val history: StateFlow<UiState<List<Song>>> = _history.asStateFlow()
 
@@ -498,6 +472,11 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         startSearchPipeline()
         startSuggestPipeline()
         startTypeaheadMediaPipeline()
+        viewModelScope.launch {
+            Telegram.client.authState.collect { state ->
+                _signedIn.value = state is TelegramAuthState.Ready
+            }
+        }
         viewModelScope.launch {
             AppSettings.filterNonMusicAudio.drop(1).collect {
                 if (_detailStack.value.any { page -> page.browseId == "local:all" }) {
@@ -1189,69 +1168,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         return true
     }
 
-    /** Selects an identity without ever allowing a response to replace it. */
-    fun selectProfile(accountId: String, selectedProfileId: String, supplied: YouTubeProfile? = null) {
-        val source = _googleAccounts.value.firstOrNull { it.accountId == accountId } ?: return
-        val profile = supplied ?: source.profiles.firstOrNull { it.profileId == selectedProfileId } ?: return
-        if (accountId == _activeAccountId.value && profile.profileId == _activeProfileId.value) return
-        val updated = source.copy(
-            profiles = (source.profiles.filterNot { it.profileId == profile.profileId } + profile),
-            activeProfileId = profile.profileId,
-        )
-        authStore.upsertSession(updated)
-        authStore.select(accountId)
-        _googleAccounts.value = authStore.sessions
-        _activeAccountId.value = accountId
-        _activeProfileId.value = profile.profileId
-        _selectedChannelKey.value = profile.profileId
-        _selectedChannelName.value = profile.name
-        _history.value = UiState.Loading
-        LikeState.clear()
-    }
-
-    /** Returns false at an edge, allowing the avatar to play its elastic cue. */
-    fun stepProfile(forward: Boolean): Boolean {
-        val target = adjacentProfile(_googleAccounts.value, _activeAccountId.value, _activeProfileId.value, forward)
-            ?: return false
-        selectProfile(target.first, target.second)
-        return true
-    }
-
-    fun removeAccount(accountId: String) {
-        val fallback = authStore.removeAccount(accountId)
-        _googleAccounts.value = authStore.sessions
-        if (fallback == null) { signOut(); return }
-        selectProfile(fallback.accountId, fallback.activeProfileId ?: fallback.profiles.firstOrNull()?.profileId ?: return)
-    }
-
-    fun signOut() {
-        // In a multi-account install, sign out removes only the current Google
-        // session and restores another one. A legacy single-account install
-        // retains the familiar full sign-out behaviour.
-        val current = _activeAccountId.value
-        if (current != null && authStore.sessions.size > 1) {
-            removeAccount(current)
-            return
-        }
-        authStore.signOut()
-        _signedIn.value = false
-        _account.value = null
-        _selectedChannelKey.value = null
-        _selectedChannelName.value = null
-        _googleAccounts.value = emptyList()
-        _activeAccountId.value = null
-        _activeProfileId.value = null
-        _history.value = UiState.Loading
-        // Ratings belong to the account that just left; keeping them would show
-        // the next signed-in user someone else's hearts.
-        LikeState.clear()
-    }
-
     private fun Throwable.friendly(): String = when {
         message?.contains("resolve host", true) == true ||
             message?.contains("Unable to resolve", true) == true -> text(R.string.no_internet_connection)
-        message?.contains("401") == true || message?.contains("403") == true ->
-            text(R.string.youtube_request_rejected)
         else -> message ?: text(R.string.something_went_wrong)
     }
 

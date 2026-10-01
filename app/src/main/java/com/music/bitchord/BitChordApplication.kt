@@ -10,7 +10,6 @@ import coil3.disk.DiskCache
 import coil3.disk.directory
 import coil3.memory.MemoryCache
 import coil3.request.crossfade
-import com.music.bitchord.auth.AuthStore
 import com.music.bitchord.data.canvas.CanvasCache
 import com.music.bitchord.data.db.TelegramDb
 import com.music.bitchord.data.telegram.Telegram
@@ -18,7 +17,6 @@ import com.music.bitchord.data.telegram.TelegramAuthController
 import com.music.bitchord.data.canvas.SpotifyToken
 import com.music.bitchord.playback.AudioCache
 import com.music.bitchord.playback.LastPlayed
-import com.music.bitchord.playback.OriginalVersion
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.data.settings.SearchHistory
 import com.music.bitchord.data.sources.SourceRegistry
@@ -32,14 +30,11 @@ class BitChordApplication : Application(), SingletonImageLoader.Factory {
     @OptIn(UnstableApi::class)
     override fun onCreate() {
         super.onCreate()
-        authStore = AuthStore(this)
         // Opened off the main thread, alongside everything below: none of these
-        // reads a setting or the session, and between them they are the slowest
-        // opens at startup — SourceRegistry's encrypted store most of all.
-        // Started only once [AuthStore] exists, because both encrypted stores
-        // share one keystore master key and a first launch must not have two
-        // threads racing to create it. Joined before onCreate returns, so
-        // nothing that runs after startup can see any of them half open.
+        // reads a setting, and between them they are the slowest opens at
+        // startup — SourceRegistry's encrypted store most of all. Joined before
+        // onCreate returns, so nothing that runs after startup can see any of
+        // them half open.
         val backgroundInit = thread(name = "startup-init") {
             // Cheap: only stores the context — the Room database itself opens
             // lazily on the first DAO call, off the startup critical path.
@@ -58,20 +53,9 @@ class BitChordApplication : Application(), SingletonImageLoader.Factory {
             // seconds of video from the network on every loop.
             CanvasCache.init(this)
         }
-        // Restore which session is active when an install has one but never
-        // recorded a selection, so the account the listener was acting as
-        // survives an upgrade rather than falling back to list order.
-        val restoredSession = authStore.activeSession
-        if (restoredSession != null && authStore.activeAccountId == null) {
-            authStore.select(restoredSession.accountId)
-        }
         AppSettings.init(this)
         SearchHistory.init(this)
         LastPlayed.init(this)
-        // Which tracks the listener has reverted to YouTube's own upload. Read
-        // by [Song.toMediaItem], so it has to be open before the restart
-        // snapshot below is turned back into queue items.
-        OriginalVersion.init(this)
         // What's already saved to Downloads, so the song menu can say so
         // without a media-store query per row.
         Downloads.init(this)
@@ -130,9 +114,4 @@ class BitChordApplication : Application(), SingletonImageLoader.Factory {
             // it scrolls; a short fade reads as them developing.
             .crossfade(200)
             .build()
-
-    companion object {
-        lateinit var authStore: AuthStore
-            private set
-    }
 }

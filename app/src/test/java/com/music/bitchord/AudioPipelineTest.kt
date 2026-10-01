@@ -154,14 +154,14 @@ class AudioPipelineTest {
 
     @Test
     fun `authoritative sources are recorded and retrieved across track identifiers`() {
-        NerdStats.recordSource("track-123", "YouTube")
-        assertEquals("YouTube", NerdStats.sourceFor("track-123"))
+        NerdStats.recordSource("track-123", "Qobuz")
+        assertEquals("Qobuz", NerdStats.sourceFor("track-123"))
 
         NerdStats.onSourceStream("track-456", StreamFormat(codec = "flac"), source = "Telegram")
         assertEquals("Telegram", NerdStats.sourceFor("track-456"))
 
-        NerdStats.onStreamPicked("track-789", 320, source = "YouTube")
-        assertEquals("YouTube", NerdStats.sourceFor("track-789"))
+        NerdStats.onStreamPicked("track-789", 320, source = "Qobuz")
+        assertEquals("Qobuz", NerdStats.sourceFor("track-789"))
     }
 
     @Test
@@ -182,7 +182,7 @@ class AudioPipelineTest {
 
     @Test
     fun `forgetLastSession clears all recorded sources and snapshots`() {
-        NerdStats.recordSource("track-1", "YouTube")
+        NerdStats.recordSource("track-1", "Qobuz")
         NerdStats.recordSource("track-2", "Telegram")
         NerdStats.current.value = NerdStats.Snapshot(
             mimeType = "audio/flac",
@@ -207,14 +207,14 @@ class AudioPipelineTest {
         NerdStats.recordSource("101", "Telegram")
         assertEquals("Telegram", NerdStats.exactSourceFor("101"))
 
-        // Track 2 is a YouTube track with the exact same inner id "101" under a source prefix
-        val otherMediaId = "src:youtube-uuid-xyz::101"
+        // Track 2 is a Qobuz track with the exact same inner id "101" under a source prefix
+        val otherMediaId = "src:qobuz-uuid-xyz::101"
         // Before the second source records itself, exactSourceFor must NOT leak the first
         assertNull(NerdStats.exactSourceFor(otherMediaId))
 
         // Once the second source records its stream for the exact mediaId, it returns that source
-        NerdStats.recordSource(otherMediaId, "YouTube")
-        assertEquals("YouTube", NerdStats.exactSourceFor(otherMediaId))
+        NerdStats.recordSource(otherMediaId, "Qobuz")
+        assertEquals("Qobuz", NerdStats.exactSourceFor(otherMediaId))
         // And track 1 remains Telegram without being mutated
         assertEquals("Telegram", NerdStats.exactSourceFor("101"))
     }
@@ -222,27 +222,27 @@ class AudioPipelineTest {
     @Test
     fun `playback source transitions maintain correct sequence without stale bleed`() {
         val telegramId = "src:telegram-uuid::track-tg"
-        val youtubeId = "src:youtube-uuid::track-yt"
+        val qobuzId = "src:qobuz-uuid::track-qz"
         val localId = "local-storage-track-uri"
 
         // 1. Telegram playback
         NerdStats.recordSource(telegramId, "Telegram")
         assertEquals("Telegram", NerdStats.exactSourceFor(telegramId))
 
-        // 2. Transition Telegram -> YouTube
-        NerdStats.recordSource(youtubeId, "YouTube")
-        assertEquals("YouTube", NerdStats.exactSourceFor(youtubeId))
+        // 2. Transition Telegram -> Qobuz
+        NerdStats.recordSource(qobuzId, "Qobuz")
+        assertEquals("Qobuz", NerdStats.exactSourceFor(qobuzId))
 
-        // 3. Transition YouTube -> Local Storage (Local Storage does not rely on streaming source)
+        // 3. Transition Qobuz -> Local Storage (Local Storage does not rely on streaming source)
         assertNull(NerdStats.exactSourceFor(localId))
 
         // 4. Transition Local -> Telegram
         assertEquals("Telegram", NerdStats.exactSourceFor(telegramId))
 
-        // 5. Transition Local -> YouTube
-        assertEquals("YouTube", NerdStats.exactSourceFor(youtubeId))
+        // 5. Transition Local -> Qobuz
+        assertEquals("Qobuz", NerdStats.exactSourceFor(qobuzId))
 
-        // 6. Transition YouTube -> Telegram
+        // 6. Transition Qobuz -> Telegram
         assertEquals("Telegram", NerdStats.exactSourceFor(telegramId))
     }
 

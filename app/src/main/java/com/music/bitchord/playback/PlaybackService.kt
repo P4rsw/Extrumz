@@ -156,7 +156,6 @@ const val ACTION_TOGGLE_SHUFFLE = "com.music.bitchord.action.TOGGLE_SHUFFLE"
 
 /** Session actions exposed to Android Auto for the track that is playing. */
 const val ACTION_START_STATION = "com.music.bitchord.action.START_STATION"
-const val ACTION_REVERT_TO_ORIGINAL = "com.music.bitchord.action.REVERT_TO_ORIGINAL"
 const val ACTION_SWAP_TO_VERSION = "com.music.bitchord.action.SWAP_TO_VERSION"
 
 /** Session commands bracketing an explicit radio queue replacement. */
@@ -386,7 +385,6 @@ class PlaybackService : MediaLibraryService() {
     private val autoplayCommand = SessionCommand(ACTION_TOGGLE_AUTOPLAY, Bundle.EMPTY)
     private val shuffleCommand = SessionCommand(ACTION_TOGGLE_SHUFFLE, Bundle.EMPTY)
     private val startStationCommand = SessionCommand(ACTION_START_STATION, Bundle.EMPTY)
-    private val revertToOriginalCommand = SessionCommand(ACTION_REVERT_TO_ORIGINAL, Bundle.EMPTY)
     private val swapToVersionCommand = SessionCommand(ACTION_SWAP_TO_VERSION, Bundle.EMPTY)
     private val beginRadioQueueCommand = SessionCommand(ACTION_BEGIN_RADIO_QUEUE, Bundle.EMPTY)
     private val commitRadioQueueCommand = SessionCommand(ACTION_COMMIT_RADIO_QUEUE, Bundle.EMPTY)
@@ -944,11 +942,12 @@ class PlaybackService : MediaLibraryService() {
                 // reading blank until the decoder got far enough to measure it
                 // for itself.
                 //
-                // Only when the format states something. A plain YouTube choice
-                // is remembered with an empty one, and writing that over a
-                // claim some other path made would be worse than saying nothing.
-                val sourceName = serving.sourceConfigId?.let { SourceRegistry.config(it)?.displayName }
-                    ?: if (StreamChoice.isSubstitute(videoId)) "Substitute" else "YouTube"
+                 // Only when the format states something. A choice with no
+                 // recorded config is remembered with an empty one, and writing
+                 // that over a claim some other path made would be worse than
+                 // saying nothing.
+                 val sourceName = serving.sourceConfigId?.let { SourceRegistry.config(it)?.displayName }
+                     ?: if (StreamChoice.isSubstitute(videoId)) "Substitute" else "Direct"
                 if (serving.format != StreamFormat()) {
                     NerdStats.onSourceStream(videoId, serving.format, sourceName)
                 }
@@ -1169,7 +1168,7 @@ class PlaybackService : MediaLibraryService() {
         return listOf(favorite, shuffle)
     }
 
-    /** Adds Radio/Revert for controllers with room for them, e.g. Android Auto. */
+    /** Adds Radio for controllers with room for it, e.g. Android Auto. */
     private fun carButtons(): List<CommandButton> {
         val current = player?.currentMediaItem?.toSong()
         val station = current
@@ -1180,19 +1179,7 @@ class PlaybackService : MediaLibraryService() {
                     .setDisplayName(getString(R.string.start_radio))
                     .build()
             }
-        val revert = current
-            ?.takeIf {
-                it.hasYouTubeOriginal() &&
-                    it.localUri == null &&
-                    !OriginalVersion.isPinned(it.videoId)
-            }
-            ?.let {
-                CommandButton.Builder(CommandButton.ICON_SYNC)
-                    .setSessionCommand(revertToOriginalCommand)
-                    .setDisplayName(getString(R.string.revert_to_original))
-                    .build()
-            }
-        return notificationButtons() + listOfNotNull(station, revert)
+        return notificationButtons() + listOfNotNull(station)
     }
 
     /** Android Auto / Automotive controllers currently connected to the session. */
@@ -1203,12 +1190,12 @@ class PlaybackService : MediaLibraryService() {
      * notification is driven by Media3's own internal controller, so it gets
      * an explicit override limited to Favorite/Shuffle; every other connected
      * controller falls back to the broadcast layout, which also carries
-     * Radio/Revert.
+     * Radio.
      *
      * Media3 mirrors the notification controller's layout into the platform
      * session's custom actions, and Android Auto reads the platform session,
      * not the broadcast layout. So while a car is connected the notification
-     * override carries the car buttons too, or Radio/Revert vanish from Auto.
+     * override carries the car buttons too, or Radio vanishes from Auto.
      */
     private fun refreshCustomLayouts() {
         val session = mediaSession ?: return
@@ -1666,29 +1653,6 @@ class PlaybackService : MediaLibraryService() {
             reason = Player.MEDIA_ITEM_TRANSITION_REASON_PLAYLIST_CHANGED,
             alreadyAudible = true,
         )
-    }
-
-    /** Reopens the current song through YouTube and remembers that choice. */
-    private fun revertCurrentToOriginal() {
-        val activePlayer = player ?: return
-        val index = activePlayer.currentMediaItemIndex
-        if (index !in 0 until activePlayer.mediaItemCount) return
-        val song = activePlayer.currentMediaItem?.toSong() ?: return
-        if (!song.hasYouTubeOriginal() ||
-            song.localUri != null ||
-            OriginalVersion.isPinned(song.videoId)
-        ) {
-            return
-        }
-
-        OriginalVersion.pin(song.videoId)
-        val position = activePlayer.currentPosition
-        val wasPlaying = activePlayer.isPlaying
-        swappingMediaId = song.videoId
-        activePlayer.replaceMediaItem(index, song.toDirectYouTubeMediaItem())
-        activePlayer.seekTo(index, position)
-        if (wasPlaying) activePlayer.play()
-        refreshCustomLayouts()
     }
 
     /**
@@ -2529,7 +2493,7 @@ class PlaybackService : MediaLibraryService() {
                 StreamChoice.refuseSubstitutes(videoId)
                 TrackLog.w(
                     "BitChord",
-                    "$videoId broke on a substituted stream; YouTube serves it for now",
+                    "$videoId broke on a substituted stream; substitutes are refused for it now",
                     about = mediaId,
                 )
                 // And no swapping back to it mid-song either: the second look asks
@@ -2978,14 +2942,8 @@ class PlaybackService : MediaLibraryService() {
      * Goes looking for a better copy of the playing track because the listener
      * asked for one — the player menu's "Upgrade quality".
      *
-     * The way back from a revert, and the only thing that clears one: a track
-     * pinned to YouTube's own upload is pinned against the automatic path
-     * precisely so a search cannot quietly undo what the listener chose, so the
-     * request to search again has to come from the same place the revert did.
-     * See [OriginalVersion].
-     *
      * Nothing is replaced here, and that is the whole of the design. The
-     * obvious version of this rebuilt the reverted item as the ordinary,
+     * obvious version of this rebuilt the item as the ordinary,
      * upgraded-through entry it would have been queued as, and let the automatic
      * path take it from there. It worked, and it cost two breaks in the audio
      * where the feature only justifies one: the rebuild stopped the track and
@@ -2994,13 +2952,12 @@ class PlaybackService : MediaLibraryService() {
      * nothing — nothing better had even been found yet.
      *
      * So the item is left exactly as it is and the search runs under it. The
-     * two things standing in the way of that are handled where they live:
-     * [QualityUpgrade.askByHand] exempts a reverted item's rendition marker
-     * from the rule that would otherwise read it as "already upgraded", and
-     * [QualityUpgrade.upgradedUri] clears that reverted marker from the URI it
-     * builds, so the swap — when there is something worth swapping to — is
-     * served the copy that was found rather than the one being replaced. The
-     * listener hears one cut, for the change they asked for.
+     * one thing standing in the way of that is handled where it lives:
+     * [QualityUpgrade.askByHand] exempts an already-marked item's rendition
+     * marker from the rule that would otherwise read it as "already upgraded",
+     * so the swap — when there is something worth swapping to — is served the
+     * copy that was found rather than the one being replaced. The listener
+     * hears one cut, for the change they asked for.
      */
     private fun upgradeQualityNow() {
         val player = player ?: return
@@ -3024,7 +2981,6 @@ class PlaybackService : MediaLibraryService() {
             )
             return
         }
-        OriginalVersion.unpin(mediaId)
         QualityUpgrade.askByHand(mediaId)
         TrackLog.d("BitChord", "upgrade asked for by hand for $mediaId", about = mediaId)
         lookForBetterCopy(player)
@@ -3306,16 +3262,10 @@ class PlaybackService : MediaLibraryService() {
             val previousFormat = NerdStats.declaredFormat(mediaId)
             swappingMediaId = mediaId
             swapCutAt = SystemClock.elapsedRealtime()
-            val upgradedMetadata = now.item.mediaMetadata.buildUpon()
-                .setExtras(Bundle(now.item.mediaMetadata.extras ?: Bundle()).apply {
-                    putBoolean(EXTRA_QUALITY_UPGRADED, true)
-                })
-                .build()
             player.replaceMediaItem(
                 player.currentMediaItemIndex,
                 now.item.buildUpon()
                     .setUri(upgradedUri)
-                    .setMediaMetadata(upgradedMetadata)
                     .withResolvedStreamType(stream.url)
                     .build(),
             )
@@ -3371,21 +3321,6 @@ class PlaybackService : MediaLibraryService() {
         // not prevent the requested lossless copy from replacing it. Two marked
         // URIs get distinct cache entries through [QualityUpgrade.upgradedUri].
         if (uri.contains("${QualityUpgrade.MARKER}=hifi-")) return null
-        // A track the listener is holding on its original upload is not a
-        // candidate for anything, whatever was already in flight for it. The
-        // revert can land in the middle of a hunt — that is when the "Upgrading
-        // quality" badge makes it most tempting to press — and the search
-        // behind it neither knows nor can be told.
-        //
-        // The pin is the test rather than the item's `q=original` marker, because
-        // those two come apart in exactly the case this must not block: an
-        // upgrade asked for by hand leaves the reverted item in place and
-        // unpins the track, and swapping against that item is the whole point.
-        // See [OriginalVersion] and [QualityUpgrade.askByHand].
-        if (OriginalVersion.isPinned(mediaId)) {
-            TrackLog.d("BitChord", "no swap for $mediaId: it is held on the original", about = mediaId)
-            return null
-        }
         return SwapPoint(item, uri, player.currentPosition, player.duration)
     }
 
@@ -3722,7 +3657,7 @@ class PlaybackService : MediaLibraryService() {
             // borrowed that claim from got reverted.
             if (previousFormat != null) {
                 val prevSource = StreamChoice.of(mediaId)?.sourceConfigId?.let { SourceRegistry.config(it)?.displayName }
-                    ?: if (StreamChoice.isSubstitute(mediaId)) "Substitute" else "YouTube"
+                    ?: if (StreamChoice.isSubstitute(mediaId)) "Substitute" else "Direct"
                 NerdStats.onSourceStream(mediaId, previousFormat, prevSource)
             } else {
                 NerdStats.clearDeclared(mediaId)
@@ -3965,11 +3900,6 @@ class PlaybackService : MediaLibraryService() {
         // 6. Non-prefixed mediaId fallback to recorded source if any
         val recorded = NerdStats.sourceFor(id)
         if (!recorded.isNullOrBlank()) return recorded
-
-        // 7. YouTube video ID
-        if (id.length == 11 || uri?.getQueryParameter("v") != null) {
-            return "YouTube"
-        }
 
         return "Unknown"
     }
@@ -5135,7 +5065,6 @@ class PlaybackService : MediaLibraryService() {
                 .add(autoplayCommand)
                 .add(shuffleCommand)
                 .add(startStationCommand)
-                .add(revertToOriginalCommand)
                 .add(swapToVersionCommand)
                 .add(beginRadioQueueCommand)
                 .add(commitRadioQueueCommand)
@@ -5170,7 +5099,6 @@ class PlaybackService : MediaLibraryService() {
                 ACTION_TOGGLE_AUTOPLAY -> toggleAutoplayFromNotification()
                 ACTION_TOGGLE_SHUFFLE -> toggleShuffleFromSession()
                 ACTION_START_STATION -> startStationFromSession()
-                ACTION_REVERT_TO_ORIGINAL -> revertCurrentToOriginal()
                 ACTION_SWAP_TO_VERSION -> swapCurrentToVersion(args)
                 ACTION_BEGIN_RADIO_QUEUE -> beginRadioQueue()
                 ACTION_COMMIT_RADIO_QUEUE -> player?.let(::saveQueueSnapshotImmediately)
