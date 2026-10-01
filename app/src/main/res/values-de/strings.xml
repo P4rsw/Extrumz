@@ -1,22 +1,19 @@
 <resources>
     <string name="app_name">BitChord</string>
     <string name="playback_channel_name">Wird wiedergegeben</string>
-    <string name="download_channel_name">Downloads</string>
-    <string name="download_channel_description">Songs, die in deinem Musikordner gespeichert werden</string>
+    
+    
     <string name="download_notification_title">Wird heruntergeladen</string>
-    <string name="download_notification_starting">Wird gestartet</string>
-    <string name="download_notification_queued">%1$s · %2$d weitere in Warteschlange</string>
-    <string name="upload_channel_name">Uploads</string>
-    <string name="upload_channel_description">Songs, die an deinen WebDAV-Server gesendet werden</string>
-    <string name="upload_notification_title">Wird hochgeladen</string>
-    <string name="upload_notification_queued">%1$s · %2$d weitere in der Warteschlange</string>
-    <plurals name="uploading_song_count">
-        <item quantity="one">%1$d Song wird hochgeladen</item>
-        <item quantity="other">%1$d Songs werden hochgeladen</item>
-    </plurals>
+    
+    
+    
+    
+    
+    
+    
     <string name="cancel">Abbrechen</string>
     <string name="save">Speichern</string>
-    <string name="close">Schließen</string>
+    
     <string name="back">Zurück</string>
     <string name="settings">Einstellungen</string>
     <string name="search">Suchen</string>
@@ -32,22 +29,22 @@
     <string name="audio_files_on_device">Audiodateien auf dem Gerät</string>
     <string name="on_device">Auf dem Gerät</string>
     <string name="playlists">Playlists</string>
-    <string name="new_playlist">Neue Playlist</string>
-    <string name="saved_to_youtube_music">In YouTube Music gespeichert</string>
-    <string name="sign_in">Anmelden</string>
-    <string name="sign_out">Abmelden</string>
-    <string name="signed_in">Angemeldet</string>
-    <string name="not_signed_in">Nicht angemeldet</string>
+    
+    
+    
+    
+    
+    
     <string name="retry">Erneut versuchen</string>
     <string name="shuffle">Zufallswiedergabe</string>
     <string name="more">Mehr</string>
-    <string name="add_to_playlist">Zur Playlist hinzufügen</string>
-    <string name="add_to_library">Zur Bibliothek hinzufügen</string>
-    <string name="remove_from_library">Aus Bibliothek entfernen</string>
+    
+    
+    
     <string name="download_all">Alle herunterladen</string>
     <string name="top_songs">Meistgehörte Songs</string>
-    <string name="suggested">Vorschläge</string>
-    <string name="song_count">%1$d Song</string>
+    
+    
     <plurals name="song_count_plural">
         <item quantity="one">%1$d Song</item>
         <item quantity="other">%1$d Songs</item>
@@ -63,7 +60,7 @@
     <string name="songs">Songs</string>
     <string name="artists">Künstler</string>
     <string name="albums">Alben</string>
-    <string name="no_album_metadata">Keiner dieser Titel gibt an, zu welchem Album er gehört.</string>
+    
     <string name="search_empty">Durchsuche Millionen Songs auf YouTube Music.</string>
     <string name="recent_searches">Letzte Suchanfragen</string>
     <string name="clear">Löschen</string>
@@ -72,60 +69,60 @@
     <string name="recent_search_remove">„%1$s“ aus letzten Suchanfragen entfernen</string>
     <string name="storage_required_save">Speicherzugriff ist erforderlich, um Songs zu speichern</string>
     <string name="storage_required_read">Speicherberechtigung ist erforderlich, um lokale Audiodateien zu lesen</string>
-    <string name="sharing_coming_soon">Teilen ist bald verfügbar</string>
+    
     <string name="already_downloaded">Bereits heruntergeladen</string>
     <plurals name="downloading_song_count">
         <item quantity="one">%1$d Song wird heruntergeladen</item>
         <item quantity="other">%1$d Songs werden heruntergeladen</item>
     </plurals>
-    <string name="source">Quellen</string>
-    <string name="lossless_audio">Verlustfreies Audio</string>
-    <string name="prefer_lossless">Verlustfrei bevorzugen</string>
-    <string name="lossless_source_subtitle">FLAC und ALAC direkt von der Quelle</string>
-    <string name="overridden">Überschrieben</string>
-    <string name="add_module_source">Modulquelle hinzufügen</string>
-    <string name="remove_source">Diese Quelle entfernen</string>
-    <string name="test">Testen</string>
-    <string name="testing">Wird getestet…</string>
+    
+    
+    
+    
+    
+    
+    
+    
+    
     <string name="connected">Verbunden</string>
-    <string name="account_integrations">Konto &amp; Integrationen</string>
-    <string name="account_scrobbling">Konto &amp; Scrobbling</string>
-    <string name="rich_presence">Rich Presence</string>
-    <string name="scrobbling">Scrobbling</string>
+    
+    
+    
+    
     <string name="now_playing">Wird wiedergegeben</string>
     <string name="next_in_queue">Als Nächstes in der Warteschlange</string>
     <string name="next_from">Als Nächstes aus: %1$s</string>
     <string name="selected">Ausgewählt</string>
-    <string name="password">Passwort</string>
-    <string name="username">Benutzername</string>
-    <string name="login_failed">Anmeldung fehlgeschlagen</string>
+    
+    
+    
     <string name="song_cache_cleared">Song-Cache geleert</string>
     <string name="image_cache_cleared">Bild-Cache geleert</string>
     <string name="no_equalizer">Kein System-Equalizer auf diesem Gerät</string>
-    <string name="no_dolby_atmos">Kein Dolby-Atmos-Panel auf diesem Gerät</string>
-    <string name="dolby_atmos_open_failed">Dolby-Atmos-Einstellungen konnten nicht geöffnet werden</string>
-    <string name="update_available">Update verfügbar: v%1$s</string>
-    <string name="software_update">Softwareupdate</string>
-    <string name="update_available_body">bitchord %1$s steht zum Download bereit.</string>
-    <string name="update_downloading_body">bitchord %1$s wird heruntergeladen…</string>
-    <string name="update_ready_body">bitchord %1$s ist bereit zur Installation.</string>
-    <string name="update_failed_body">bitchord %1$s konnte nicht heruntergeladen werden.</string>
-    <string name="download_now">Jetzt herunterladen</string>
-    <string name="install_now">Jetzt installieren</string>
-    <string name="later">Später</string>
-    <string name="remind_me_later">Später erinnern</string>
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
     <string name="try_again">Erneut versuchen</string>
-    <string name="open_releases_page">Release-Seite öffnen</string>
-    <string name="whats_new">Neuerungen</string>
-    <string name="log_copied">Protokoll kopiert · %1$d Zeilen</string>
-    <string name="sign_in_youtube_music">Bei YouTube Music anmelden</string>
-    <string name="sign_in_discord">Bei Discord anmelden</string>
-    <string name="personalized_recommendations">Erhalte personalisierte Empfehlungen</string>
+    
+    
+    
+    
+    
+    
     <string name="play_next">Als Nächstes wiedergeben</string>
     <string name="queue">Warteschlange</string>
-    <string name="source_setup_required">Tippen, um die Einrichtung abzuschließen</string>
-    <string name="source_unreachable">Momentan nicht erreichbar · %1$s</string>
-    <string name="checking">Wird geprüft…</string>
+    
+    
+    
     <string name="failed">Fehlgeschlagen</string>
     <string name="widget_square_label">Wird wiedergegeben 2×2</string>
     <string name="widget_wide_label">Wird wiedergegeben 4×2</string>
@@ -137,7 +134,7 @@
     <string name="widget_previous">Zurück</string>
     <string name="widget_artwork">Albumcover</string>
     <string name="widget_nothing_played">Noch nichts wiedergegeben</string>
-    <string name="widget_open_bitchord">BitChord öffnen</string>
+    
     <string name="widget_preview_title">Songtitel</string>
     <string name="widget_preview_artist">Künstler</string>
     <string name="widget_pill_label">Wird wiedergegeben 4×1</string>
@@ -151,7 +148,7 @@
     <string name="animated_cover_cellular">Animiertes Cover bei mobilen Daten abspielen</string>
     <string name="replay">Replay</string>
     <string name="replay_subtitle">Deine meistgehörten Songs, Künstler, Alben und Genres</string>
-    <string name="work_out_genres">Genres ermitteln</string>
+    
     <string name="export_data">Daten exportieren</string>
     <string name="export_data_subtitle">Einstellungen und Hörverlauf als eine JSON-Datei</string>
     <string name="import_data">Daten importieren</string>
@@ -181,8 +178,8 @@
     <string name="turkish">Türkisch</string>
     <string name="thai">Thailändisch</string>
     <string name="show_all">Alle anzeigen</string>
-    <string name="grid_view">Raster</string>
-    <string name="list_view">Liste</string>
+    
+    
     <string name="switch_to_grid_view">Zur Rasteransicht wechseln</string>
     <string name="switch_to_list_view">Zur Listenansicht wechseln</string>
     <string name="audio_quality">Audioqualität</string>
@@ -191,7 +188,7 @@
     <string name="storage">Speicher</string>
     <string name="your_data">Deine Daten</string>
     <string name="miscellaneous">Sonstiges</string>
-    <string name="lossless_hq_audio">Verlustfrei / HQ-Audio</string>
+    
     <string name="on_wifi">Bei WLAN</string>
     <string name="on_mobile_data">Bei mobilen Daten</string>
     <string name="in_use">In Verwendung</string>
@@ -248,7 +245,7 @@
     <string name="high_performance_mode">Hochleistungsmodus</string>
     <string name="high_performance_subtitle">Verwendet vollständige Animationen und Unschärfe und fordert eine höhere Bildwiederholrate an</string>
     <string name="high_performance_active">%1$d Hz angefordert. Android kann die Rate bei Bedarf verringern.</string>
-    <string name="beta">Beta</string>
+    
     <string name="refresh_rate">Bildwiederholrate</string>
     <string name="high_performance_before_enabling">Vor der Aktivierung</string>
     <string name="high_performance_battery_warning">Stelle zuerst den Akkuverbrauch von BitChord auf Uneingeschränkt. Höhere Bildwiederholraten verbrauchen mehr Akku, CPU und GPU und können dein Gerät erwärmen.</string>
@@ -257,22 +254,22 @@
     <string name="enable_high_performance_confirmation">Aktiviere dies nur, wenn der Akkuverbrauch von BitChord auf Uneingeschränkt gesetzt ist. Android kann die Bildwiederholrate weiterhin einschränken, wenn das Gerät heiß ist oder der Akku schwach ist.</string>
     <string name="enable">Aktivieren</string>
     <string name="not_yet">Noch nicht</string>
-    <string name="activity">Aktivität</string>
-    <string name="activity_competing">Tritt an</string>
-    <string name="activity_dialog_message">Das Verb, das über der Karte angezeigt wird.</string>
-    <string name="activity_listening">Hört</string>
-    <string name="activity_name_message">Was nach dem Verb im Profil folgt. Leer lassen, um %1$s zu verwenden.</string>
-    <string name="activity_playing">Spielt</string>
-    <string name="activity_watching">Sieht zu</string>
+    
+    
+    
+    
+    
+    
+    
     <string name="add_to_queue">Zur Warteschlange hinzufügen</string>
     <string name="after_this_song">Nach diesem Song</string>
-    <string name="always_on">Immer an</string>
-    <string name="api_token">API-Token</string>
+    
+    
     <string name="audio_quality_connection">Bei %1$s</string>
     <string name="autoplay">AutoPlay</string>
-    <string name="back_in_future_version">Kommt in einer zukünftigen Version zurück</string>
-    <string name="buttons">Schaltflächen</string>
-    <string name="clear_name">Namen löschen</string>
+    
+    
+    
     <string name="close_lyrics">Songtexte schließen</string>
     <string name="translate_lyrics">Songtext übersetzen</string>
     <string name="romanize_lyrics">Songtext romanisieren</string>
@@ -285,28 +282,28 @@
     <string name="lyrics_romanization_unavailable">Für diesen Songtext ist keine Romanisierung verfügbar</string>
     <string name="lyrics_already_in_language">Dieser Songtext ist bereits auf %1$s</string>
     <string name="lyrics_translation_unavailable">Die Übersetzung ist derzeit nicht verfügbar</string>
-    <string name="connect_account_first">Verbinde zuerst ein Konto</string>
-    <string name="connected_presence_off">Verbunden, Presence aus</string>
+    
+    
     <string name="copy_log">Protokoll kopieren</string>
-    <string name="couldnt_find">%1$s konnte nicht gefunden werden</string>
-    <string name="couldnt_open_link">Dieser Link konnte nicht geöffnet werden</string>
-    <string name="create_playlist">Playlist erstellen</string>
-    <string name="customize_card">Karte anpassen</string>
-    <string name="customize_card_subtitle">Status, Text und beide Schaltflächen</string>
+    
+    
+    
+    
+    
     <string name="delete">Löschen</string>
-    <string name="disconnect">Trennen</string>
-    <string name="discord">Discord</string>
-    <string name="discord_account">Discord-Konto</string>
-    <string name="discord_button_variables">{song_name}, {artist_name} und {album_name} werden durch den aktuellen Titel ersetzt.</string>
-    <string name="discord_buttons_footer">{song_name}, {artist_name} und {album_name} werden durch den Titel ersetzt. Die erste Schaltfläche öffnet den Song in YouTube Music, die zweite öffnet dieses Projekt.</string>
-    <string name="discord_presence_footer">Die Karte wird aktualisiert, wenn sich Titel, Position oder Wiedergabestatus ändern. Sie wird geleert, sobald die Wiedergabe stoppt.</string>
-    <string name="discord_show_audio_quality">Audioqualität anzeigen</string>
-    <string name="discord_show_audio_quality_subtitle">Hi-Res-, Lossless- und Dolby-Angaben auf der Statuskarte</string>
-    <string name="discord_sign_in_footer">Die Anmeldung öffnet Discords Login-Seite. Es wird nichts in BitChord eingegeben.</string>
-    <string name="discord_token">Discord-Token</string>
-    <string name="discord_token_description">Füge deinen Discord-Konto-Token ein. Er bleibt verschlüsselt auf diesem Gerät gespeichert und wird nur an Discord gesendet.</string>
-    <string name="discord_token_rejected">Discord hat diesen Token abgelehnt.</string>
-    <string name="discord_token_warning">Discord bietet keine API, mit der Apps deine Presence festlegen können. Diese Funktion meldet sich daher als dein Konto an und nutzt Discords Protokoll. Dein Token bleibt verschlüsselt auf diesem Gerät gespeichert und wird nur an Discord gesendet. Er gewährt Zugriff auf dein gesamtes Konto, und Kontoautomatisierung verstößt gegen Discords Nutzungsbedingungen. Verwende ihn nur, wenn du dieses Risiko akzeptierst.</string>
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
     <string name="dislike">Nicht gefällt mir</string>
     <string name="done">Fertig</string>
     <string name="download">Herunterladen</string>
@@ -314,11 +311,11 @@
     <string name="downloaded">Heruntergeladen</string>
     <string name="drag_to_reorder">Ziehen, um die Reihenfolge zu ändern</string>
     <string name="enabled">Aktiviert</string>
-    <string name="enter_token_instead">Stattdessen einen Token eingeben</string>
-    <string name="enter_token_instead_subtitle">Nutze dies, wenn die Anmeldeseite nicht lädt</string>
-    <string name="enter_token_to_enable">Token eingeben, um zu aktivieren</string>
-    <string name="first_button">Erste Schaltfläche</string>
-    <string name="got_it">Verstanden</string>
+    
+    
+    
+    
+    
     <string name="high_quality">Hohe Qualität</string>
     <string name="instrumental">Instrumental</string>
     <string name="pause">Pause</string>
@@ -350,30 +347,30 @@
     <string name="channel_count">%1$d Kan.</string>
     <string name="downgraded_from">↓ von %1$s</string>
     <string name="history">Verlauf</string>
-    <string name="sources">Quellen</string>
+    
     <string name="wifi">WLAN</string>
     <string name="mobile_data">Mobile Daten</string>
     <string name="couldnt_load_tracks">Diese Titel konnten nicht geladen werden</string>
     <string name="wifi_only_download_refusal">Downloads sind auf WLAN beschränkt. Schalte das in den Einstellungen aus, um mobile Daten zu nutzen.</string>
     <string name="pinned_playlist_limit">Es können nur %1$d Playlists angeheftet werden</string>
     <string name="downloaded_playlist">Heruntergeladene Playlist</string>
-    <string name="library_sign_in_description">Melde dich mit deinem Google-Konto an, um deine gelikten Songs, Playlists und den YouTube-Music-Verlauf zu sehen.</string>
+    
     <string name="downloads_progress">Downloads · %1$d%%</string>
     <string name="downloads_finished">Downloads · fertig</string>
     <string name="downloading_progress">Wird heruntergeladen · %1$d%%</string>
     <string name="starting">Wird gestartet</string>
     <string name="saved_to_bitchord_folder">In Music/BitChord gespeichert</string>
     <string name="nothing_downloading">Nichts wird heruntergeladen</string>
-    <string name="nothing_to_explore">Gerade nichts zu entdecken</string>
-    <string name="no_youtube_music_results">Keine Ergebnisse von YouTube Music</string>
-    <string name="library_empty">Noch nichts in deiner Bibliothek</string>
-    <string name="history_sign_in_required">Melde dich an, um zu sehen, was du gehört hast</string>
+    
+    
+    
+    
     <string name="history_empty">Noch nichts gespielt</string>
     <string name="no_results">Keine Ergebnisse</string>
     <string name="downloaded_playlist_empty">Von dieser Playlist ist nichts mehr auf diesem Gerät vorhanden</string>
     <string name="no_local_audio_found">Keine Audiodateien auf diesem Gerät gefunden</string>
     <string name="no_internet_connection">Keine Internetverbindung</string>
-    <string name="youtube_request_rejected">YouTube Music hat die Anfrage abgelehnt. Versuche, dich erneut anzumelden.</string>
+    
     <string name="something_went_wrong">Etwas ist schiefgelaufen</string>
     <string name="unknown_artist">Unbekannter Künstler</string>
     <plurals name="downloads_failed_count">
@@ -396,13 +393,13 @@
         <item quantity="one">Alle %1$d Song heruntergeladen</item>
         <item quantity="other">Alle %1$d Songs heruntergeladen</item>
     </plurals>
-    <string name="your_playlists">Deine Playlists</string>
-    <string name="who_can_see_it">Wer es sehen kann</string>
-    <string name="about_artist">Über den Künstler</string>
-    <string name="about_album">Über das Album</string>
+    
+    
+    
+    
     <string name="nothing_matches">Hier passt nichts zu „%1$s“</string>
     <string name="close_search">Suche schließen</string>
-    <string name="less">Weniger</string>
+    
     <string name="song_count_with_minutes">%1$s, %2$d Minuten</string>
     <string name="song_count_with_duration">%1$s, %2$s</string>
     <string name="song_count_with_hours_minutes">%1$s, %2$s %3$d Minuten</string>
@@ -423,37 +420,37 @@
         <item quantity="other">Protokoll kopiert · %1$d Zeilen</item>
     </plurals>
     <string name="integrate_spotify_canvas">Spotify Canvas einrichten</string>
-    <string name="lastfm_login">Last.fm-Anmeldung</string>
-    <string name="lastfm_login_description">Melde dich mit deinem Last.fm-Konto an, um Scrobbling zu aktivieren.</string>
-    <string name="lastfm_now_playing_subtitle">Aktualisiert Last.fm mit dem, was du gerade hörst</string>
-    <string name="lead_with_song">Mit dem Song beginnen</string>
-    <string name="lead_with_song_subtitle">Setzt den Titel statt des Künstlers in die fett gedruckte Zeile</string>
+    
+    
+    
+    
+    
     <string name="like">Gefällt mir</string>
-    <string name="listenbrainz_token">ListenBrainz-Token</string>
-    <string name="listenbrainz_token_description">Füge deinen ListenBrainz-Benutzer-Token ein, um Scrobbling zu aktivieren.</string>
+    
+    
     <string name="listening_history">Hörverlauf</string>
     <string name="lyrics_not_available">Songtexte nicht verfügbar</string>
     <string name="lyrics_sources_order">Die Quellen werden in dieser Reihenfolge ausprobiert. Ziehe, um sie neu anzuordnen. Die erste Quelle mit Songtexten gewinnt, sofern nicht Silben-Songtexte priorisiert werden.</string>
-    <string name="max_delay">Maximale Verzögerung</string>
-    <string name="max_delay_subtitle">Maximale Scrobble-Verzögerung in Sekunden</string>
-    <string name="min_song_duration">Mindestdauer des Songs</string>
-    <string name="min_song_duration_subtitle">Kürzere Songs werden nicht gescrobbelt</string>
-    <string name="monthly_listeners">%1$s monatliche Hörer</string>
-    <string name="name">Name</string>
+    
+    
+    
+    
+    
+    
     <string name="no_lyrics_for_track">Keine Songtexte für diesen Titel</string>
-    <string name="no_playlists_yet">Noch keine Playlists. Nutze die Zeile oben, um eine zu erstellen.</string>
+    
     <string name="no_tracks_here">Keine Titel hier</string>
-    <string name="not_connected">Nicht verbunden</string>
+    
     <string name="one_hour">1 Stunde</string>
     <string name="open_album">Album öffnen</string>
     <string name="open_artist">Künstler öffnen</string>
     <string name="pause_after_a_while">Wiedergabe nach einer Weile pausieren</string>
     <string name="pause_after_song">Pausiert, wenn dieser Song endet</string>
     <string name="pause_countdown">%1$s bis die Wiedergabe pausiert</string>
-    <string name="play_to_preview">Spiele etwas ab, um die Vorschau zu füllen.</string>
-    <string name="playlist_name">Playlist-Name</string>
-    <string name="presence">Presence</string>
-    <string name="preview">Vorschau</string>
+    
+    
+    
+    
     <string name="prioritize_syllable_lyrics">Silben-Songtexte priorisieren</string>
     <string name="prioritize_syllable_lyrics_subtitle">Sucht über einen zeilensynchronen Treffer hinaus nach wortgenauen Songtexten weiter</string>
     <string name="quality_hourly">%1$s · %2$s</string>
@@ -461,44 +458,44 @@
     <string name="queued">In Warteschlange</string>
     <string name="remove">Entfernen</string>
     <string name="remove_from_liked">Aus „Gefällt mir“-Musik entfernen</string>
-    <string name="remove_from_playlist">Aus dieser Playlist entfernen</string>
+    
     <string name="remove_from_queue">Aus der Warteschlange entfernen</string>
-    <string name="rename_playlist">Playlist umbenennen</string>
+    
     <string name="reset_to_default">Auf Standard zurücksetzen</string>
-    <string name="rich_presence_footer">Zeige, was du gerade hörst, auf deinem Discord-Profil.</string>
-    <string name="save_name">Namen speichern</string>
+    
+    
     <string name="saved_to_downloads">In Downloads gespeichert</string>
-    <string name="saved_to_youtube_music_account">In deinem YouTube-Music-Konto gespeichert</string>
-    <string name="scrobble_delay">Scrobble-Verzögerung</string>
-    <string name="scrobble_delay_subtitle">Wie weit in einen Song hinein gescrobbelt wird</string>
-    <string name="scrobble_timing">Scrobble-Zeitpunkt</string>
-    <string name="scrobble_tracks">Titel scrobbeln</string>
-    <string name="scrobble_tracks_subtitle">Zeichnet Wiedergaben in deiner Last.fm-Timeline auf</string>
-    <string name="scrobbling_footer">Scrobble deine Wiedergaben zu Last.fm und ListenBrainz.</string>
-    <string name="scrobbling_paused_footer">Last.fm und ListenBrainz sind für diese Version pausiert und kehren später zurück. Bestehende Verbindungen bleiben gespeichert.</string>
+    
+    
+    
+    
+    
+    
+    
+    
     <string name="search_this_folder">Diesen Ordner durchsuchen</string>
     <string name="search_this_list">Diese Liste durchsuchen</string>
-    <string name="second_button">Zweite Schaltfläche</string>
+    
     <string name="share">Teilen</string>
-    <string name="sharing_as">Teilen als @%1$s</string>
-    <string name="sharing_listens">Deine Wiedergaben werden geteilt</string>
-    <string name="show_what_playing">Zeigen, was ich gerade höre</string>
-    <string name="signed_in_as">Angemeldet als %1$s</string>
-    <string name="signing_in">Wird angemeldet…</string>
+    
+    
+    
+    
+    
     <string name="sleep_timer">Sleep-Timer</string>
-    <string name="sources_no_lossless">Keine aktivierte Quelle kann verlustfreies Audio liefern. Füge ein eigenes Modul hinzu, um verfügbare verlustfreie Dateien ohne Transkodierung abzuspielen.</string>
-    <string name="sources_order_footer">Wenn eine Quelle einen Titel nicht hat oder nicht erreichbar ist, versucht BitChord die nächste. Quellen über YouTube können dessen Aufnahme ersetzen, wenn sie eine bessere Version liefern.</string>
-    <string name="sources_order_header">Quellen, in dieser Reihenfolge versucht</string>
-    <string name="sources_quality_capped">Diese Verbindung ist unter Hohe Qualität eingestellt, daher werden Streams transkodiert, um dieses Limit einzuhalten. Downloads sind davon nicht betroffen.</string>
-    <string name="jiosaavn_mismatch_warning">Kann die falsche Version eines Songs erwischen. Aktivieren auf eigene Gefahr.</string>
-    <string name="enable_jiosaavn">JioSaavn aktivieren?</string>
-    <string name="enable_anyway">Trotzdem aktivieren</string>
-    <string name="sources_subtitle">Woher Audio stammt und in welcher Reihenfolge</string>
-    <string name="source_matching">Quellenabgleich</string>
-    <string name="upgrade_length_slack">Toleranz der Titellänge</string>
-    <string name="upgrade_length_slack_subtitle">Maximal erlaubte Längenabweichung für einen Ersatz-Stream</string>
-    <string name="upgrade_length_slack_footer">Eine größere Toleranz akzeptiert mehr Treffer aus Quellen, eine kleinere ist strenger. Standard sind 3 Sekunden.</string>
-    <string name="seconds_short">%1$d s</string>
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
     <string name="spdc_token">sp_dc-Token</string>
     <string name="spotify_canvas_setup">Spotify-Canvas-Einrichtung</string>
     <string name="spotify_canvas_setup_description">Um Spotify Canvas zu nutzen, gib dein Spotify-sp_dc-Cookie an.</string>
@@ -507,26 +504,26 @@
     <string name="spotify_canvas_auto_hide_subtitle">Klappt den halben Player nach 5 Sekunden ein, während Spotify Canvas läuft</string>
     <string name="prioritize_spotify_canvas">Spotify Canvas bevorzugen</string>
     <string name="prioritize_spotify_canvas_subtitle">Spotify vor Apple Music und anderen Anbietern animierter Cover versuchen</string>
-    <string name="status">Status</string>
-    <string name="status_dialog_message">Was dein Konto anzeigt, während Presence aktiv ist.</string>
-    <string name="status_dnd">Nicht stören</string>
-    <string name="status_dnd_detail">Roter Strich. Unterdrückt außerdem Benachrichtigungen.</string>
-    <string name="status_idle">Abwesend</string>
-    <string name="status_idle_detail">Bernsteinfarbener Halbmond, angezeigt als abwesend</string>
-    <string name="status_online">Online</string>
-    <string name="status_online_detail">Grüner Punkt</string>
-    <string name="subscribers">%1$s Abonnenten</string>
-    <string name="tap_to_connect">Tippen, um zu verbinden</string>
-    <string name="tap_to_sign_in">Tippen, um sich anzumelden</string>
-    <string name="tap_to_sign_in_discord">Tippen, um sich mit Discord anzumelden</string>
-    <string name="token">Token</string>
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
     <string name="turn_off_timer">Timer ausschalten</string>
     <string name="undo_dislike">„Nicht gefällt mir“ rückgängig machen</string>
     <string name="up_next">Als Nächstes</string>
-    <string name="verb_competing">Tritt an in</string>
-    <string name="verb_listening">Hört</string>
-    <string name="verb_playing">Spielt</string>
-    <string name="verb_watching">Sieht zu</string>
+    
+    
+    
+    
     <plurals name="minute_count">
         <item quantity="one">%1$d Minute</item>
         <item quantity="other">%1$d Minuten</item>
@@ -536,7 +533,7 @@
     <string name="couldnt_draw_picture">Das Bild konnte nicht erstellt werden</string>
     <string name="default_replay_holder">BitChord-Hörer</string>
     <string name="different_albums">Verschiedene Alben</string>
-    <string name="genres_pending">Genres erscheinen, sobald dein Hörverlauf wächst</string>
+    
     <string name="hour_am">%1$d Uhr vorm.</string>
     <string name="hour_pm">%1$d Uhr nachm.</string>
     <string name="hours_minutes_short">%1$dh %2$dm</string>
@@ -614,43 +611,43 @@
     <string name="use_all_audio_folders_subtitle">Entfernt die Ordnerbegrenzung und durchsucht Musik auf dem gesamten Gerät</string>
     <string name="album">Album</string>
     <string name="artist">Künstler</string>
-    <string name="webdav">WebDAV</string>
-    <string name="webdav_subtitle">Musik auf deinem Server</string>
-    <string name="webdav_not_configured">Verbinde unter „Quellen“ einen Server</string>
-    <string name="webdav_empty">Keine Audiodateien auf dem WebDAV-Server gefunden. Prüfe die URL in den Einstellungen.</string>
-    <string name="webdav_description">Verbinde BitChord mit einem WebDAV-Musikordner – deinem Nextcloud-Musikverzeichnis oder einem beliebigen WebDAV-Server.</string>
-    <string name="webdav_server_url">Server-URL</string>
-    <string name="webdav_server_url_hint">https://cloud.example.com/remote.php/dav/files/user/Music</string>
-    <string name="webdav_disconnect">Trennen</string>
-    <string name="webdav_test_failed">Nicht erreichbar: %1$s</string>
-    <string name="upload_to_webdav">Auf WebDAV hochladen</string>
-    <string name="webdav_conflict_title">„%1$s“ ist bereits auf dem Server</string>
-    <string name="webdav_conflict_message">Überschreiben oder beide Kopien behalten?</string>
-    <string name="webdav_overwrite">Überschreiben</string>
-    <string name="webdav_keep_both">Beide behalten</string>
-    <string name="webdav_skip">Überspringen</string>
-    <string name="webdav_apply_to_all">Auf alle anwenden</string>
-    <string name="webdav_upload_summary">%1$d hochgeladen · %2$d übersprungen · %3$d fehlgeschlagen</string>
-    <string name="smb">SMB</string>
-    <string name="smb_subtitle">Musik auf einer Dateifreigabe</string>
-    <string name="smb_not_configured">Verbinde unter „Quellen“ eine Freigabe</string>
-    <string name="smb_empty">Keine Audiodateien auf der SMB-Freigabe gefunden. Prüfe den Server unter „Quellen“.</string>
-    <string name="smb_description">Verbinde BitChord mit einem freigegebenen Musikordner – einem NAS oder einer Windows-Freigabe per SMB.</string>
-    <string name="smb_server_hint">nas.local or 192.168.1.10:4445</string>
-    <string name="smb_share_hint">Freigabename, z. B. Music</string>
-    <string name="smb_folder_hint">Ordner (optional)</string>
-    <string name="smb_disconnect">Trennen</string>
-    <string name="smb_test_failed">Nicht erreichbar: %1$s</string>
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
     <string name="playlist">Playlist</string>
     <string name="open">Öffnen</string>
     <string name="open_playlist">Playlist öffnen</string>
     <string name="pin">Anheften</string>
     <string name="unpin">Lösen</string>
-    <string name="rename">Umbenennen</string>
+    
     <string name="downloading">Wird heruntergeladen</string>
-    <string name="delete_playlist">Playlist löschen</string>
+    
     <string name="delete_download">Download löschen</string>
-    <string name="delete_playlist_confirmation">„%1$s“ löschen? Erneut tippen, um zu bestätigen.</string>
+    
     <string name="delete_download_confirmation">„%1$s“ von diesem Gerät entfernen? Erneut tippen, um zu bestätigen.</string>
     <string name="running">Läuft</string>
     <string name="automix_analysis_status">Automix · dieser Song: %1$s · nächster: %2$s</string>
@@ -658,23 +655,23 @@
     <string name="analysis_refining">analysiert, wird verfeinert…</string>
     <string name="analysis_in_progress">wird analysiert…</string>
     <string name="waiting">wartet</string>
-    <string name="version_alignment_status">%1$s · %2$s</string>
-    <string name="version_cut_not_fetched">nicht geladen</string>
-    <string name="version_cut_fetching">wird geladen</string>
-    <string name="version_cut_measuring">wird analysiert</string>
-    <string name="version_cut_aligned">ausgerichtet</string>
+    
+    
+    
+    
+    
     <string name="automix_enabled_subtitle">Timing und Überblendung jedes Übergangs werden direkt aus den Titeln bestimmt. Schalte dies aus, wenn das Telefon heiß wird oder die Wiedergabe stockt.</string>
     <string name="automix_disabled_subtitle">Timing und Überblendung von Übergängen erfolgen automatisch, ohne Regler. Die Leistung kann auf langsameren Geräten variieren.</string>
     <string name="no_lyrics_sources_enabled">Keine. Songtexte werden nicht abgerufen.</string>
     <string name="song_cache_large_subtitle">Behält bis zu %1$s heruntergeladenes Audio auf dem Speicher. Das kann einen spürbaren Teil deines freien Speicherplatzes beanspruchen.</string>
     <string name="song_cache_limit_subtitle">Behält heruntergeladenes Audio auf dem Speicher für sofortiges Springen und Wiederholen</string>
-    <string name="replay_genres_enabled_subtitle">Fragt Last.fm nach den Genres eines Künstlers. Nur der Künstlername wird gesendet.</string>
-    <string name="replay_genres_disabled_subtitle">Das Replay-Genre-Diagramm bleibt ausgeblendet, solange dies deaktiviert ist</string>
+    
+    
     <string name="swipe_plays_next">Ein gewischter Song wird als Nächstes gespielt</string>
     <string name="swipe_adds_to_queue">Wenn deaktiviert, fügt Wischen den Song ans Ende der Warteschlange hinzu</string>
     <string name="import_backup_warning">Dies ersetzt die Einstellungen und den Hörverlauf dieses Geräts durch den Inhalt der Datei. Exportiere zuerst die aktuellen Daten, wenn du sie behalten möchtest.</string>
-    <string name="youtube_music_account">YouTube-Music-Konto</string>
-    <string name="tap_to_sign_in_google">Tippen, um sich mit Google anzumelden</string>
+    
+    
     <string name="export_succeeded">Einstellungen und %1$s exportiert</string>
     <string name="export_failed">Export fehlgeschlagen: %1$s</string>
     <string name="import_succeeded">%1$s von v%2$s importiert</string>
@@ -721,115 +718,115 @@
     </string-array>
 
     <!-- Listen together -->
-    <string name="listen_together">Gemeinsam hören</string>
-    <string name="listen_together_subtitle">Teile einen Code und hört dieselbe Musik, synchron</string>
-    <string name="listen_together_in_party">In einer Party · %1$s</string>
-    <string name="listen_together_sign_in_footer">Gemeinsames Hören braucht ein Konto, damit jeder in der Party sieht, wer sonst dabei ist.</string>
-    <string name="listen_together_server">Party-Server</string>
-    <string name="listen_together_server_online">Online · %1$d ms</string>
-    <string name="listen_together_server_online_fallback">Online (Standard-Fallback) · %1$d ms</string>
-    <string name="listen_together_server_offline">Momentan nicht erreichbar</string>
-    <string name="listen_together_server_checking">Wird geprüft…</string>
-    <string name="listen_together_server_unknown">Zum Prüfen tippen</string>
-    <string name="listen_together_custom_server">Eigenen Server nutzen</string>
-    <string name="listen_together_custom_server_footer">Leer lassen, um den eingebauten Server zu nutzen. Wenn du eine eigene Kopie betreibst, müssen alle in der Party auf denselben Server zeigen.</string>
-    <string name="listen_together_using_default">Eingebauter Server wird genutzt</string>
-    <string name="listen_together_remove_server">Server entfernen</string>
-    <string name="listen_together_switched_to_default">Zum Standardserver gewechselt</string>
-    <string name="listen_together_custom_server_saved">Eigener Server gespeichert</string>
-    <string name="listen_together_create">Party erstellen</string>
-    <string name="listen_together_create_subtitle">Code holen und mit Freunden teilen</string>
-    <string name="listen_together_create_footer">Du bekommst einen sechsstelligen Code. Jeder, der ihn hat, kann beitreten – bis zu %1$d Geräte, dein eigenes eingeschlossen.</string>
-    <string name="listen_together_profile">Dein Party-Profil</string>
-    <string name="listen_together_nickname_hint">Spitzname für diese Party</string>
-    <string name="listen_together_party_size">Partygröße</string>
-    <string name="listen_together_party_size_subtitle">2–10 Zuhörer auswählen</string>
-    <string name="listen_together_host_controls">Nur du kannst die Größe ändern oder Zuhörer entfernen</string>
-    <string name="listen_together_remove">Entfernen</string>
-    <string name="listen_together_activity">Letzte Aktivitäten</string>
-    <string name="listen_together_activity_footer">Nur diese Sitzung · neueste zuerst · bis zu 100 Aktionen</string>
-    <string name="listen_together_activity_played">Wiedergabe gestartet</string>
-    <string name="listen_together_activity_paused">Wiedergabe pausiert</string>
-    <string name="listen_together_activity_seeked">Im Titel gespult</string>
-    <string name="listen_together_activity_skipped">Weitergesprungen</string>
-    <string name="listen_together_activity_went_back">Zurückgesprungen</string>
-    <string name="listen_together_activity_added">Zur Warteschlange hinzugefügt</string>
-    <string name="listen_together_activity_removed_track">Einen Titel aus der Warteschlange entfernt</string>
-    <string name="listen_together_activity_cleared">Kommende Titel geleert</string>
-    <string name="listen_together_activity_reordered">Warteschlange neu sortiert</string>
-    <string name="listen_together_activity_removed_member">Einen Zuhörer entfernt</string>
-    <string name="listen_together_activity_changed_size">Partygröße geändert</string>
-    <string name="listen_together_activity_updated">Party aktualisiert</string>
-    <string name="listen_together_join">Party beitreten</string>
-    <string name="listen_together_join_action">Beitreten</string>
-    <string name="listen_together_code_hint">Sechs Buchstaben oder Zahlen</string>
-    <string name="listen_together_code">Party-Code</string>
-    <string name="listen_together_code_footer">Lies ihn vor oder schick ihn. O und I kommen nicht vor, ein „O“ ist also immer eine Null.</string>
-    <string name="copy_code">Code kopieren</string>
-    <string name="listen_together_share_text">Hör mit mir auf BitChord – Party-Code %1$s</string>
-    <string name="listen_together_now_playing">Wird wiedergegeben</string>
-    <string name="listen_together_nothing_playing">Noch nichts in Wiedergabe</string>
-    <string name="listen_together_listening">Hören · %1$d von %2$d</string>
-    <string name="listen_together_members_footer">Eine Party hat Platz für %1$d Geräte. Jeder darin kann die Musik steuern.</string>
-    <string name="listen_together_you">Du</string>
-    <string name="listen_together_host">Host</string>
-    <string name="listen_together_away">Abwesend – ihr Platz bleibt frei</string>
-    <string name="listen_together_manage">Verwalten</string>
-    <string name="listen_together_landing_title">Party starten</string>
-    <string name="listen_together_landing_subtitle">Weil Musik zusammen besser klingt. Lade Freunde ein, gemeinsam zu hören und in Echtzeit Songs hinzuzufügen – egal, wo sie sind.</string>
-    <string name="listen_together_create_action">Party erstellen</string>
-    <string name="listen_together_join_existing">Bestehender beitreten</string>
-    <string name="listen_together_create_sheet_subtitle">Wähle, wie du auftrittst und wie viele beitreten können.</string>
-    <string name="listen_together_creating">Wird erstellt…</string>
-    <string name="listen_together_joining">Wird beigetreten…</string>
-    <string name="listen_together_full">Diese Party ist voll</string>
-    <string name="listen_together_join_question">Der Party von %1$s beitreten?</string>
-    <string name="listen_together_join_question_unnamed">Dieser Party beitreten?</string>
-    <string name="listen_together_not_now">Nicht jetzt</string>
-    <string name="listen_together_preview_footer">Die Leute in der Party sehen deinen Namen und dein Profilbild.</string>
-    <string name="listen_together_invite_title">Freunde zu deiner Party einladen</string>
-    <string name="listen_together_share_link">Link teilen</string>
-    <string name="listen_together_scan_qr">QR-Code scannen</string>
-    <string name="listen_together_scan_qr_subtitle">Freunde können diesen Code scannen, um beizutreten.</string>
-    <string name="listen_together_invite">Einladen</string>
-    <string name="listen_together_host_only">Nur ich steuere die Musik</string>
-    <string name="listen_together_host_only_subtitle">Alle anderen hören mit und können auf ihrem eigenen Gerät pausieren</string>
-    <string name="listen_together_host_only_notice">Nur der Host kann die Musik steuern</string>
-    <string name="listen_together_leave">Party verlassen</string>
-    <string name="listen_together_leave_subtitle">Die anderen hören weiter</string>
-    <string name="listen_together_reconnecting">Neu verbinden…</string>
-    <string name="listen_together_syncing_clock">Uhr wird abgeglichen…</string>
-    <string name="listen_together_in_sync">Synchron · %1$d ms Umlaufzeit</string>
-    <string name="listen_together_jam">Jam von %1$s</string>
-    <string name="listen_together_jam_unnamed">Gemeinsam hören</string>
-    <string name="listen_together_open">Gemeinsam hören</string>
-    <string name="listen_together_open_count">Gemeinsam hören · %1$d</string>
-    <string name="listen_together_custom_server_dialog_title">Party auf eigenem Server beitreten?</string>
-    <string name="listen_together_custom_server_dialog_message">Diese Party läuft auf einem externen Server:\n\n%1$s\n\nMöchtest du deinen Party-Server wechseln und der Party %2$s beitreten?</string>
-    <string name="listen_together_custom_server_switch_and_join">Wechseln &amp; beitreten</string>
-    <string name="listen_together_official_server_dialog_title">Zum offiziellen Server wechseln?</string>
-    <string name="listen_together_official_server_dialog_message">Diese Party läuft auf dem offiziellen BitChord-Server.\n\nMöchtest du zurück zum offiziellen Server wechseln und der Party %1$s beitreten?</string>
-    <string name="listen_together_switch_failed_stayed_in_party">Party-Beitritt fehlgeschlagen: %1$s. Du bleibst in der Party %2$s.</string>
-    <string name="listen_together_switch_failed">Party-Beitritt fehlgeschlagen: %1$s.</string>
-    <string name="listen_together_ping">%1$d ms</string>
-    <string name="listen_together_server_offline_dash">—</string>
-    <string name="listen_together_invalid_server_url">Ungültige Server-URL. Bitte gib eine gültige Adresse ein (z. B. https://your-server.com)</string>
-    <string name="listen_together_err_whitespace">Server-URLs dürfen keine Leerzeichen enthalten</string>
-    <string name="listen_together_err_invalid_path">Die Server-URL enthält einen ungültigen Pfad</string>
-    <string name="listen_together_err_no_path">Die Server-URL darf keinen Pfad enthalten</string>
-    <string name="listen_together_err_no_query">Die Server-URL darf keine Abfrageparameter enthalten</string>
-    <string name="listen_together_err_no_fragment">Die Server-URL darf keine Fragmente enthalten</string>
-    <string name="listen_together_err_invalid_port">Der Server-Port muss zwischen 1 und 65535 liegen</string>
-    <string name="listen_together_custom_server_connected">Mit eigenem Server verbunden</string>
-    <string name="listen_together_custom_server_unreachable_fallback">Eigener Server nicht erreichbar. Standardserver wird verwendet.</string>
-    <string name="listen_together_status_custom_online">Mit eigenem Server verbunden · %1$d ms</string>
-    <string name="listen_together_status_custom_fallback">Eigener Server nicht erreichbar · Standard-Fallback aktiv (%1$d ms)</string>
-    <string name="listen_together_status_all_offline">Eigener Server und Standardserver sind beide offline</string>
-    <string name="listen_together_top_bar_fallback">Fallback · %1$s</string>
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
 
     <string name="vietnamese">Vietnamesisch</string>
 
-    <string name="miscellaneous_footer">Wenn aktiviert, stoppt das Schließen der App aus den letzten Apps auch die Musikwiedergabe.</string>
+    
 
 
     <plurals name="track_count_plural">
@@ -837,17 +834,17 @@
         <item quantity="other">%1$d Titel</item>
     </plurals>
 
-    <string name="account_profiles_help">Ein Google-Konto kann persönliche und Markenprofile haben, jeweils mit eigener Mediathek.</string>
+    
 
-    <string name="accounts">Konten</string>
+    
 
-    <string name="add_account">Konto hinzufügen</string>
+    
 
-    <string name="add_addon">Add-on hinzufügen</string>
+    
 
-    <string name="add_addon_detail">Verbinde BitChord mit einem Add-on-Server</string>
+    
 
-    <string name="addon_url_description">Füge die URL des Add-ons ein — Stammverzeichnis oder manifest.json.</string>
+    
 
     <string name="advanced_options">Erweiterte Optionen</string>
 
@@ -864,7 +861,7 @@
     <string name="automix_mode_performance_subtitle">4 Threads · schnellste Analyse · höherer Akkuverbrauch</string>
 
     <string name="automix_not_supported_video">Automix wird bei Video-Titeln nicht unterstützt</string>
-    <string name="automix_stopped_in_party">Automix: bei „Gemeinsam hören“ gestoppt</string>
+    
 
     <string name="automix_performance">Automix-Leistung</string>
 
@@ -876,7 +873,7 @@
 
     <string name="blur_unfocused_lyrics_subtitle">Hält den Fokus auf der aktuellen Zeile</string>
 
-    <string name="brand_account">Markenkonto</string>
+    
 
     <string name="card_plays_format">%1$s Wiedergaben</string>
 
@@ -884,24 +881,24 @@
 
     <string name="card_views_format">%1$s Aufrufe</string>
 
-    <string name="channel_session_unavailable">Noch keine Sitzung — bitte zuerst YouTube Music öffnen</string>
+    
 
-    <string name="channel_switch_instructions">Mit Avatar wechseln, dann \'Diesen Kanal nutzen\' tippen</string>
+    
 
-    <string name="choose_a_channel">Kanal wählen</string>
+    
 
-    <string name="choose_profile">Profil wählen</string>
+    
 
     <string name="convert_to_audio">In Audio umwandeln</string>
     <string name="convert_to_video">In Video umwandeln</string>
 
-    <string name="converting_to_audio">Wandle in Audio um…</string>
+    
 
-    <string name="current_account">Aktuelles Konto</string>
+    
 
-    <string name="current_profile">Aktuelles Profil</string>
+    
 
-    <string name="default_youtube_profile">Standard-YouTube Music-Profil</string>
+    
 
     <string name="dolby_atmos">Dolby Atmos</string>
 
@@ -921,53 +918,53 @@
 
     <string name="liquid_glass_unavailable">Erfordert Android 12 oder neuer</string>
 
-    <string name="listen_as">Hören als</string>
+    
 
-    <string name="lyrics_debug_logs">Songtext-Debug-Protokolle</string>
+    
 
-    <string name="lyrics_debug_logs_subtitle">Live-API-Anfragen im Songtext-Bereich anzeigen</string>
+    
 
-    <string name="manage_accounts">Konten verwalten</string>
+    
 
     <string name="output_precision">Ausgabegenauigkeit</string>
 
-    <string name="personal">Persönlich</string>
+    
 
     <string name="playing_radio">Spiele %1$s Radio</string>
 
-    <string name="playlist_action">Playlist</string>
+    
 
     <string name="prefer_usb_dac">USB-DAC bevorzugen</string>
     <string name="loudness_normalization">Lautstärkenormalisierung</string>
     <string name="loudness_normalization_subtitle">Bringt jeden Titel auf dieselbe Lautheit</string>
-    <string name="loudness_target">Ziel-Lautheit</string>
-    <string name="loudness_target_subtitle">Leiser passt zu Kopfhörern, lauter zum Auto oder Handylautsprecher</string>
-    <string name="loudness_target_value">%1$s LUFS</string>
-    <string name="pipeline_loudness">Lautheit</string>
+    
+    
+    
+    
     <string name="pipeline_loudness_gain">Verstärkung</string>
     <string name="pipeline_loudness_measured">Gemessen</string>
     <string name="pipeline_bit_exact">Bit-genau</string>
-    <string name="loudness_measuring">Wird gemessen…</string>
+    
     <string name="loudness_gain_db">%1$s dB</string>
     <string name="loudness_lufs">%1$s LUFS</string>
 
-    <string name="profile_unavailable">Auf dieser Seite ist noch kein angemeldetes Profil verfügbar.</string>
+    
 
-    <string name="profiles">Profile</string>
+    
 
     <string name="radio_started">%1$s Radio gestartet</string>
 
-    <string name="revert_to_original">Auf Original zurücksetzen</string>
+    
 
-    <string name="scrobble_primary_artist_only">Nur Hauptkünstler scrobbeln</string>
+    
 
-    <string name="scrobble_primary_artist_only_subtitle">Nur den ersten Künstler erfassen, wenn mehrere angegeben sind</string>
+    
 
     <string name="select_all">Alle auswählen</string>
 
-    <string name="selected_account">Ausgewähltes Konto</string>
+    
 
-    <string name="shelf_100_on_repeat">In Dauerschleife</string>
+    
 
     <string name="shelf_artists_on_the_rise">Aufstrebende Künstler</string>
 
@@ -975,17 +972,17 @@
 
     <string name="shelf_charts">Charts</string>
 
-    <string name="shelf_commute">Unterwegs</string>
+    
 
     <string name="shelf_concerts">Konzerte</string>
 
-    <string name="shelf_energy_boosters">Energiebündel</string>
+    
 
     <string name="shelf_featured_playlists_for_you">Empfohlene Playlists für dich</string>
 
-    <string name="shelf_feel_good">Gute Laune</string>
+    
 
-    <string name="shelf_focus">Fokus</string>
+    
 
     <string name="shelf_for_you">Für dich</string>
 
@@ -1001,11 +998,11 @@
 
     <string name="shelf_mixed_for_you">Für dich gemixt</string>
 
-    <string name="shelf_new_albums_singles">Neue Alben &amp; Singles</string>
+    
 
     <string name="shelf_new_releases">Neuerscheinungen</string>
 
-    <string name="shelf_party">Party</string>
+    
 
     <string name="shelf_quick_picks">Schnellauswahl</string>
 
@@ -1013,11 +1010,11 @@
 
     <string name="shelf_recommended_music_videos">Empfohlene Musikvideos</string>
 
-    <string name="shelf_relax">Entspannung</string>
+    
 
-    <string name="shelf_romance">Romantik</string>
+    
 
-    <string name="shelf_sad">Melancholisch</string>
+    
 
     <string name="shelf_shorts">Shorts</string>
 
@@ -1025,7 +1022,7 @@
 
     <string name="shelf_single">Single</string>
 
-    <string name="shelf_sleep">Schlafen</string>
+    
 
     <string name="shelf_song_item">Titel</string>
 
@@ -1037,9 +1034,9 @@
 
     <string name="shelf_trending_community_playlists">Beliebte Community-Playlists</string>
 
-    <string name="shelf_workout">Training</string>
+    
 
-    <string name="shelf_youtube_charts">YouTube-Charts</string>
+    
 
     <string name="sort_date_added_oldest">Hinzugefügt am (älteste zuerst)</string>
 
@@ -1051,29 +1048,29 @@
 
     <string name="sort_songs">Titel sortieren</string>
 
-    <string name="source_already_added">Bereits als %1$s hinzugefügt</string>
+    
 
-    <string name="source_skipped_by_quality">Nicht auf %1$s verwendet · Qualität ist auf %2$s gesetzt</string>
+    
 
-    <string name="source_unrecognised">BitChord konnte diesen Link nicht erkennen</string>
+    
 
     <string name="start_radio">Radio starten</string>
 
-    <string name="subscribe">Abonnieren</string>
+    
 
     <string name="subscriptions">Abos</string>
 
     <string name="switch_account">Konto wechseln</string>
 
-    <string name="switch_profile_hint">Über den Avatar wechseln und dieses Profil nutzen.</string>
+    
 
-    <string name="unsubscribe">Abo beenden</string>
+    
 
     <string name="upgrade_quality">Qualität verbessern</string>
 
-    <string name="use_this_channel">Diesen Kanal nutzen</string>
+    
 
-    <string name="use_this_profile">Dieses Profil nutzen</string>
+    
 
 
     <string name="lyrics_offset">Lyrics offset</string>
@@ -1274,16 +1271,16 @@
 
     <string name="playing_from">Playing from %1$s</string>
 
-    <string name="played_by">Played by %1$s</string>
+    
 
-    <string name="shared_link">Shared link</string>
+    
 
     <string name="song_will_play_next">Song will play next</string>
 
     <string name="song_added_to_queue">Song added to queue</string>
-    <string name="song_added_to_playlist">Zur Playlist hinzugefügt</string>
-    <string name="song_already_in_playlist">Bereits in der Playlist</string>
-    <string name="party_queue_full">Warteschlange ist voll (maximal %d Songs in der Party)</string>
+    
+    
+    
 
     <string name="paxsenix_api_key">PaxSenix API key</string>
 
@@ -1309,4 +1306,29 @@
 
 
 
+    <string name="tab_channels">Kanäle</string>
+    <string name="tab_songs">Lieder</string>
+    <string name="tg_all_chats">Alle Kanäle</string>
+    <string name="tg_chats_empty">Noch kein Kanal gescannt.</string>
+    <string name="tg_close">Schließen</string>
+    <string name="tg_code">Bestätigungscode</string>
+    <string name="tg_connected">Mit Telegram verbunden</string>
+    <string name="tg_empty_hint">Noch keine Lieder gefunden. Melde dich an, damit ich deine Kanäle scannen kann.</string>
+    <string name="tg_login">Telegram-Anmeldung</string>
+    <string name="tg_login_subtitle">Melde dich an, um Lieder aus deinen Kanälen und Gruppen zu sammeln.</string>
+    <string name="tg_password">Zwei-Faktor-Passwort</string>
+    <string name="tg_password_hint">Zwei-Faktor-Passwort — Hinweis: %1$s</string>
+    <string name="tg_phone">Telefonnummer (mit Ländervorwahl)</string>
+    <string name="tg_qr">Mit QR-Code anmelden</string>
+    <string name="tg_qr_hint">Öffne diesen Link in Telegram auf einem anderen Gerät: Einstellungen ← Geräte ← Gerät verbinden.</string>
+    <string name="tg_qr_link">Anmeldelink:</string>
+    <string name="tg_retry">Erneut versuchen</string>
+    <string name="tg_scan_attempt">Versuch %1$d</string>
+    <string name="tg_scan_failed">Telegram-Verbindung fehlgeschlagen — Chats wurden nicht geladen; versuche es erneut.</string>
+    <string name="tg_scanning">Ich sammle deine Lieder…</string>
+    <string name="tg_search_hint">Telegram-Lieder suchen</string>
+    <string name="tg_send_code">Code senden</string>
+    <string name="tg_start_scan">Scan starten</string>
+    <string name="tg_unlock">Entsperren</string>
+    <string name="tg_verify">Bestätigen</string>
 </resources>

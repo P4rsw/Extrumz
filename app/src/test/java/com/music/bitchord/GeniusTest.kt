@@ -5,9 +5,22 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
+import org.junit.Assume
 import org.junit.Test
 
 class GeniusTest {
+
+    /** Live scraping needs the public internet; skip instead of failing when it is unreachable. */
+    private fun geniusReachable(): Boolean =
+        try {
+            val conn = java.net.URL("https://genius.com").openConnection() as java.net.HttpURLConnection
+            conn.connectTimeout = 3000
+            conn.readTimeout = 3000
+            conn.requestMethod = "HEAD"
+            conn.responseCode in 200..399
+        } catch (_: Exception) {
+            false
+        }
 
     private val sampleGeniusHtml = """
         <!DOCTYPE html>
@@ -109,6 +122,7 @@ class GeniusTest {
 
     @Test
     fun `live genius search and scraping test with noisy titles`() = kotlinx.coroutines.runBlocking {
+        Assume.assumeTrue("genius.com unreachable — skipping live test", geniusReachable())
         println("--- TEST 1: Queen - Bohemian Rhapsody (Official Video) ---")
         val lyrics1 = Genius.lyrics("Bohemian Rhapsody (Official Video)", "Queen")
         assertNotNull(lyrics1)
@@ -123,7 +137,7 @@ class GeniusTest {
         println("Lyrics preview (first 5 lines):")
         lyrics2.take(5).forEach { println("  [LyricLine] ${it.text}") }
 
-        println("\n--- TEST 3: GEJLON - USA (YouTube: lrJLIE3jGOs) ---")
+        println("\n--- TEST 3: GEJLON - USA (video id: lrJLIE3jGOs) ---")
         val lyrics3 = Genius.lyrics("USA", "GEJLON")
         if (lyrics3 != null) {
             println("Lyrics found for 'USA' by 'GEJLON' (${lyrics3.size} lines):")
@@ -132,14 +146,14 @@ class GeniusTest {
             println("No lyrics found on Genius for 'USA' by 'GEJLON'")
         }
 
-        println("\n--- TEST 4: Full YouTube title: ♪ GEJLON - USA [OFFICIAL MUSIC VIDEO] Prod. Jake Angel Beats ♪ ---")
+        println("\n--- TEST 4: Full video title: ♪ GEJLON - USA [OFFICIAL MUSIC VIDEO] Prod. Jake Angel Beats ♪ ---")
         val lyrics4 = Genius.lyrics("♪ GEJLON - USA [OFFICIAL MUSIC VIDEO] Prod. Jake Angel Beats ♪", "Gejlon")
         assertNotNull(lyrics4)
         if (lyrics4 != null) {
-            println("Lyrics found for full YouTube video title (${lyrics4.size} lines):")
+            println("Lyrics found for full video title (${lyrics4.size} lines):")
             lyrics4.take(10).forEach { println("  [LyricLine] ${it.text}") }
         } else {
-            println("No lyrics found on Genius for full YouTube title")
+            println("No lyrics found on Genius for full video title")
         }
 
         assertNotNull(lyrics3)
