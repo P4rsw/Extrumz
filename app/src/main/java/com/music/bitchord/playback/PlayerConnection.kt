@@ -571,11 +571,9 @@ fun Song.toMediaItem(): MediaItem {
         // Auto. Everything downstream reads the item's URI and nothing reads
         // the preference, so this is the only place it has to be said.
         OriginalVersion.isPinned(videoId) -> directYouTubeUri()
-        // The same three fields, for the same reason, on the YouTube path: a
-        // source ranked above YouTube gets offered this track before YouTube
-        // resolves it — see [SourceResolver.substituteForYouTube] — and that
-        // match is made on them, which the loader thread has no other way to
-        // reach.
+        // The same three fields, for the same reason: a cross-source match is
+        // made on them and the loader thread has no other way to reach the
+        // session's metadata.
         else -> "bitchord://watch?v=$videoId${matchQuery()}"
     }
     return MediaItem.Builder()
@@ -655,10 +653,10 @@ fun Song.toMediaItem(): MediaItem {
 }
 
 /**
- * The current song reopened through YouTube alone, bypassing every substitute
- * and quality-upgrade path.  The separate rendition tag is essential: the
- * base cache key may currently contain substitute bytes, and resuming
- * that entry as though it were a YouTube WebM corrupts the stream.
+ * The current song reopened through its own upload, bypassing the
+ * quality-upgrade path.  The separate rendition tag is essential: the
+ * base cache key may currently hold an upgraded copy, and resuming
+ * that entry as though it were the original corrupts the stream.
  */
 fun Song.toDirectYouTubeMediaItem(): MediaItem =
     toMediaItem().buildUpon()
@@ -666,17 +664,17 @@ fun Song.toDirectYouTubeMediaItem(): MediaItem =
         .build()
 
 private fun Song.directYouTubeUri(): String =
-    "bitchord://watch?v=$videoId${matchQuery()}&$DIRECT_YOUTUBE_PARAMETER=1&q=original"
+    "bitchord://watch?v=$videoId${matchQuery()}&q=original"
 
 /**
- * Whether there is a YouTube upload behind this song to go back *to* — the
+ * Whether there is an original upload behind this song to go back *to* — the
  * question "Revert to original" only means something for.
  *
  * Offered for any track that has one rather than only for a track a quality
  * upgrade has visibly swapped, because the swap is not the only way to end up
- * on a copy that is wrong. A source ranked above YouTube gets first refusal on
- * every track — see [SourceResolver.substituteForYouTube] — so a song can be
- * playing another source's idea of it from its very first second, with
+ * on a copy that is wrong. Another source gets first refusal on
+ * every track, so a song can be playing another source's idea of it from its
+ * very first second, with
  * nothing on screen having changed and nothing to undo. Those are precisely the
  * ones worth doubting: the match is made on title, artist and runtime, and a
  * live version, a remaster or a different mix agreeing on all three is a
@@ -687,11 +685,11 @@ private fun Song.directYouTubeUri(): String =
  * The three exclusions are all "there is no such upload", not "reverting would
  * be unwise":
  *
- *  - a track queued from another source's own catalogue has no YouTube id at
+ *  - a track queued from another source's own catalogue has no video id at
  *    all, only a source-and-track key that would build a nonsense URI;
  *  - a file on the device is identified by its own `content://` or `file://`
  *    URI, for the same reason;
- *  - a music video *is* the YouTube upload, so there is nowhere for it to go.
+ *  - a music video *is* the upload, so there is nowhere for it to go.
  *    Its catalogue match is a separate control with its own way back — see
  *    `VideoAudioVersionButton`.
  */
@@ -701,9 +699,6 @@ fun Song.hasYouTubeOriginal(): Boolean =
         !videoId.startsWith("file://") &&
         !isVideo &&
         SourceRegistry.parseTrackKey(videoId) == null
-
-/** A playback URI carrying this is explicitly requested YouTube, never a substitute. */
-const val DIRECT_YOUTUBE_PARAMETER = "direct_youtube"
 
 /**
  * Which track a playback URI is for, as a media id — the inverse of the URI

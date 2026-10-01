@@ -489,23 +489,11 @@ class SourcesTest {
     }
 
     @Test
-    fun `stored configs of retired kinds are dropped on init`() {
-        val oldYoutube = SourceConfig(kind = SourceKind.YOUTUBE, enabled = true)
-        val telegram = SourceConfig(kind = SourceKind.TELEGRAM, label = "mine")
-
-        val migrated = SourceRegistry.sourcesForInit(listOf(oldYoutube, telegram))
-
-        assertEquals(listOf(SourceKind.TELEGRAM), migrated.map { it.kind })
-        assertEquals("mine", migrated.single().label)
-    }
-
-    @Test
-    fun `only Telegram survives the playback and download source walk`() {
-        val youtube = SourceConfig(kind = SourceKind.YOUTUBE)
+    fun `only enabled Telegram survives the playback and download source walk`() {
         val telegram = SourceConfig(kind = SourceKind.TELEGRAM)
         val telegramOff = SourceConfig(kind = SourceKind.TELEGRAM, enabled = false)
 
-        val enabled = SourceRegistry.enabledConfigs(listOf(youtube, telegram, telegramOff))
+        val enabled = SourceRegistry.enabledConfigs(listOf(telegram, telegramOff))
 
         assertEquals(listOf(telegram.id), enabled.map { it.id })
     }
@@ -906,63 +894,17 @@ class SourcesTest {
         assertNull(TrackMatcher.best(emptyList(), target))
     }
 
-    // ---- What a lossy source has to beat to become a file -------------------
-
-    /**
-     * The case the floor exists for: a source's top rendition is better than
-     * anything YouTube's AAC ladder holds, so a download takes it rather than
-     * filing a copy worse than the one that would have been streamed.
-     */
-    @Test
-    fun `a 320 from a source is worth keeping over youtube's aac`() {
-        assertTrue(SourceResolver.beatsYouTubeAac(StreamFormat(codec = "mp4", kbps = 320)))
-    }
-
-    /**
-     * Below the top of YouTube's own ladder, a source's copy is trading one
-     * lossy file for another and giving up the more reliable fetch to do it —
-     * including at 256, where the two are a wash and the tie goes to YouTube.
-     */
-    @Test
-    fun `a thinner rendition loses to youtube's aac`() {
-        assertFalse(SourceResolver.beatsYouTubeAac(StreamFormat(codec = "mp3", kbps = 128)))
-        assertFalse(SourceResolver.beatsYouTubeAac(StreamFormat(codec = "mp4", kbps = 160)))
-        assertFalse(SourceResolver.beatsYouTubeAac(StreamFormat(codec = "aac", kbps = 256)))
-    }
-
-    /**
-     * A download has to name the file before the first byte lands, so a source
-     * that described its rendition as nothing has said nothing worth keeping —
-     * unlike playback, which can hand the URL to the decoder and find out.
-     */
-    @Test
-    fun `an unstated rendition is not worth keeping`() {
-        assertFalse(SourceResolver.beatsYouTubeAac(StreamFormat()))
-        assertFalse(SourceResolver.beatsYouTubeAac(StreamFormat(codec = "mp4")))
-    }
-
     // ---- Which sources are worth asking before a track is played ------------
 
     /**
      * Read-ahead resolves the track *after* the one playing, so a source that
      * needs ten seconds to answer is usually still answering when the listener
-     * arrives. Nothing earns the speculative ask any more: Telegram answers
-     * out of its own history, and YouTube has its own read-ahead below.
+     * arrives. Nothing earns the speculative ask: Telegram answers
+     * out of its own history.
      */
     @Test
     fun `no kind is worth resolving ahead of playback`() {
         assertFalse(SourceKind.TELEGRAM.worthPrefetching)
-        assertFalse(SourceKind.YOUTUBE.worthPrefetching)
-    }
-
-    /**
-     * YouTube is warmed ahead of time too, but through its own read-ahead,
-     * which speaks video ids and needs no cross-source match. Marking it here
-     * would send it through the substitution path to find itself.
-     */
-    @Test
-    fun `youtube is not prefetched as a substitute for itself`() {
-        assertFalse(SourceKind.YOUTUBE.worthPrefetching)
     }
 
     // ---- Racing the sources -------------------------------------------------

@@ -14,15 +14,15 @@ import com.music.bitchord.playback.EqualizerPreset
 import kotlinx.coroutines.flow.MutableStateFlow
 
 /**
- * Stream bitrate ceiling on the YouTube fallback path — MEDIUM, HIGH and
- * LOSSLESS all mean "whatever the best available Opus format is" there; what
- * actually tells them apart is which other sources are allowed to answer
- * *before* YouTube gets asked. That part is [permits], and the rungs read:
+ * Stream bitrate ceiling — MEDIUM, HIGH and
+ * LOSSLESS all mean "whatever the best available format is" there; what
+ * actually tells them apart is which sources are allowed to answer
+ * *before* a lower-ranked one does. That part is [permits], and the rungs read:
  *
  * - [LOSSLESS] — every source asked, bit-exact where it can serve it.
  * - [HIGH] — a source that can serve nothing *but* bit-exact audio is left
  *   out, since this rung is asking for the best streamed rendition.
- * - [MEDIUM] and [LOW] — YouTube's own Opus ladder, capped at [maxKbps].
+ * - [MEDIUM] and [LOW] — a transcode, capped at [maxKbps].
  *
  * [hourly] is what the ceiling costs in data over an hour of listening, which
  * is the only part of this a user actually cares about on a metered plan.
@@ -35,8 +35,8 @@ enum class AudioQuality(
 ) {
     LOW(64, "Low", "~64 kbps · smallest download", "29 MB/hr"),
     MEDIUM(Int.MAX_VALUE, "Medium", "Best available · ~171 kbps Opus", "77 MB/hr"),
-    HIGH(Int.MAX_VALUE, "High", "Best rendition on offer, YouTube fallback", "144 MB/hr"),
-    LOSSLESS(Int.MAX_VALUE, "Lossless", "Bit-exact where available, YouTube fallback", "300+ MB/hr"),
+    HIGH(Int.MAX_VALUE, "High", "Best rendition on offer", "144 MB/hr"),
+    LOSSLESS(Int.MAX_VALUE, "Lossless", "Bit-exact where available", "300+ MB/hr"),
     ;
 
     /**
@@ -53,9 +53,8 @@ enum class AudioQuality(
      * of the connection in force; the stored switches are the user's standing
      * choice. Storing the first in the second lost the second.
      *
-     * [SourceKind.YOUTUBE] is permitted on every rung: it is what [maxKbps]
-     * caps, and it is the only source that can answer at all when the ones
-     * above it are skipped.
+     * Only the lossless-capable kinds are filtered out, and only on the rung
+     * that does not want them; everything else is asked whatever the rung.
      */
     fun permits(kind: SourceKind): Boolean = when (this) {
         LOSSLESS -> true
@@ -63,7 +62,7 @@ enum class AudioQuality(
         // the slow half of the list: seconds spent walking its backends before
         // it answers, only to land on a transcode that was already available.
         HIGH -> !kind.canServeLossless
-        MEDIUM, LOW -> kind == SourceKind.YOUTUBE || kind == SourceKind.TELEGRAM
+        MEDIUM, LOW -> kind == SourceKind.TELEGRAM
     }
 }
 

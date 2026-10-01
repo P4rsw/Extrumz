@@ -177,8 +177,8 @@ object QualityUpgrade {
 
     /**
      * Records that [mediaId] is playing on less than was asked for — whether
-     * that is a lossy stream a source handed over, or YouTube's own because no
-     * source answered in time.
+     * that is a lossy stream a source handed over, or one that arrived below
+     * the request.
      *
      * Called from the resolving data source, which is the only place that
      * knows both what was requested and what actually came back. The track
@@ -200,15 +200,14 @@ object QualityUpgrade {
         playing: StreamFormat? = null,
         servedBy: String? = null,
     ): Boolean {
-        // Not gated on the request being lossless. A source ranked above
-        // YouTube can be worth swapping to on bitrate alone — see
+        // Not gated on the request being lossless. A higher-ranked copy can be
+        // worth swapping to on bitrate alone — see
         // [SourceResolver.worthSwapping] — and requiring lossless here meant a
         // lookup that was still running got cancelled outright the moment
-        // YouTube won the race, so a 320kbps source never finished and never
-        // played. [SourceResolver.upgradeFor] applies the real quality bar.
+        // a thin stream won the race, so a 320kbps source never finished and
+        // never played. [SourceResolver.upgradeFor] applies the real quality bar.
         if (target.title.isBlank() || target.isVideo ||
-            mediaId in refused ||
-            !SourceResolver.canSubstituteForYouTube()
+            mediaId in refused
         ) {
             inFlight?.cancel()
             return false
@@ -287,9 +286,9 @@ object QualityUpgrade {
         if (mediaId !in handAsked && uri.getQueryParameter(MARKER) != null) return false
         if (mediaId in asked || mediaId in refused || pending.containsKey(mediaId)) return false
         // Same widening as [settledForLess]: a track playing off the cache is
-        // worth a second look whenever anything outranks YouTube, not only
+        // worth a second look whenever a better copy might exist, not only
         // when lossless was asked for.
-        return SourceResolver.canSubstituteForYouTube()
+        return true
     }
 
     /**
@@ -612,8 +611,8 @@ object QualityUpgrade {
 
     /**
      * Test seam. [couldStillUpgrade] cannot answer this on its own — it also
-     * consults [SourceResolver.canSubstituteForYouTube], which needs a
-     * populated registry — so the verdict is read directly to keep the scoping
+     * reads the queue entry and the settings, which need a populated registry
+     * — so the verdict is read directly to keep the scoping
      * of [asked] testable without standing a source list up around it.
      */
     internal fun hasAnsweredFor(mediaId: String): Boolean = mediaId in asked
@@ -646,12 +645,12 @@ object QualityUpgrade {
      * its `q=original` rendition; the ordinary way to make it a candidate again
      * would be to put the unmarked item back, and that costs a break in the
      * audio *before* anything better has even been looked for — the listener
-     * hears the same YouTube copy stop and restart, and then stop again when
+     * hears the same copy stop and restart, and then stop again when
      * the upgrade actually lands. Two cuts, one of which bought nothing.
      *
      * Left in place, the marked item is upgraded exactly like any other: the
      * search runs under the music, the audition proves the replacement, and
-     * [upgradedUri] takes the `direct_youtube` out of the URI it builds so the
+     * [upgradedUri] builds the plain playback URI so the
      * one cut the listener does hear is the one that changes the audio.
      */
     private val handAsked = java.util.Collections.newSetFromMap(ConcurrentHashMap<String, Boolean>())
@@ -781,15 +780,7 @@ object QualityUpgrade {
         // parameter. Replacing rather than duplicating it matters: Android
         // returns the first duplicate, which would send the second stream back
         // into the first upgrade's cache entry.
-        return uri.substringBefore(markerStart)
-            // The one parameter that has to be dropped rather than carried
-            // over. A reverted item says "this exact YouTube rendition,
-            // immediately", and the resolving data source honours that before
-            // it ever looks for a forced stream — so an upgrade built on top of
-            // one would cut the audio and be handed back the very copy it was
-            // replacing. It is gone from the item because the listener asked
-            // for it to be; see [askByHand].
-            .replace("&$DIRECT_YOUTUBE_PARAMETER=1", "") + "$markerStart$tag"
+        return uri.substringBefore(markerStart) + "$markerStart$tag"
     }
 
     /**

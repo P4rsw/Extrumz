@@ -20,8 +20,6 @@ import androidx.media3.datasource.cache.ContentMetadataMutations
 import androidx.media3.datasource.cache.SimpleCache
 import java.io.IOException
 import com.music.bitchord.data.settings.AppSettings
-import com.music.bitchord.data.sources.DeviceCodecs
-import com.music.bitchord.data.sources.SourceResolver
 import com.music.bitchord.data.sources.TrackMatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -299,22 +297,21 @@ object AudioCache {
      */
     private val keyFactory = CacheKeyFactory { spec ->
         spec.uri.getQueryParameter("v")
-            // A YouTube id can name several different recordings on disk: the
-            // Opus rendition YouTube serves, whatever a source ranked above it
-            // hands over instead — see [SourceResolver.substituteForYouTube] —
-            // and the better copy that replaces *that* mid-track when one
-            // turns up, see [QualityUpgrade]. Sharing one entry between them
-            // survives neither a reorder nor a half-cached track: the next
-            // play would serve a FLAC prefix and then stream Opus into the
-            // middle of it. Each gets its own entry, and the duplication costs
-            // a re-download rather than a corrupt file.
+            // A videoId can name several different recordings on disk: the
+            // copy the resolver handed over, and the better copy that replaces
+            // *that* mid-track when one turns up, see [QualityUpgrade]. Sharing
+            // one entry between them survives neither a reorder nor a
+            // half-cached track: the next play would serve a FLAC prefix and
+            // then stream Opus into the middle of it. Each gets its own entry,
+            // and the duplication costs a re-download rather than a corrupt
+            // file.
             //
-            // Written as a `when` rather than a chain of `?.let`: the previous
+            // Built by an `if` rather than a chain of `?.let`: the previous
             // form ended `cacheTag(...)?.let { return@let "$videoId#$it" }`,
             // where `return@let` binds to the *inner* lambda, not the outer
             // one it was meant for. The upgraded key was built, discarded as
             // an unused expression, and every upgraded track fell through to
-            // the `#alt` entry belonging to the stream it had just replaced —
+            // the entry belonging to the stream it had just replaced —
             // so a 320kbps AAC was written into the middle of a half-cached
             // WebM, which is the exact corruption the paragraph above exists
             // to prevent. It cost `IllegalStateException: No valid varint
@@ -323,11 +320,7 @@ object AudioCache {
             // still held.
             ?.let { videoId ->
                 val rendition = QualityUpgrade.cacheTag(spec.uri)
-                when {
-                    rendition != null -> "$videoId#$rendition"
-                    SourceResolver.canSubstituteForYouTube() -> "$videoId#alt${atmosKeySuffix()}"
-                    else -> videoId
-                }
+                if (rendition != null) "$videoId#$rendition" else videoId
             }
             // A source-backed track keys on the source and its track id alone.
             // The full URI would work but carries the title and artist used
@@ -347,26 +340,6 @@ object AudioCache {
             ?: spec.key
             ?: spec.uri.toString()
     }
-
-    /**
-     * Splits the `#alt` bucket in two along whatever this process currently
-     * believes about Dolby Atmos, so a listener who turns the setting off
-     * cannot be handed an Atmos file back out of the cache.
-     *
-     * Without this, `#alt` names one entry regardless of which rendition of
-     * "not YouTube" ended up in it, and [CacheDataSource] answers from that
-     * entry without ever calling the resolver — see the class doc. A track
-     * first played with Atmos on writes an Atmos file under `#alt`; turning
-     * the setting off changes nothing about that file, so the very next play
-     * of the same track reads it straight off disk, atmosAllowed check and
-     * all, because the check on the incoming stream never runs. The suffix
-     * means "atmos off" resolves and caches under a
-     * key the "atmos on" file was never written to, so the setting actually
-     * takes effect on replay; flipping back on reads the original file again
-     * rather than re-fetching it.
-     */
-    private fun atmosKeySuffix(): String =
-        if (DeviceCodecs.playsDolbyAtmos && AppSettings.dolbyAtmos.value) "" else "-noatmos"
 
     private const val CACHE_STATE_PREFS = "audio_cache_state"
     private const val KEY_MATCHING_SCHEMA = "matching_schema"

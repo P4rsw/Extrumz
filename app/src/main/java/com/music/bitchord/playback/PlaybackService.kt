@@ -516,8 +516,8 @@ class PlaybackService : MediaLibraryService() {
          * The one callback the home-screen widget can be driven from.
          *
          * `onIsPlayingChanged` is too late by seconds: this app resolves a
-         * stream before it can buffer one, and for a YouTube track that means a
-         * NewPipe extraction, all of which happens with `isPlaying` still false.
+         * stream before it can buffer one, and that resolve is a network round
+         * trip or two, all of which happens with `isPlaying` still false.
          * A widget keyed on that answers a tap on play by leaving the play glyph
          * exactly where it was — the control reads as broken, and the obvious
          * response is to tap it again. `playWhenReady` flips on the command, not
@@ -843,7 +843,7 @@ class PlaybackService : MediaLibraryService() {
             }
         }
 
-        val streamResolver = ResolvingDataSource.Resolver { dataSpec ->
+        val playbackResolver = ResolvingDataSource.Resolver { dataSpec ->
             // Which track everything below is for, said once, because none of
             // it would otherwise know: this runs on ExoPlayer's loader thread
             // with a DataSpec and nothing else, and the work it starts — the
@@ -1027,7 +1027,7 @@ class PlaybackService : MediaLibraryService() {
             // end of a `bitchord://` URI and nothing below it knows which
             // track's bytes it is fetching; this is the seam where both are in
             // hand. See [StreamContainer].
-            streamResolver.resolveDataSpec(dataSpec).also { resolved ->
+            playbackResolver.resolveDataSpec(dataSpec).also { resolved ->
                 val trackId = mediaIdIn(dataSpec.uri)
                 trackId?.let { StreamContainer.served(it, resolved.uri.toString()) }
                 // Which scheme the resolver picked, for which track — the
@@ -2986,10 +2986,10 @@ class PlaybackService : MediaLibraryService() {
      *
      * Nothing is replaced here, and that is the whole of the design. The
      * obvious version of this rebuilt the reverted item as the ordinary,
-     * substitutable entry it would have been queued as, and let the automatic
+     * upgraded-through entry it would have been queued as, and let the automatic
      * path take it from there. It worked, and it cost two breaks in the audio
      * where the feature only justifies one: the rebuild stopped the track and
-     * started it again on the very same YouTube stream, seconds before the
+     * started it again on the very same stream, seconds before the
      * upgrade landed and stopped it a second time. The first of those bought
      * nothing — nothing better had even been found yet.
      *
@@ -2997,7 +2997,7 @@ class PlaybackService : MediaLibraryService() {
      * two things standing in the way of that are handled where they live:
      * [QualityUpgrade.askByHand] exempts a reverted item's rendition marker
      * from the rule that would otherwise read it as "already upgraded", and
-     * [QualityUpgrade.upgradedUri] drops `direct_youtube` from the URI it
+     * [QualityUpgrade.upgradedUri] clears that reverted marker from the URI it
      * builds, so the swap — when there is something worth swapping to — is
      * served the copy that was found rather than the one being replaced. The
      * listener hears one cut, for the change they asked for.
@@ -3371,13 +3371,13 @@ class PlaybackService : MediaLibraryService() {
         // not prevent the requested lossless copy from replacing it. Two marked
         // URIs get distinct cache entries through [QualityUpgrade.upgradedUri].
         if (uri.contains("${QualityUpgrade.MARKER}=hifi-")) return null
-        // A track the listener is holding on YouTube's own upload is not a
+        // A track the listener is holding on its original upload is not a
         // candidate for anything, whatever was already in flight for it. The
         // revert can land in the middle of a hunt — that is when the "Upgrading
         // quality" badge makes it most tempting to press — and the search
         // behind it neither knows nor can be told.
         //
-        // The pin is the test rather than the item's `direct_youtube`, because
+        // The pin is the test rather than the item's `q=original` marker, because
         // those two come apart in exactly the case this must not block: an
         // upgrade asked for by hand leaves the reverted item in place and
         // unpins the track, and swapping against that item is the whole point.
@@ -5766,32 +5766,18 @@ class PlaybackService : MediaLibraryService() {
         const val RESUME_PLAYBACK_MS = 2_000
 
         /**
-         * Outer cap on stream resolution. Individual client calls and probes
-         * have their own timeouts, but iterating all seven plus the NewPipe
-         * fallback can accumulate far beyond what a listener should wait.
+         * Outer cap on stream resolution. Individual source calls and probes
+         * have their own timeouts, but a patient search walks every backend a
+         * source has — once per query the matcher offers — and that can
+         * accumulate far beyond what a listener should wait.
          *
-         * The NewPipe fallback alone — a scrape of the watch page, shaped
-         * harder than anything else this app asks Google for — routinely
-         * takes 45-90s on its own when every player client is bot-checked, a
-         * state that has become the common case rather than the rare one. A
-         * cap shorter than that doesn't bound the wait; it cancels the
+         * It has to be generous rather than tight: a cap shorter than a slow
+         * source's walk doesn't bound the wait, it cancels the
          * resolve just as it was about to succeed, and the retry that
          * follows restarts the same slow walk from zero, so the listener
          * waits *longer* under a tighter cap than a looser one.
          */
         const val RESOLVE_TIMEOUT_MS = 120_000L
-
-        /**
-         * Cap on offering a YouTube track to a higher-ranked source.
-         *
-         * Nothing like [RESOLVE_TIMEOUT_MS], because the two are not the same
-         * kind of wait: that one bounds the only way to hear the track, this
-         * one bounds an optional upgrade over a stream YouTube will serve
-         * anyway. Generous enough for a cold source — index fetch, request,
-         * search, then the stream URL — and short enough that a dead server
-         * costs a pause rather than a stall.
-         */
-        const val SUBSTITUTE_TIMEOUT_MS = 20_000L
 
         /**
          * How much of a track has to be left for a mid-track quality swap to

@@ -156,56 +156,8 @@
             </intent-filter>
 
             <!--
-              YouTube Music links: a song, an album, a playlist or an artist,
-              tapped anywhere on the device.
-
-              Not autoVerify. Verification is a claim to *own* these domains,
-              which BitChord doesn't — and on Android 12+ an app that has
-              verified them (the YouTube Music app itself) takes the link
-              without a dialog either way. Declaring the filter is what puts
-              BitChord in the "Open with" list once the user turns YT Music's
-              "Open supported links" off; the SEND filter below is the path
-              that always works, because sharing asks rather than routing.
-
-              One host, not a family of them. Every entry here becomes a line
-              the user has to tick under "Supported web addresses", so a
-              plausible-looking host that never appears in a real link (a `www.`
-              form of this one, say) is a line to tick by mistake instead of the
-              one that matters.
-
-              Schemes and paths still multiply out: every scheme × every path
-              prefix listed here is one accepted shape.
-            -->
-            <intent-filter>
-                <action android:name="android.intent.action.VIEW" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="http" />
-                <data android:scheme="https" />
-                <data android:host="music.youtube.com" />
-                <data android:pathPrefix="/watch" />
-                <data android:pathPrefix="/playlist" />
-                <data android:pathPrefix="/browse" />
-                <data android:pathPrefix="/channel" />
-                <data android:pathPrefix="/search" />
-            </intent-filter>
-            <!--
-              youtu.be short links, which are a bare video id and nothing else.
-              Kept in their own filter because the path there *is* the id, so it
-              can't share the path prefixes above.
-            -->
-            <intent-filter>
-                <action android:name="android.intent.action.VIEW" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="http" />
-                <data android:scheme="https" />
-                <data android:host="youtu.be" />
-            </intent-filter>
-
-            <!--
-              Share → BitChord, from YT Music's own share sheet or from
-              anywhere a link can be sent. The text is whatever the sending app
+              Share → BitChord, from anywhere a link can be sent. The text is
+              whatever the sending app
               wrote around the URL, so the URL is picked out of it rather than
               parsed whole.
             -->

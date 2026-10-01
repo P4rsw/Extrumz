@@ -222,8 +222,7 @@ object TrackLog {
         appendLine("id=${song.videoId} duration=${song.durationText ?: "?"} album=${song.albumName ?: "?"}")
         appendLine("playing: ${stats.describe()}")
         appendLine(
-            "sources: substitution=${SourceResolver.canSubstituteForYouTube()} " +
-                "request=${SourceResolver.requestForNow()}",
+            "sources: request=${SourceResolver.requestForNow()}",
         )
         appendLine(
             "window: ${from?.let { CLOCK.format(Date(it)) } ?: "everything held"} → " +

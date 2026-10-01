@@ -50,9 +50,8 @@ data class SourceConfig(
  * Phase 2 strips every external catalogue. Only [SourceKind.TELEGRAM] is
  * seeded, stored configs of retired kinds are dropped at [init], and
  * [enabledConfigs] refuses anything else — so even a config added before the
- * editors were removed can never produce a resolve. The other kinds remain in
- * the [SourceKind] enum only so stored JSON and the quality gates still parse;
- * nothing new builds them.
+ * editors were removed can never produce a resolve. Nothing new builds a
+ * second kind.
  */
 object SourceRegistry {
 
@@ -202,10 +201,7 @@ object SourceRegistry {
         }
     }
 
-    private fun build(config: SourceConfig): MusicSource = when (config.kind) {
-        SourceKind.TELEGRAM -> TelegramSource(config)
-        SourceKind.YOUTUBE -> YouTubeSource(config)
-    }
+    private fun build(config: SourceConfig): MusicSource = TelegramSource(config)
 
     /**
      * Whether an already-built instance still matches its stored config —
@@ -229,12 +225,12 @@ object SourceRegistry {
      * rather than added beside it: that field is the app's media id everywhere —
      * the queue, the notification, the history, the like state — and a second
      * identity field would have to be threaded through every one of them, with
-     * each place that forgot silently falling back to treating the track as
-     * YouTube's.
+     * each place that forgot silently falling back to treating the track as a
+     * bare id.
      */
     fun trackKey(configId: String, trackId: String) = "$PREFIX$configId$SEPARATOR$trackId"
 
-    /** The `(configId, trackId)` inside a [trackKey], or null if this is an ordinary YouTube id. */
+    /** The `(configId, trackId)` inside a [trackKey], or null if this is not a source-backed key. */
     fun parseTrackKey(key: String): Pair<String, String>? {
         if (!key.startsWith(PREFIX)) return null
         val body = key.removePrefix(PREFIX)

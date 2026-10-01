@@ -804,8 +804,9 @@ object Downloads {
      * [DownloadStore.Pending] exists to make hard to get wrong.
      *
      * Pinned to [Dispatchers.IO] here rather than trusted to arrive on it.
-     * Resolving a stream blocks on HTTP and runs YouTube's player JavaScript
-     * through Rhino, and [DownloadService] drives this from a main-thread scope
+     * Resolving a stream blocks on HTTP and can run for tens of seconds while a
+     * source walks its backends, and [DownloadService] drives this from a
+     * main-thread scope
      * so its notification work stays where it belongs — inheriting that would
      * put every network call in the resolve on the main thread, where they
      * don't fail loudly so much as fail *uniformly*: `NetworkOnMainThreadException`
@@ -1132,8 +1133,6 @@ object Downloads {
      * and does that once per query the matcher offers. For a track no source
      * holds, that is the whole queue stopped for the better part of a minute
      * on the way to a download that was never going to happen.
-     * `PlaybackService.SUBSTITUTE_TIMEOUT_MS` bounds the same search for the
-     * same reason.
      *
      * The [DownloadStore.storable] check belongs here rather than inside the
      * resolver: the resolver's job is finding the best audio, and whether this
@@ -1241,8 +1240,9 @@ object Downloads {
      * have the recording.
      *
      * The comparison with playback is no longer the right one and is worth
-     * stating plainly: `PlaybackService.SUBSTITUTE_TIMEOUT_MS` is short because
-     * a listener is staring at a paused player. Nothing is waiting here, the
+     * stating plainly: `PlaybackService.RESOLVE_TIMEOUT_MS` bounds the only way
+     * to hear the track, where a listener is staring at a paused player.
+     * Nothing is waiting here, the
      * answer becomes a permanent file, and re-fetching it later costs the whole
      * download again.
      *

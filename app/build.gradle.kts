@@ -70,7 +70,7 @@ val betaSuffix = ""
 
 android {
     namespace = "com.music.bitchord"
-    // InnerTubeX's AAR requires compiling against 37; targetSdk (runtime behaviour) stays 36.
+    // Compiled against 37; targetSdk (runtime behaviour) stays 36.
     compileSdk = 37
 
     defaultConfig {
@@ -156,8 +156,7 @@ android {
              * shape the compiler emits, and the whole UI runs measurably slower.
              *
              * Nothing is renamed (-dontobfuscate), and every library that reaches
-             * for classes by name — Rhino running YouTube's player JavaScript,
-             * NewPipe, InnerTubeX, QuickJS, ONNX's JNI, protobuf-lite, Ktor —
+             * for classes by name — ONNX's JNI, protobuf-lite, jsoup —
              * is kept whole: see proguard-rules.pro. What R8
              * is left to optimise is Compose, Media3, coroutines and our own
              * code, which is where the time goes. Checked on a device through the
@@ -217,40 +216,6 @@ android {
 kotlin {
     compilerOptions {
         jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
-    }
-}
-
-/*
- * NewPipeExtractor ships its own org.schabi.newpipe.extractor.utils.Utils, and
- * app/src/main/java carries a patched copy at the same package path (see that
- * file for why it exists). A debug build keeps project and library dex separate,
- * so the project copy simply wins at class-load time and the two coexist; a
- * release build merges every input into one dex set, where D8 rejects the
- * duplicate type outright ("Utils is defined multiple times"). So the library's
- * copy is stripped from its jar before it reaches dexing, leaving exactly one
- * definition of the class in the build.
- *
- * The artifact is resolved on its own and non-transitive purely to re-jar it;
- * the transitive dependencies it would otherwise have carried are declared by
- * hand in the dependencies block below, since dropping the module drops them too.
- */
-val newPipeExtractorRaw: Configuration by configurations.creating {
-    isTransitive = false
-    isCanBeConsumed = false
-}
-dependencies {
-    newPipeExtractorRaw("com.github.TeamNewPipe:NewPipeExtractor:v0.26.3")
-}
-val newPipeExtractorStripped = tasks.register<org.gradle.api.tasks.bundling.Jar>(
-    "stripNewPipeExtractorUtils"
-) {
-    archiveFileName.set("NewPipeExtractor-v0.26.3-noutils.jar")
-    destinationDirectory.set(layout.buildDirectory.dir("stripped-libs"))
-    from(provider { newPipeExtractorRaw.map { zipTree(it) } }) {
-        // The class itself, plus any nested or synthetic siblings the upstream
-        // compiler emitted alongside it, so nothing from the jar's Utils survives.
-        exclude("org/schabi/newpipe/extractor/utils/Utils.class")
-        exclude("org/schabi/newpipe/extractor/utils/Utils\$*.class")
     }
 }
 
@@ -314,46 +279,15 @@ dependencies {
     // the rest of the app rather than a stock black-and-white bitmap.
     implementation("com.google.zxing:core:3.5.3")
 
-    // ---- Innertube (YouTube Music) client: Ktor + kotlinx.serialization ----
-    // Ktor and serialization are held at InnerTubeX's versions (below) so the
-    // upgrade it forces is explicit rather than resolved behind our backs.
-    implementation("io.ktor:ktor-client-core:3.5.2")
-    implementation("io.ktor:ktor-client-okhttp:3.5.2")
-    implementation("io.ktor:ktor-client-content-negotiation:3.5.2")
-    implementation("io.ktor:ktor-serialization-kotlinx-json:3.5.2")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.11.0")
 
-    // ---- YouTube stream extraction: live-benchmarked client catalog + cipher tiers ----
-    implementation("com.github.MetrolistGroup.innertubex:innertubex-android:v0.7.0")
-
-    // ---- Stream resolution: NewPipe solves YouTube's signature + `n` throttling ----
-    // Pinned to v0.26.3, not the newer v0.26.4: v0.26.4's player-JS parser fails with
-    // "Could not parse deobfuscation function" on the current player build, which blocks
-    // WEB_REMIX's ciphered formats entirely. v0.26.3 solves the same signatures cleanly
-    // against the same player JS — confirmed side by side against PixelMusic-ref, which
-    // pins v0.26.3 and doesn't hit the parse failure.
-    //
-    // Consumed as a stripped jar rather than as the module, so its own
-    // Utils.class does not reach dexing. See newPipeExtractorStripped above; the
-    // transitive dependencies the module would have brought are listed here
-    // because dropping its artifact drops them too. If the version changes,
-    // re-derive this list with
-    //   ./gradlew :app:dependencies --configuration prodReleaseRuntimeClasspath
-    implementation(files(newPipeExtractorStripped))
-    implementation("com.github.TeamNewPipe:nanojson:e9d656ddb49a412a5a0a5d5ef20ca7ef09549996")
+    // ---- HTML parsing ----
     implementation("org.jsoup:jsoup:1.22.2")
     implementation("com.google.code.findbugs:jsr305:3.0.2")
     implementation("com.google.protobuf:protobuf-javalite:4.35.0")
-    implementation("org.mozilla:rhino:1.8.1")
-    implementation("org.mozilla:rhino-engine:1.8.1")
 
     // ---- Auth/session storage ----
     implementation("androidx.security:security-crypto:1.1.0-alpha06")
-
-    // ---- QuickJS VM, held at InnerTubeX's version ----
-    // InnerTubeX runs YouTube's player JavaScript in this VM; nothing else in
-    // the app uses it directly.
-    implementation("io.github.dokar3:quickjs-kt-android:1.0.14")
 
     // ---- Automix: on-device beat/downbeat model (Beat This!, MIT-licensed) ----
     // The full android artifact, not onnxruntime-mobile: mobile only loads .ort

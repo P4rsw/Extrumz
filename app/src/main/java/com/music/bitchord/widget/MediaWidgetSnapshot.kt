@@ -24,7 +24,7 @@ internal data class MediaWidgetSnapshot(
      *
      * This tracks `player.playWhenReady`, **not** `player.isPlaying`. The
      * difference matters more here than almost anywhere else in the app: a
-     * YouTube track has to be resolved through NewPipe before it can buffer, and
+     * track has to be resolved before it can buffer, and
      * that can run for seconds, all of which `isPlaying` spends false. Keyed on
      * it, a widget would answer a tap by leaving the play glyph exactly where it
      * was — the one thing that makes a control feel broken. `playWhenReady`
