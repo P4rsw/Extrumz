@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">BitChord</string>
+    <string name="app_name">TeleMusic</string>
     <string name="playback_channel_name">Đang phát</string>
     
     
@@ -64,7 +64,7 @@
     <string name="artists">Nghệ sĩ</string>
     <string name="albums">Album</string>
     
-    <string name="search_empty">Tìm kiếm hàng triệu bài hát trên YouTube Music.</string>
+    <string name="search_empty">Tìm bài hát Telegram và trên thiết bị.</string>
     <string name="recent_searches">Tìm kiếm gần đây</string>
     <string name="clear">Xóa</string>
     <string name="search_hint">Nghệ sĩ, bài hát, lời bài hát và hơn thế nữa</string>
@@ -179,7 +179,7 @@
     <string name="cancel_all">Hủy tất cả</string>
     <string name="language">Ngôn ngữ</string>
     <string name="app_language">Ngôn ngữ ứng dụng</string>
-    <string name="app_language_description">Chọn ngôn ngữ sử dụng trong BitChord.</string>
+    <string name="app_language_description">Chọn ngôn ngữ sử dụng trong TeleMusic.</string>
     <string name="english">Tiếng Anh</string>
     <string name="spanish">Tiếng Tây Ban Nha</string>
     <string name="french">Tiếng Pháp</string>
@@ -281,10 +281,10 @@
     
     <string name="refresh_rate">Tần số quét</string>
     <string name="high_performance_before_enabling">Trước khi bật</string>
-    <string name="high_performance_battery_warning">Trước tiên hãy đặt mức sử dụng pin của BitChord thành Không hạn chế. Tần số quét cao hơn sử dụng nhiều pin, CPU và GPU hơn, đồng thời có thể làm thiết bị ấm lên.</string>
+    <string name="high_performance_battery_warning">Trước tiên hãy đặt mức sử dụng pin của TeleMusic thành Không hạn chế. Tần số quét cao hơn sử dụng nhiều pin, CPU và GPU hơn, đồng thời có thể làm thiết bị ấm lên.</string>
     <string name="open_battery_settings">Mở cài đặt pin</string>
     <string name="enable_high_performance_title">Bật chế độ hiệu năng cao?</string>
-    <string name="enable_high_performance_confirmation">Chỉ bật nếu mức sử dụng pin của BitChord được đặt thành Không hạn chế. Android vẫn có thể giới hạn tần số quét khi thiết bị nóng hoặc pin yếu.</string>
+    <string name="enable_high_performance_confirmation">Chỉ bật nếu mức sử dụng pin của TeleMusic được đặt thành Không hạn chế. Android vẫn có thể giới hạn tần số quét khi thiết bị nóng hoặc pin yếu.</string>
     <string name="enable">Bật</string>
     <string name="not_yet">Chưa bật</string>
     
@@ -544,7 +544,7 @@
     <string name="biggest_day_note">Ngày bạn nghe nhiều nhất là %1$s với %2$s thời gian nghe.</string>
     <string name="close_replay">Đóng Replay</string>
     <string name="couldnt_draw_picture">Không thể tạo hình ảnh</string>
-    <string name="default_replay_holder">Người nghe BitChord</string>
+    <string name="default_replay_holder">Người nghe TeleMusic</string>
     <string name="different_albums">Album khác nhau</string>
     
     <string name="hour_am">%1$d SA</string>
@@ -570,7 +570,7 @@
     <string name="replay_artist_end"> liên tục quay trở lại.</string>
     <string name="replay_artist_focus">Một nghệ sĩ</string>
     <string name="replay_artist_start">Suốt cả tháng, </string>
-    <string name="replay_empty_description">Hãy nghe thêm một chút và BitChord sẽ biến lịch sử nghe của bạn thành bản tóm tắt Replay.</string>
+    <string name="replay_empty_description">Hãy nghe thêm một chút và TeleMusic sẽ biến lịch sử nghe của bạn thành bản tóm tắt Replay.</string>
     <string name="replay_genre_end"> đã định hình gu âm nhạc của bạn.</string>
     <string name="replay_genre_focus">Thể loại của bạn</string>
     <string name="replay_genre_start">Cùng nhau, </string>
@@ -600,7 +600,7 @@
     <string name="when_you_listen_most">Thời điểm bạn nghe nhiều nhất</string>
     <string name="your_biggest_day">Ngày nghe nhiều nhất: %1$s</string>
     <string name="your_listening_experience">Trải nghiệm nghe nhạc của bạn</string>
-    <string name="your_replay">BitChord Replay của bạn</string>
+    <string name="your_replay">TeleMusic Replay của bạn</string>
     <plurals name="replay_artist_count">
         <item quantity="other">%1$s nghệ sĩ</item>
     </plurals>
@@ -701,7 +701,7 @@
     </plurals>
     <string name="no_local_albums">Chưa có mục nào ở đây thuộc về một album hoặc danh sách phát. Tải xuống toàn bộ album hoặc danh sách phát và nội dung sẽ xuất hiện ở đây.</string>
     <string name="play_your_replay">Phát Replay của bạn</string>
-    <string name="counted_on_device_with_bitchord">Được thống kê trên thiết bị này bằng BitChord</string>
+    <string name="counted_on_device_with_bitchord">Được thống kê trên thiết bị này bằng TeleMusic</string>
     <string name="this_month">Tháng này</string>
     <string name="this_year">Năm nay</string>
     <string name="all_time">Tất cả thời gian</string>
@@ -824,9 +824,9 @@
 
     <string name="auto_liked">Liked songs</string>
 
-    <string name="auto_login_title">Sign in to YouTube on your phone</string>
+    <string name="auto_login_title">Đăng nhập Telegram trên điện thoại</string>
 
-    <string name="auto_login_subtitle">Open BitChord on your phone to sign in</string>
+    <string name="auto_login_subtitle">Open TeleMusic on your phone to sign in</string>
 
     <string name="auto_empty_recents_title">No recent songs</string>
 
@@ -866,7 +866,7 @@
 
     <string name="smart_version_alignment_subtitle">Analyze audio waveforms to match the exact corresponding playback moment</string>
 
-    <string name="equalizer_footer">Shapes the sound inside BitChord, before it reaches the system.</string>
+    <string name="equalizer_footer">Shapes the sound inside TeleMusic, before it reaches the system.</string>
 
     <string name="equalizer_dynamic">Dynamic</string>
 
@@ -909,7 +909,7 @@
 
     <string name="system_equalizer_subtitle">Your device\'s own panel</string>
 
-    <string name="system_equalizer_footer">Runs after BitChord\'s, on the whole audio session. Using both applies both.</string>
+    <string name="system_equalizer_footer">Runs after TeleMusic\'s, on the whole audio session. Using both applies both.</string>
 
     <string name="eq_preset_flat">Flat</string>
 

@@ -46,7 +46,7 @@
     <string name="auto_quick_picks">Quick picks</string>
     <string name="auto_recents">Recent</string>
     <string name="auto_liked">Liked songs</string>
-    <string name="auto_login_title">Sign in to YouTube on your phone</string>
+    <string name="auto_login_title">Sign in to Telegram on your phone</string>
     <string name="auto_login_subtitle">Open TeleMusic on your phone to sign in</string>
     <string name="auto_empty_recents_title">No recent songs</string>
     <string name="auto_empty_recents_subtitle">Songs you play will appear here</string>
@@ -89,7 +89,7 @@
     <string name="artists">Artists</string>
     <string name="albums">Albums</string>
     
-    <string name="search_empty">Search millions of songs on YouTube Music.</string>
+    <string name="search_empty">Search your Telegram and on-device songs.</string>
     <string name="recent_searches">Recent searches</string>
     <string name="clear">Clear</string>
     <string name="search_hint">Artists, Songs, Lyrics and More</string>
@@ -908,7 +908,6 @@
     <string name="personal_phone">%1$s’s Phone</string>
     <string name="this_phone">This phone</string>
 
-    <!-- Listen together -->
     
     
     

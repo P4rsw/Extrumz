@@ -157,19 +157,19 @@ class TrackIdentityMismatchTest {
             album = "Hurry Up Tomorrow",
         )
 
-        val youtubeVideoRuntime = 209 // 3:29 music video (2kjolTLZ_Mg)
+        val videoRuntime = 209 // 3:29 music video (2kjolTLZ_Mg)
         val albumCandidateDuration = 302 // 5:02 album stream (-rq378sI)
 
         // 1. Check cached rendition mismatch detection
         assertTrue(
             "Cached 209s video rendition must be identified as mismatched against 302s catalogue entry",
-            TrackMatcher.isSevereMismatch(catalogueTarget.durationSec, youtubeVideoRuntime),
+            TrackMatcher.isSevereMismatch(catalogueTarget.durationSec, videoRuntime),
         )
 
         // 2. Target duration calculation in QualityUpgrade.lookAgain
         val effectiveDuration = QualityUpgrade.effectiveTargetDuration(
             expectedSec = catalogueTarget.durationSec,
-            playingSec = youtubeVideoRuntime,
+            playingSec = videoRuntime,
         )
         assertEquals(
             "Effective target duration must preserve 302s instead of being poisoned by 209s",
@@ -181,7 +181,7 @@ class TrackIdentityMismatchTest {
         // Raw runtime comparison would fail and reject the genuine album stream
         assertFalse(
             "Flawed check against raw 209s runtime would reject genuine 302s album stream",
-            SourceResolver.sameRecordingAs(albumCandidateDuration, youtubeVideoRuntime),
+            SourceResolver.sameRecordingAs(albumCandidateDuration, videoRuntime),
         )
 
         // 4. Confirm fixed behavior:

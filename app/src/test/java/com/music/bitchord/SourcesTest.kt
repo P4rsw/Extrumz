@@ -499,7 +499,7 @@ class SourcesTest {
     }
 
     @Test
-    fun `explicit YouTube track cannot match the censored edition`() {
+    fun `explicit track cannot match the censored edition`() {
         val target = TrackMatcher.Target(
             "Starboy",
             "The Weeknd",
@@ -516,7 +516,7 @@ class SourcesTest {
     }
 
     @Test
-    fun `unknown YouTube explicit state does not reject the credited track`() {
+    fun `unknown explicit state does not reject the credited track`() {
         val target = TrackMatcher.Target(
             "For A Reason",
             "Karan Aujla, IKKY",
@@ -536,7 +536,7 @@ class SourcesTest {
     }
 
     @Test
-    fun `missing YouTube badge does not reject explicit I Really Do`() {
+    fun `missing explicit badge does not reject explicit I Really Do`() {
         val target = TrackMatcher.Target(
             "I Really Do...",
             "Karan Aujla",
@@ -700,8 +700,8 @@ class SourcesTest {
      */
     @Test
     fun `always swaps to lossless`() {
-        val youtube = StreamFormat(codec = "opus", kbps = 160)
-        assertTrue(SourceResolver.worthSwapping(StreamFormat(codec = "flac"), youtube))
+        val upgraded = StreamFormat(codec = "opus", kbps = 160)
+        assertTrue(SourceResolver.worthSwapping(StreamFormat(codec = "flac"), upgraded))
         // Even against a lossy stream that is nominally the higher bitrate.
         assertTrue(
             SourceResolver.worthSwapping(StreamFormat(codec = "flac"), StreamFormat(codec = "aac", kbps = 320)),
@@ -715,8 +715,8 @@ class SourcesTest {
      */
     @Test
     fun `swaps to a lossy stream that is clearly better than what is playing`() {
-        val youtube = StreamFormat(codec = "opus", kbps = 160)
-        assertTrue(SourceResolver.worthSwapping(StreamFormat(codec = "aac", kbps = 320), youtube))
+        val upgraded = StreamFormat(codec = "opus", kbps = 160)
+        assertTrue(SourceResolver.worthSwapping(StreamFormat(codec = "aac", kbps = 320), upgraded))
     }
 
     /** A margin too narrow to hear does not earn a break in the audio. */
