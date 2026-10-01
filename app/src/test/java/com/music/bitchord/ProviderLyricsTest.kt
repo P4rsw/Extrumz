@@ -5,8 +5,6 @@ import com.music.bitchord.data.lyrics.LyricsSource
 import com.music.bitchord.data.lyrics.ProviderLyrics
 import com.music.bitchord.data.lyrics.PaxSenix
 import com.music.bitchord.data.lyrics.normalizePaxSenixApiKey
-import com.music.bitchord.data.lyrics.youtubeStrings
-import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -14,15 +12,13 @@ import org.junit.Test
 class ProviderLyricsTest {
 
     @Test
-    fun `the six imported providers are exposed`() {
-        assertEquals(16, LyricsSource.entries.size)
+    fun `the imported providers are exposed`() {
+        assertEquals(14, LyricsSource.entries.size)
         assertTrue(LyricsSource.entries.containsAll(listOf(
             LyricsSource.BETTER_LYRICS_PORTATO,
             LyricsSource.MEGALOBIZ,
             LyricsSource.PAXSENIX_SPOTIFY,
             LyricsSource.PAXSENIX_MUSIXMATCH,
-            LyricsSource.YOUTUBE_TRANSCRIPT,
-            LyricsSource.YOUTUBE_MUSIC,
         )))
     }
 
@@ -115,14 +111,5 @@ class ProviderLyricsTest {
             .filterNot { it.isGap }
         assertEquals(listOf("right first", "right last"), lines.map { it.text })
         assertEquals(listOf(1_000L, 199_000L), lines.map { it.timeMs })
-    }
-
-    @Test
-    fun `YouTube nested text objects are traversed without crashing`() {
-        val response = Json.parseToJsonElement(
-            """{"text":{"runs":[{"text":"Lyrics"}]}}"""
-        )
-
-        assertEquals(listOf("Lyrics"), response.youtubeStrings())
     }
 }

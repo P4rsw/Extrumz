@@ -56,9 +56,7 @@ data class StreamFormat(
  * A URL the player can open, and what is expected to come back out of it.
  *
  * [headers] travel with the fetch because some sources bind the stream URL to
- * the request that asks for it — see the User-Agent dance in
- * [StreamResolver][com.music.bitchord.data.innertube.StreamResolver]. Sources
- * that don't care leave it empty.
+ * the request that asks for it. Sources that don't care leave it empty.
  */
 data class SourceStream(
     val url: String,

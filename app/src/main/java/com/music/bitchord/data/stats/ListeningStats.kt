@@ -170,10 +170,6 @@ object ListeningStats {
             // headline act puts a guest verse on a chart of what someone
             // listens to.
             primaryArtist(song.artist)?.let { name ->
-                // Asked here rather than in the recorder, because here is where
-                // the credit has already been reduced to a person: asking about
-                // "Cheema Y & Gur Sidhu" gets a picture of nobody.
-                ArtistFacts.noticed(name)
                 val artist = bucket.artists.getOrPut(name.lowercase(Locale.ROOT)) {
                     NameEntry(name = name, art = song.thumbnailUrl)
                 }
@@ -564,14 +560,6 @@ object ListeningStats {
                 .sortedWith(compareByDescending<NameEntry> { it.ms }.thenByDescending { it.plays })
                 .map { RankedEntry(it.name, it.sub, it.art, it.id, it.ms, it.plays) }
 
-            // Anything still missing a picture is asked about now, so opening
-            // the page is a second way for these to fill in — the first being
-            // playing the music, which is no help to someone who has just
-            // installed a build that started collecting them.
-            rankedArtists.take(ARTISTS_TO_RESOLVE)
-                .filter { it.artworkUrl == null || it.browseId == null }
-                .forEach { ArtistFacts.noticed(it.title) }
-
             val busiest = days.entries.maxByOrNull { it.value }
             return ReplaySummary(
                 period = period,
@@ -657,9 +645,6 @@ object ListeningStats {
 
     private const val TAG = "BitChordListening"
     private const val DIRECTORY = "listening"
-
-    /** How far down the artist chart a page opening will send lookups for. */
-    private const val ARTISTS_TO_RESOLVE = 15
 
     /** Three years, which is longer than "all time" means to most people. */
     private const val KEEP_MONTHS = 36

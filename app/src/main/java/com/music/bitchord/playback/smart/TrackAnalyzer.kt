@@ -29,19 +29,9 @@ import android.net.Uri
 import android.os.Process
 import android.util.Log
 import androidx.media3.common.util.UnstableApi
-import com.music.bitchord.data.YtMusicRepository
-import com.music.bitchord.data.model.SearchFilter
-import com.music.bitchord.data.model.SearchResult
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.data.settings.AutomixPerformanceMode
-import com.music.bitchord.data.sources.SourceResolver
-import com.music.bitchord.data.sources.TrackMatcher
 import com.music.bitchord.playback.AudioCache
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancel
-import kotlinx.coroutines.launch
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
 import kotlin.math.abs
@@ -73,10 +63,6 @@ class TrackAnalyzer(private val context: Context, private val cache: AudioCache)
 
     private val results = ConcurrentHashMap<String, TrackAnalysis>()
     private val running = ConcurrentHashMap.newKeySet<String>()
-    private val sourceAnalysisUris = ConcurrentHashMap<String, Uri>()
-    private val sourceResolutions = ConcurrentHashMap.newKeySet<String>()
-    private val sourceResolutionAttempted = ConcurrentHashMap.newKeySet<String>()
-    private val sourceResolutionScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     /** Tracks whose result came from [analyzeHead] and is waiting to be superseded. */
     private val provisional = ConcurrentHashMap.newKeySet<String>()
@@ -225,12 +211,11 @@ class TrackAnalyzer(private val context: Context, private val cache: AudioCache)
     fun request(trackId: String, uri: Uri, durationSeconds: Double) {
         if (trackId.isBlank()) return
         if (trackId in running) return
-        val analysisUri = analysisUriFor(trackId, uri) ?: return
+        val analysisUri = analysisUriFor(uri) ?: return
 
-        // Only the canonical YouTube rendition of this recording will do, not
-        // the source substitute the player happens to be on: see
-        // [chooseRendition]. Waiting on the live URI is what made analysis
-        // arrive after the transition that needed it.
+        // Analysis wants the recording's own audio, not whatever a substitute
+        // happens to be serving — see [chooseRendition]. Waiting on the live
+        // URI is what made analysis arrive after the transition that needed it.
         // Queued before the cache is even consulted, so a track measured in an
         // earlier session short-circuits the whole path rather than being
         // re-earned from audio the cache may since have evicted.
@@ -757,48 +742,20 @@ class TrackAnalyzer(private val context: Context, private val cache: AudioCache)
     }
 
     /**
-     * Source-backed playback URIs carry the same title/artist/runtime
-     * matching hints as a YouTube item. Resolve that
-     * identity once, then keep playback on its original URI while analysis
-     * fills and reads the separately pinned YouTube Opus entry.
+     * Which URI analysis reads [playbackUri]'s audio through, or null when
+     * there is nothing to read.
+     *
+     * Everything but a source-backed URI carries audio of its own — a device
+     * file or a download, in whichever rendition [chooseRendition] picks — and
+     * is handed straight back. A source-backed URI is the one form without a
+     * copy of its own to point at: this used to send it off to look for a
+     * matching rendition held under a separate pinned key, fetched from a
+     * service the app no longer calls. There is nothing to ask for now, so it
+     * answers "no copy" and [request] returns early.
      */
-    private fun analysisUriFor(trackId: String, playbackUri: Uri): Uri? {
-        if (playbackUri.getQueryParameter("v") != null || playbackUri.authority != "source") return playbackUri
-        sourceAnalysisUris[trackId]?.let { return it }
-        if (trackId in sourceResolutionAttempted) return null
-        if (!sourceResolutions.add(trackId)) return null
-        val target = SourceResolver.targetIn(playbackUri)
-        sourceResolutionScope.launch {
-            try {
-                val match = findYouTubeMatch(target)
-                if (match != null) {
-                    sourceAnalysisUris[trackId] = Uri.parse(AutomixAnalysisSource.opusUri(match.videoId))
-                    Log.d(TAG, "Automix analysis for $trackId will use YouTube Opus ${match.videoId}")
-                } else {
-                    Log.d(TAG, "No YouTube match for Automix analysis of $trackId")
-                }
-            } catch (error: Throwable) {
-                Log.d(TAG, "YouTube match failed for Automix analysis of $trackId: ${error.message}")
-            } finally {
-                sourceResolutionAttempted.add(trackId)
-                sourceResolutions.remove(trackId)
-            }
-        }
-        return null
-    }
+    private fun analysisUriFor(playbackUri: Uri): Uri? =
+        if (playbackUri.authority == "source") null else playbackUri
 
-    private suspend fun findYouTubeMatch(target: TrackMatcher.Target): com.music.bitchord.data.model.Song? {
-        if (target.title.isBlank()) return null
-        for (query in TrackMatcher.queries(target)) {
-            val candidates = YtMusicRepository.search(query, SearchFilter.SONGS)
-                .getOrNull()
-                ?.filterIsInstance<SearchResult.Track>()
-                ?.map { it.song }
-                .orEmpty()
-            TrackMatcher.best(candidates, target)?.let { return it }
-        }
-        return null
-    }
 
     /**
      * What a whole-track pass came back with.
@@ -1197,10 +1154,6 @@ class TrackAnalyzer(private val context: Context, private val cache: AudioCache)
 
     fun release() {
         executor.shutdownNow()
-        sourceResolutionScope.cancel()
-        sourceAnalysisUris.clear()
-        sourceResolutions.clear()
-        sourceResolutionAttempted.clear()
         headAttempts.clear()
         headSkipLogged.clear()
         provisional.clear()

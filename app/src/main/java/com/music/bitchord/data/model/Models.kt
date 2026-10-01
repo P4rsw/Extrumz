@@ -408,9 +408,8 @@ data class DetailPage(
     /** Albums / singles carousels, populated for artist pages. */
     val sections: List<HomeShelf> = emptyList(),
     /**
-     * Tracks YouTube offers to round out a playlist but that were never
-     * added — see [com.music.bitchord.data.innertube.InnertubeParser.parsePlaylistShelf].
-     * Shown as their own section with a button to actually add them, rather
+     * Tracks a source offers to round out a playlist but that were never
+     * added. Shown as their own section with a button to actually add them, rather
      * than folded into [songs] where they'd read as the user's own picks.
      */
     val suggestedSongs: List<Song> = emptyList(),

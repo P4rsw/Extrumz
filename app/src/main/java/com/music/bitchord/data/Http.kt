@@ -17,25 +17,25 @@ import java.util.concurrent.atomic.AtomicLong
 /**
  * One OkHttp client for the whole app.
  *
- * This matters: googlevideo binds a stream URL to the connection context of
- * the `player` request that minted it. If Innertube and ExoPlayer used
- * separate HTTP stacks they could resolve to different addresses (v4 vs v6)
- * and the media fetch would come back 403. Sharing the client keeps DNS,
- * address family and connection pooling identical for both.
+ * This matters: a media URL is only good for the connection context that
+ * minted it, and this app asks for media from more than one place — the
+ * resolving data source behind playback, the cache's chunk reads, the
+ * downloader. If those and the rest of the app's API calls used separate
+ * HTTP stacks they could resolve to different addresses (v4 vs v6) and the
+ * media fetch would come back 403. Sharing the client keeps DNS, address
+ * family and connection pooling identical for all of them.
  *
  * That sharing has a cost the defaults don't budget for. Every request the
- * app makes — [Innertube]'s player/browse calls, NewPipe's own signature and
- * `next`-endpoint fetches, [ChunkedDataSource][com.music.bitchord.playback.ChunkedDataSource]
+ * app makes — [ChunkedDataSource][com.music.bitchord.playback.ChunkedDataSource]
  * and [AudioCache][com.music.bitchord.playback.AudioCache]'s multi-megabyte
- * chunk downloads, and every [StreamResolver] probe — funnels through this
- * one client, and OkHttp's stock [Dispatcher] allows only 5 requests in
- * flight to a single host at a time. A track streaming while its successor
- * pre-caches is two or three of those requests already; a resolve running
- * alongside them queues behind whichever is occupying the rest — invisibly,
- * since a request stuck in OkHttp's queue and a slow server both just look
- * like a request that took several extra seconds. Sized well past anything
- * this app actually drives concurrently, so the queue is never the reason a
- * request was slow.
+ * chunk downloads — funnels through this one client, and OkHttp's stock
+ * [Dispatcher] allows only 5 requests in flight to a single host at a time.
+ * A track streaming while its successor pre-caches is two or three of those
+ * requests already; an API call running alongside them queues behind
+ * whichever is occupying the rest — invisibly, since a request stuck in
+ * OkHttp's queue and a slow server both just look like a request that took
+ * several extra seconds. Sized well past anything this app actually drives
+ * concurrently, so the queue is never the reason a request was slow.
  */
 object Http {
 
@@ -46,10 +46,10 @@ object Http {
     // usage (issue #48): every request funnels through this one client, so
     // a network interceptor here sees every byte the app receives,
     // regardless of which subsystem asked for it. Categorised by host —
-    // googlevideo.com is YouTube's own audio bytes (and StreamResolver's
-    // probes, distinguishable by their small actual read against a 2MB
-    // Range ask), a canvas provider's CDN is motion artwork, youtube.com /
-    // youtubei is API/extraction traffic. Grep logcat for "BCDataUsage"
+    // each log line names the host that carried it, which is enough to tell
+    // the media host's audio bytes (recognisable by their small actual read
+    // against a 2MB Range ask) from a canvas provider's motion artwork and
+    // from ordinary catalogue traffic. Grep logcat for "BCDataUsage"
     // during a play session; each line is one response with its actual
     // transferred bytes and the running total for its host.
     //

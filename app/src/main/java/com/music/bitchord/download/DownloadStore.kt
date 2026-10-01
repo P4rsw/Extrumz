@@ -31,8 +31,8 @@ import java.util.Locale
  * the files were `.webm` then — a container extension Android's own mime table
  * ties to video regardless of what MIME type this class declares for it — and a
  * Gallery app crawling Downloads for video-looking files does not care what a
- * column says otherwise. Nothing writes `.webm` any more (see [storable] and
- * `StreamResolver.resolveForDownload`), so that particular trap is behind us;
+ * column says otherwise. Nothing writes `.webm` any more (see [storable]),
+ * so that particular trap is behind us;
  * the conclusion it led to is still the right one.
  *
  *  - **API 29+** goes through [MediaStore]. There is no filesystem path to

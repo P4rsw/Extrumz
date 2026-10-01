@@ -130,12 +130,10 @@ object StreamChoice {
      * substitution is deterministic — the same source, asked the same query for
      * the same tier, answers with the same URL — and it is also *fast*, because
      * by the second attempt its index and its source are cached. So a retry
-     * that is free to substitute again wins the race against YouTube by the
-     * same margin it won it the first time, and resolves straight back to the
-     * URL that just failed. Three attempts of that is a track that never plays
-     * at all, while a working YouTube URL sits in
-     * [StreamResolver][com.music.bitchord.data.innertube.StreamResolver]'s cache
-     * unused.
+     * that is free to substitute again wins the race by the same margin it
+     * won it the first time, and resolves straight back to the URL that just
+     * failed. Three attempts of that is a track that never plays at all,
+     * while a working copy of it sits unused.
      *
      * ### Why this expires
      *

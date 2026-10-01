@@ -401,15 +401,14 @@ object SourceResolver {
     }
 
     /**
-     * The copy of a track about to be downloaded that is worth keeping over
-     * YouTube's, or null when nothing configured has one.
+     * The copy of a track about to be downloaded that is worth keeping, or
+     * null when nothing configured has one.
      *
-     * The download path has never come through here. It resolves YouTube
-     * directly — see
-     * [resolveForDownload][com.music.bitchord.data.innertube.StreamResolver.resolveForDownload]
-     * — so someone with a FLAC server ranked above YouTube was *streaming* the
-     * FLAC and *downloading* a transcode of the same recording. This closes that
-     * gap, and it is the only search in this class whose result becomes a file.
+     * The download path used to resolve a copy for itself, bypassing here —
+     * so someone with a FLAC server ranked above the default was *streaming*
+     * the FLAC and *downloading* a transcode of the same recording. This
+     * closes that gap, and it is the only search in this class whose result
+     * becomes a file.
      *
      * ### The order it asks in
      *

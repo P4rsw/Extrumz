@@ -16,7 +16,6 @@ import com.music.bitchord.data.lyrics.LyricLine
 import com.music.bitchord.data.lyrics.LyricsRepository
 import com.music.bitchord.data.lyrics.LyricsSource
 import com.music.bitchord.data.settings.AppSettings
-import com.music.bitchord.data.innertube.StreamResolver
 import com.music.bitchord.data.model.Account
 import com.music.bitchord.data.model.BrowseType
 import com.music.bitchord.data.model.DetailPage
@@ -413,8 +412,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     val selectedChannelKey: StateFlow<String?> = _selectedChannelKey.asStateFlow()
 
     private val _selectedChannelName = MutableStateFlow(
-        authStore.activeSession?.profiles?.firstOrNull { it.profileId == authStore.activeProfileId }?.name
-            ?: authStore.channelName,
+        authStore.activeSession?.let { session ->
+            session.profiles.firstOrNull { it.profileId == session.activeProfileId }?.name
+        } ?: authStore.channelName,
     )
     val selectedChannelName: StateFlow<String?> = _selectedChannelName.asStateFlow()
 
@@ -423,7 +423,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     val googleAccounts: StateFlow<List<GoogleAccountSession>> = _googleAccounts.asStateFlow()
     private val _activeAccountId = MutableStateFlow(authStore.activeSession?.accountId)
     val activeAccountId: StateFlow<String?> = _activeAccountId.asStateFlow()
-    private val _activeProfileId = MutableStateFlow(authStore.activeProfileId)
+    private val _activeProfileId = MutableStateFlow(authStore.activeSession?.activeProfileId)
     val activeProfileId: StateFlow<String?> = _activeProfileId.asStateFlow()
 
     private val _history = MutableStateFlow<UiState<List<Song>>>(UiState.Loading)
@@ -1199,14 +1199,12 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             activeProfileId = profile.profileId,
         )
         authStore.upsertSession(updated)
-        authStore.select(accountId, profile.profileId)
+        authStore.select(accountId)
         _googleAccounts.value = authStore.sessions
         _activeAccountId.value = accountId
         _activeProfileId.value = profile.profileId
-        authStore.cookie = updated.cookie
         _selectedChannelKey.value = profile.profileId
         _selectedChannelName.value = profile.name
-        StreamResolver.onSessionChanged()
         _history.value = UiState.Loading
         LikeState.clear()
     }
@@ -1236,10 +1234,6 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             return
         }
         authStore.signOut()
-        // The mirror image: verdicts reached with a session in hand say nothing
-        // about what an anonymous walk will be told, and the clients stood down
-        // for refusing the session deserve a fresh hearing without it.
-        StreamResolver.onSessionChanged()
         _signedIn.value = false
         _account.value = null
         _selectedChannelKey.value = null

@@ -49,7 +49,7 @@ class StreamChoiceTest {
     @Test
     fun `remembers whether the copy came from a substitute`() {
         StreamChoice.remember("track-3", stream("aac.saavncdn.com"), substituted = true)
-        StreamChoice.remember("track-4", stream("googlevideo.com"), substituted = false)
+        StreamChoice.remember("track-4", stream("media.example.com"), substituted = false)
         assertEquals(true, StreamChoice.isSubstitute("track-3"))
         assertEquals(false, StreamChoice.isSubstitute("track-4"))
     }

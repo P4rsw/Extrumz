@@ -32,8 +32,6 @@ class BitChordApplication : Application(), SingletonImageLoader.Factory {
     @OptIn(UnstableApi::class)
     override fun onCreate() {
         super.onCreate()
-        // PlaybackService shares this process, so seeding the cookie here means
-        // stream resolution is authenticated from the first play onwards.
         authStore = AuthStore(this)
         // Opened off the main thread, alongside everything below: none of these
         // reads a setting or the session, and between them they are the slowest
@@ -60,13 +58,13 @@ class BitChordApplication : Application(), SingletonImageLoader.Factory {
             // seconds of video from the network on every loop.
             CanvasCache.init(this)
         }
-        // Migration-safe: an old single cookie becomes the first encrypted
-        // session, while newer installs restore the profile the listener chose.
+        // Restore which session is active when an install has one but never
+        // recorded a selection, so the account the listener was acting as
+        // survives an upgrade rather than falling back to list order.
         val restoredSession = authStore.activeSession
         if (restoredSession != null && authStore.activeAccountId == null) {
-            authStore.select(restoredSession.accountId, restoredSession.activeProfileId)
+            authStore.select(restoredSession.accountId)
         }
-        authStore.cookie = restoredSession?.cookie
         AppSettings.init(this)
         SearchHistory.init(this)
         LastPlayed.init(this)

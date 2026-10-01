@@ -195,10 +195,10 @@ object LocalMediaRepository {
         // everything else — but by content URI, the only thing MediaStore
         // offers here, that download is indistinguishable from a file the
         // user copied on by hand. Reversing [Downloads.saved] hands a
-        // downloaded track its real YouTube id back, which is what lets
-        // PlaybackTracker recognise it as a video worth registering a play
-        // for — a content URI fails its id check on purpose, since most rows
-        // here really are just local files with nothing to sync.
+        // downloaded track its real id back, which is what lets the rest of
+        // the app recognise it as this app's own download rather than one the
+        // user put there — a content URI fails its id check on purpose, since
+        // most rows here really are just local files with nothing to sync.
         val videoIdByUri = Downloads.saved.value.entries.associate { (id, uri) -> uri to id }
         val projection = arrayOf(
             MediaStore.Audio.Media._ID,

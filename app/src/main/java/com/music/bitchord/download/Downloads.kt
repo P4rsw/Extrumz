@@ -7,7 +7,6 @@ import android.media.MediaMetadataRetriever
 import android.net.Uri
 import com.music.bitchord.data.DebugLog as Log
 import androidx.core.content.ContextCompat
-import com.music.bitchord.data.innertube.StreamResolver
 import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.data.settings.DownloadQuality
@@ -870,11 +869,9 @@ object Downloads {
         // matching is a manual playback action and must not silently change a
         // download or its filename.
         val track = song
-        // Read once, here, for the whole of this track. Both routes below
-        // and the re-resolve inside [Downloader.fetch] have to agree on
-        // which rung they are fetching, and re-reading the setting per call
-        // would let a change made mid-download splice two renditions into
-        // one file.
+        // Read once, here, for the whole of this track. Re-reading the
+        // setting per call would let a change made mid-download apply to one
+        // half of a queue and not the other.
         val quality = AppSettings.downloadQuality.value
 
         // Asked before the lookup rather than after it, unlike the check on the
@@ -895,6 +892,7 @@ object Downloads {
         }
 
         val route = routeFor(track, quality)
+            ?: error("No enabled source has this track")
         Log.d(TAG, "downloading ${song.videoId} as .${route.extension} (${route.describe}, ${quality.label})")
         Prepared(song.videoId, track, route = route, alreadyAt = null)
     }
@@ -1078,77 +1076,62 @@ object Downloads {
     )
 
     /**
-     * Where this download's bytes are coming from.
+     * Where this download's bytes are coming from, or null when no configured
+     * source can serve the track.
      *
-     * A configured source gets asked first, and YouTube is what happens when
-     * none of them can serve it — see [SourceResolver.forDownload] for what
-     * "can" means, which is narrower here than it is for playback.
+     * A configured source gets asked, and it is the only answer there is — see
+     * [SourceResolver.forDownload] for what "can" means. A track none of them
+     * hold fails as a download, in the row's own words, rather than quietly
+     * becoming a copy from somewhere else.
      *
-     * @param quality read once by the caller and passed down, so that a setting
-     *   changed while this track is in the queue applies to the next one rather
-     *   than to the middle of this one. [Downloader.fetch] resolves again after
-     *   a mid-download refusal and has to ask for the same rung it started on.
+     * @param quality read once by the caller and passed on, so that a setting
+     *   changed while this track is in the queue applies to the next one
+     *   rather than to the middle of this one.
      */
-    private suspend fun routeFor(track: Song, quality: DownloadQuality): Route {
-        fromSources(track, quality)?.let { (stream, storable) ->
-            // A manifest is an index, not audio. Whichever kind it is, fetching
-            // it as a file writes the index into something named `.flac` —
-            // which is exactly what a `.mpd` did until [OfflineDash] existed:
-            // a 2.7 KB download that reported success and could never play.
-            // Read off the URL rather than off `stream.format`, which describes
-            // the audio inside and says nothing about the envelope.
-            val dash = OfflineDash.handles(stream.url)
-            val hls = stream.url.substringBefore('?').endsWith(".m3u8", ignoreCase = true)
-            val packaged = hls || dash
-            // A package is only useful inside BitChord. When the user
-            // explicitly exports files for another player, decline it here and
-            // let the ordinary portable-file fallback resolve instead.
-            if (packaged && AppSettings.exportDownloads.value) return@let
-            return Route(
-                // DASH is saved *as* HLS — see [OfflineDash] for why — so both
-                // kinds land as the same package and are named for what was
-                // written rather than for what was fetched.
-                extension = if (packaged) "m3u8" else storable.extension,
-                mimeType = if (packaged) "application/vnd.apple.mpegurl" else storable.mimeType,
-                describe = stream.format.summary,
-                downloadFormat = stream.format.downloadBadge(),
-                taggable = true,
-                offlineHls = Manifest(stream.url, stream.headers, dash = dash).takeIf { packaged },
-                write = { sink, onProgress ->
-                    Downloader.fetchDirect(stream.url, stream.headers, sink, onProgress)
-                },
-            )
-        }
-        // MediaStore.Audio refuses audio/webm on affected Android versions.
-        // Keep Opus for app-private downloads, but pin exported downloads to
-        // AAC-in-MP4 for both the initial resolve and any mid-transfer retry.
-        val requireM4a = AppSettings.exportDownloads.value
-        val stream = StreamResolver.resolveForDownload(track.videoId, quality.maxKbps, requireM4a)
+    private suspend fun routeFor(track: Song, quality: DownloadQuality): Route? {
+        val (stream, storable) = fromSources(track, quality) ?: return null
+        // A manifest is an index, not audio. Whichever kind it is, fetching
+        // it as a file writes the index into something named `.flac` —
+        // which is exactly what a `.mpd` did until [OfflineDash] existed:
+        // a 2.7 KB download that reported success and could never play.
+        // Read off the URL rather than off `stream.format`, which describes
+        // the audio inside and says nothing about the envelope.
+        val dash = OfflineDash.handles(stream.url)
+        val hls = stream.url.substringBefore('?').endsWith(".m3u8", ignoreCase = true)
+        val packaged = hls || dash
+        // A package is only useful inside BitChord. When the user
+        // explicitly exports files for another player, decline it — with no
+        // portable copy behind it, there is nothing left to fall back to.
+        if (packaged && AppSettings.exportDownloads.value) return null
         return Route(
-            extension = stream.downloadExtension,
-            mimeType = stream.downloadMimeType,
-            describe = "${stream.kbps}kbps ${stream.mimeType}",
-            downloadFormat = youtubeDownloadBadge(stream.downloadExtension, stream.kbps),
+            // DASH is saved *as* HLS — see [OfflineDash] for why — so both
+            // kinds land as the same package and are named for what was
+            // written rather than for what was fetched.
+            extension = if (packaged) "m3u8" else storable.extension,
+            mimeType = if (packaged) "application/vnd.apple.mpegurl" else storable.mimeType,
+            describe = stream.format.summary,
+            downloadFormat = stream.format.downloadBadge(),
+            taggable = true,
+            offlineHls = Manifest(stream.url, stream.headers, dash = dash).takeIf { packaged },
             write = { sink, onProgress ->
-                Downloader.fetch(track.videoId, stream, quality.maxKbps, requireM4a, sink, onProgress)
+                Downloader.fetchDirect(stream.url, stream.headers, sink, onProgress)
             },
         )
     }
 
     /**
      * The stream to keep for [track] from a configured source, with how to file
-     * it — or null, which is not a failure, just YouTube's turn.
+     * it — or null, which means nothing enabled holds this recording.
      *
      * Usually a bit-exact one; not always. [SourceResolver.forDownload] falls
      * back to the best lossy copy any enabled source holds when nothing has the
-     * recording losslessly, and only gives up on the sources entirely when what
-     * they offer would not beat YouTube's own AAC. Which of those happened is
-     * the resolver's business — from here it is a URL and a codec either way.
+     * recording losslessly. Which of those happened is the resolver's business —
+     * from here it is a URL and a codec either way.
      *
      * Bounded, because a patient source search waits on every backend it has
      * and does that once per query the matcher offers. For a track no source
      * holds, that is the whole queue stopped for the better part of a minute
-     * on the way to a download that was always going to be YouTube's.
+     * on the way to a download that was never going to happen.
      * `PlaybackService.SUBSTITUTE_TIMEOUT_MS` bounds the same search for the
      * same reason.
      *
@@ -1190,7 +1173,7 @@ object Downloads {
                 Log.w(
                     TAG,
                     "source lookup for ${track.videoId} ran past ${SOURCE_LOOKUP_MS}ms; " +
-                        "downloading it from YouTube instead of ${quality.label}",
+                        "giving up on it rather than waiting for ${quality.label}",
                 )
             }
             return null
@@ -1198,7 +1181,7 @@ object Downloads {
 
         val storable = DownloadStore.storable(stream.format.codec)
         if (storable == null) {
-            Log.d(TAG, "nothing to file a '${stream.format.codec}' as; taking YouTube for ${track.videoId}")
+            Log.d(TAG, "nothing to file a '${stream.format.codec}' as; passing on ${track.videoId}")
             return null
         }
         return stream to storable
@@ -1233,8 +1216,8 @@ object Downloads {
     }
 
     /**
-     * How long the source lookup may hold a download up before it goes to
-     * YouTube regardless.
+     * How long the source lookup may hold a download up before it gives up
+     * on the track.
      *
      * **This has to clear a patient search window, and for a long time it
      * didn't.** It was 20s against a patient window of 25s, which made the
@@ -1243,10 +1226,11 @@ object Downloads {
      * patient window, and this timeout fired five seconds before the window it
      * was waiting on could even close. Every track whose source was not
      * unusually quick came back null — not "no source has it", but "nobody was
-     * asked for long enough" — and null here means YouTube. So a Lossless
-     * setting reliably produced YouTube's AAC, and it looked like a bulk-only
-     * fault because it *was* one: a single download runs with the lookups to
-     * itself and lands inside 20s, while four workers sharing one pool do not.
+     * asked for long enough" — and null here meant no download at all. So a
+     * Lossless setting reliably produced failed rows, and it looked like a
+     * bulk-only fault because it *was* one: a single download runs with the
+     * lookups to itself and lands inside 20s, while four workers sharing one
+     * pool do not.
      *
      * Sized off what it actually bounds, therefore, rather than off the playback
      * timeout it used to be matched to. One patient search is 25s, the matcher

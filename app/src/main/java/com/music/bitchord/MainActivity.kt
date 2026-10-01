@@ -5,7 +5,6 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.res.Configuration
-import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.view.View
@@ -1442,15 +1441,10 @@ private fun BitChordApp(
                         showReplay = true
                     }
                     PlaybackSourceType.EXPLORE -> selectedTab = TAB_EXPLORE
-                    PlaybackSourceType.SHARED_LINK -> {
-                        val id = sourceId ?: return@openSource
-                        context.startActivity(
-                            Intent(
-                                Intent.ACTION_VIEW,
-                                Uri.parse("https://music.youtube.com/watch?v=$id"),
-                            ),
-                        )
-                    }
+                    // A radio seed's source is the track it was seeded from.
+                    // Opening it used to hand the id to a browser; there is no
+                    // page behind it any more, so there is nowhere to go.
+                    PlaybackSourceType.SHARED_LINK -> Unit
                     // Handled inside NowPlayingScreen by opening its queue.
                     PlaybackSourceType.QUEUE -> Unit
                 }

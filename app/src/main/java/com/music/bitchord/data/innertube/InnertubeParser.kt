@@ -1,6 +1,5 @@
 package com.music.bitchord.data.innertube
 
-import com.music.bitchord.auth.normalizeDataSyncId
 import com.music.bitchord.data.model.Account
 import com.music.bitchord.data.model.AccountChannel
 import com.music.bitchord.data.model.ArtistPage

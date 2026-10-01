@@ -89,15 +89,13 @@ enum class OutputPcmMode(val label: String) {
  * the figure that decides it is what one track costs, and the rung worth
  * defaulting to is the top one rather than the cheap one.
  *
- * The rungs themselves differ too. On the YouTube fallback path a download is
- * Opus-in-WebM (see
- * [StreamResolver.resolveForDownload][com.music.bitchord.data.innertube.StreamResolver.resolveForDownload]),
- * while configured sources can supply their own AAC or lossless copy. And
- * [LOSSLESS] has no streaming counterpart at all: it is the only rung that lets
- * a configured source's bit-exact file end up as a file on disk.
+ * The rungs themselves differ too: configured sources can supply their own AAC
+ * or lossless copy of a track. And [LOSSLESS] has no streaming counterpart at
+ * all: it is the only rung that lets a configured source's bit-exact file end
+ * up as a file on disk.
  */
 enum class DownloadQuality(
-    /** Ceiling for the YouTube Opus ladder. [Int.MAX_VALUE] means "whichever rung is best". */
+    /** Ceiling for a lossy fallback download. [Int.MAX_VALUE] means "whichever rung is best". */
     val maxKbps: Int,
     val label: String,
     val detail: String,
