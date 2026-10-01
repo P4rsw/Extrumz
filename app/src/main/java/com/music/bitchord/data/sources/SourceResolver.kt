@@ -541,7 +541,7 @@ object SourceResolver {
      * Queued behind the slow source, the fast answer arrives at ~14s. Nobody is
      * waiting that long for a song to start, so the slow source wins the race in
      * [PlaybackService][com.music.bitchord.playback.PlaybackService]'s
-     * `resolveWithModulePriority` every single time and the listener gets
+     * resolver every single time and the listener gets
      * a 128kbps transcode — while a 320kbps copy sat four tenths of a second away.
      * Raced, the fast answer gets there instead and the track starts on it.
      *
