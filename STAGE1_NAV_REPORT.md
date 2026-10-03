@@ -134,3 +134,29 @@ comment changed.
 - Two skipped tests are the Phase 2 offline skips, not new.
 
 **STOP — awaiting review/next stage.**
+
+---
+
+## Review (Hermes) — 2026-10-03: PASS
+
+**Build/tests re-run independently (forced, not UP-TO-DATE):**
+- `assembleProdDebug` green; fresh APKs (prod/arm64, 18:48).
+- `testDevDebugUnitTest --rerun` → 555 tests, 0 fail/err. `testProdDebugUnitTest --rerun` → 555 tests, 0 fail/err. **Total 1110 / 0 errors.**
+- `grep -rn TAB_EXPLORE app/src` → 0 live references. `git status` clean.
+
+**Code inspection (Hermes):** tab constants renumbered to list positions; `when` has explicit `TAB_HOME/TAB_SEARCH/TAB_LIBRARY` branches; `PlaybackSourceType.EXPLORE → showChannels=true` (restore path covered); `showChannels` key ordered after `history`, before `library_show_all`; `onLibraryItemClick` keeps the original permission/`openDetail` flow verbatim in `else`; `narrowedTo`/`forChannel` applied to both `_results` (with `no_results` on empty) and `_typeaheadResults`; `Browse` rows correctly dropped under a channel filter; GlassNavBar comment updated to the new order.
+
+**Device test (b6583103, fresh install of this HEAD, Telegram connected — decision 9 checked):**
+1. Bottom bar renders exactly **آهنگ‌ها | جستجو | کتابخانه**, no کانال‌ها tab. ✓
+2. All three tabs switch; Songs content intact. ✓
+3. Search tab: field focus + IME opens on tap (`mInputShown=true`); query cleared on re-entry. ✓
+4. Search pill «کانال‌ها» → full-screen picker with live channels (names + counts). ✓
+5. Channel selected → **stays on Search**, pill becomes «✕ 🌪», and results filter to that channel: query `remix` with filter = 9 rows; after clearing, top rows showed non-channel items (Sange Mazar, Perisan…); scrolling the unfiltered list found the filtered items («Baraan (Remix)», «Nakhla Remix») → **filtered ⊆ unfiltered, non-channel rows removed — A/B proof**. ✓
+6. Library: «کانال‌ها» shelf with Show all + «مدیریت کانال‌ها» card + per-channel cards (🌪 1823 آهنگ…). ✓
+7. «مدیریت کانال‌ها» → picker opens; BACK → returns to Library (no crash). ✓
+8. Channel card tap → lands on Songs with the «✕ 🌪» chip. ✓
+9. `logcat`: no FATAL / no com.music.bitchord crash during the whole session. ✓
+
+**Findings:** none blocking. Note (stage 5): shelf subtitle `"${chat.trackCount} آهنگ"` is an inline hardcoded string, consistent with the codebase's existing convention (SourceKind/TelegramSource health strings) — fold into the `values-fa`/string-resource cleanup in stage 5.
+
+**Verdict: stage 1 acceptance criteria all met.** Pending: Gemini review.
