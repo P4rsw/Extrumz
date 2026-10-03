@@ -40,6 +40,9 @@ interface ChatDao {
     @Query("UPDATE chats SET isTracked = :tracked WHERE chatId = :chatId")
     suspend fun setTracked(chatId: Long, tracked: Boolean)
 
-    @Query("SELECT * FROM chats ORDER BY trackCount DESC")
+    // Only chats that actually hold music: every dialog gets inserted at 0
+    // before (or without) a scan finding anything, and a list of zeroes is
+    // noise in both the Library shelf and the picker (user report, 10-03).
+    @Query("SELECT * FROM chats WHERE trackCount > 0 ORDER BY trackCount DESC")
     fun observeAllByTrackCount(): Flow<List<ChatSource>>
 }

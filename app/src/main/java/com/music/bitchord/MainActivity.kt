@@ -412,11 +412,11 @@ private fun BitChordApp(
     var showHistory by remember { mutableStateOf(false) }
     // The full-screen channel picker (see [ChannelsScreen]), reached from the
     // Library shelf and — with the other landing — from Search's pill.
-    var showChannels by remember { mutableStateOf(false) }
+    var showChannels by rememberSaveable { mutableStateOf(false) }
     // Where closing that picker lands. The Library shelf hands the listener to
     // the filtered Songs tab; the Search pill keeps them where they were so
     // the results re-filter in place.
-    var channelsReturnToSongs by remember { mutableStateOf(true) }
+    var channelsReturnToSongs by rememberSaveable { mutableStateOf(true) }
     // A Library shelf's "Show all" — the shelf it was opened from, so its own
     // cards can be laid out again as a full-screen grid. See [LibraryGridPage].
     var libraryShowAll by remember { mutableStateOf<HomeShelf?>(null) }
@@ -669,10 +669,6 @@ private fun BitChordApp(
     // reads [scrolled] — which made the whole floating bar, both of its states
     // and every glass surface on them recompose once per frame for the length of
     // a fold. Keyed on the labels so a locale change still rebuilds it.
-    val homeLabel = stringResource(R.string.home)
-    val playLabel = stringResource(R.string.play)
-    val exploreLabel = stringResource(R.string.explore)
-    val libraryLabel = stringResource(R.string.library)
     val searchLabel = stringResource(R.string.search)
     val historyLabel = stringResource(R.string.history)
     val replayLabel = stringResource(R.string.replay)
@@ -2037,7 +2033,11 @@ private fun BitChordApp(
                                 playFrom(
                                     songs,
                                     index,
-                                    QueueSource(songsLabel, PlaybackSourceType.BROWSE),
+                                    // HOME, not BROWSE: this play has no
+                                    // sourceId, and the BROWSE branch of
+                                    // onOpenPlaybackSource bails on a null id,
+                                    // stranding Now Playing's source tap.
+                                    QueueSource(songsLabel, PlaybackSourceType.HOME),
                                 )
                             },
                         )
@@ -2092,9 +2092,11 @@ private fun BitChordApp(
                         showReplay -> stringResource(R.string.replay)
                         detail != null && detailActiveShelf != null -> detailActiveShelf?.title.orEmpty()
                         detail != null -> detail.title
-                        else -> tabs[selectedTab].let {
-                            if (it.label == "Play") stringResource(R.string.listen_now) else it.label
-                        }
+                        // getOrNull: a saved-state key from the pre-stage-1
+                        // build can still hold an index this three-tab list
+                        // has no meaning for — home beats crashing. The old
+                        // "Play" remap was YouTube-fork dead code.
+                        else -> tabs.getOrNull(selectedTab)?.label ?: tabs.first().label
                     },
                     transparentBackdrop = glassActive || isReplayVisible || isDetailVisible,
                     artworkPageChrome = isReplayVisible || isDetailVisible,

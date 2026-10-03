@@ -127,8 +127,11 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     val typeaheadResults: StateFlow<List<SearchResult>> = combine(
         _typeaheadResults.asStateFlow(),
         TelegramUi.selectedChatId,
-    ) { rows, chatId -> if (chatId == null) rows else rows.forChannel(chatId) }
-        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+    ) { rows, chatId ->
+        val filtered = if (chatId == null) rows else rows.forChannel(chatId)
+        // The cap lands after narrowing, not before — see the write side.
+        filtered.take(TYPEAHEAD_MAX_RESULTS)
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     // The search pipeline's own state. Declared here, above [init], because
     // that is where the collector is started from and a property declared
@@ -543,15 +546,16 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     /**
      * Records a track entity from a search hit.
-     * Checks _typeaheadResults first (live media while typing), then _results
-     * (committed search). Falls back to recording the raw query if no song data
-     * is available.
+     * Reads the filtered [typeaheadResults] first (live media while typing),
+     * then the filtered [results] (committed search) — the exact rows on
+     * screen, so a channel search never records a song it didn't show.
+     * Falls back to recording the raw query if no song data is available.
      */
     fun recordSearch() {
         val q = _query.value.trim()
         if (q.isEmpty()) return
         // Prefer typeahead results — they are live and always available while typing.
-        val fromTypeahead = _typeaheadResults.value.firstOrNull {
+        val fromTypeahead = typeaheadResults.value.firstOrNull {
             it is SearchResult.TopTrack || it is SearchResult.Track
         }
         if (fromTypeahead is SearchResult.Track) {
@@ -575,7 +579,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             return
         }
         // Fall back to committed search results.
-        val topResult = (_results.value as? UiState.Success)?.data?.firstOrNull {
+        val topResult = (results.value as? UiState.Success)?.data?.firstOrNull {
             it is SearchResult.TopTrack || it is SearchResult.Track
         }
         if (topResult is SearchResult.Track) {
@@ -805,7 +809,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             .debounce(SUGGEST_DEBOUNCE_MS)
             .collectLatest { input ->
                 if (!stillWanted(input)) return@collectLatest
-                val fetched = runCatching { suggestionTitles(input) }.getOrNull()
+                val fetched = runCatching { suggestionTitles(input, TelegramUi.selectedChatId.value) }.getOrNull()
                     ?: return@collectLatest
                 // Asked again on the way back; the field is live throughout.
                 if (!stillWanted(input)) return@collectLatest
@@ -843,8 +847,11 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                     _typeaheadResults.value = emptyList()
                     return@collectLatest
                 }
-                // Cap results so the dropdown doesn't grow unbounded.
-                _typeaheadResults.value = result.take(TYPEAHEAD_MAX_RESULTS)
+                // Stored whole: [typeaheadResults] narrows to the chosen
+                // channel first and only then caps — slicing to 8 here would
+                // drop a channel's matches past rank 8 of the global list
+                // and the dropdown could come back empty with hits in range.
+                _typeaheadResults.value = result
             }
     }
 
@@ -941,13 +948,19 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
      * same local index the search itself would answer with, capped small —
      * the typed text is already a working first row.
      */
-    private suspend fun suggestionTitles(input: String): List<String> =
+    private suspend fun suggestionTitles(
+        input: String,
+        chatId: Long?,
+    ): List<String> =
         runCatching {
             SourceRegistry.active()
                 .firstOrNull { it.kind == SourceKind.TELEGRAM }
                 ?.search(input, SUGGEST_SOURCE_LIMIT)
                 .orEmpty()
         }.getOrElse { emptyList() }
+            // A chosen channel narrows the chips the way it narrows the rows:
+            // suggestions from other chats would contradict the filter.
+            .filter { chatId == null || it.sourceChatId == chatId }
             .map { it.title.ifBlank { it.artist } }
             .distinct()
             .take(SUGGEST_MAX_RESULTS)
