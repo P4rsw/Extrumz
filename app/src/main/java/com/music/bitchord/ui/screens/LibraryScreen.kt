@@ -28,6 +28,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -40,6 +41,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.music.bitchord.data.model.HomeShelf
 import com.music.bitchord.R
+import com.music.bitchord.data.db.TelegramDb
 import com.music.bitchord.data.model.ShelfItem
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.data.settings.LibrarySort
@@ -108,6 +110,11 @@ fun LibraryScreen(
     downloadedPlaylists: List<SavedCollection> = emptyList(),
 ) {
     val onDevice = stringResource(R.string.on_device)
+    val channelsShelfTitle = stringResource(R.string.tab_channels)
+    // Live: a scan finishing while Library is open fills the shelf without a
+    // recomposition of anything else — same source ChannelsScreen reads.
+    val chats by TelegramDb.chatDao.observeAllByTrackCount()
+        .collectAsState(initial = emptyList())
     LazyColumn(
         state = listState,
         modifier = modifier.fillMaxSize(),
@@ -139,6 +146,37 @@ fun LibraryScreen(
                     contentPadding = PaddingValues(horizontal = PAGE_GUTTER),
                 )
             }
+        }
+        // The Telegram side of the library: the manage entry first, then every
+        // scanned channel as its own card — tapping either runs the same
+        // selection the Channels screen would (see [onLibraryItemClick]).
+        item(key = "shelf:$channelsShelfTitle") {
+            val channelsShelf = HomeShelf(
+                title = channelsShelfTitle,
+                items = listOf(
+                    ShelfItem(
+                        title = stringResource(R.string.tg_manage_channels),
+                        subtitle = "",
+                        thumbnailUrl = null,
+                        videoId = null,
+                        browseId = "tg:channels",
+                    ),
+                ) + chats.map { chat ->
+                    ShelfItem(
+                        title = chat.title,
+                        subtitle = "${chat.trackCount} آهنگ",
+                        thumbnailUrl = null,
+                        videoId = null,
+                        browseId = "tg:chat:${chat.chatId}",
+                    )
+                },
+            )
+            LibraryGridShelf(
+                shelf = channelsShelf,
+                onItemClick = onShelfItemClick,
+                onItemLongPress = onShelfItemLongPress,
+                onShowAll = { onShowAll(channelsShelf) },
+            )
         }
         item(key = "shelf:$onDevice") {
             val onDeviceShelf = HomeShelf(

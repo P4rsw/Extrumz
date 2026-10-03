@@ -1291,6 +1291,7 @@
     <string name="tg_search_hint">Telegram şarkılarında ara</string>
     <string name="tg_send_code">Kod gönder</string>
     <string name="tg_start_scan">Taramayı başlat</string>
+    <string name="tg_manage_channels">Kanalları yönet</string>
     <string name="tg_unlock">Kilidi aç</string>
     <string name="tg_verify">Doğrula</string>
 </resources>

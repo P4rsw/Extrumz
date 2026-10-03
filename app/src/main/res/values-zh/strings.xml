@@ -1317,6 +1317,7 @@
     <string name="tg_search_hint">搜索 Telegram 歌曲</string>
     <string name="tg_send_code">发送验证码</string>
     <string name="tg_start_scan">开始扫描</string>
+    <string name="tg_manage_channels">管理频道</string>
     <string name="tg_unlock">解锁</string>
     <string name="tg_verify">验证</string>
 </resources>

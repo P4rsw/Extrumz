@@ -1340,6 +1340,7 @@
     <string name="tg_search_hint">Pesquisar músicas do Telegram</string>
     <string name="tg_send_code">Enviar código</string>
     <string name="tg_start_scan">Iniciar digitalização</string>
+    <string name="tg_manage_channels">Gerenciar canais</string>
     <string name="tg_unlock">Desbloquear</string>
     <string name="tg_verify">Verificar</string>
 </resources>

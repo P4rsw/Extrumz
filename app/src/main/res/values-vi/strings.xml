@@ -1254,6 +1254,7 @@
     <string name="tg_search_hint">Tìm bài hát Telegram</string>
     <string name="tg_send_code">Gửi mã</string>
     <string name="tg_start_scan">Bắt đầu quét</string>
+    <string name="tg_manage_channels">Quản lý kênh</string>
     <string name="tg_unlock">Mở khóa</string>
     <string name="tg_verify">Xác minh</string>
 </resources>

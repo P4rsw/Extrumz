@@ -1317,6 +1317,7 @@
     <string name="tg_search_hint">Cari lagu Telegram</string>
     <string name="tg_send_code">Kirim kode</string>
     <string name="tg_start_scan">Mulai memindai</string>
+    <string name="tg_manage_channels">Kelola saluran</string>
     <string name="tg_unlock">Buka</string>
     <string name="tg_verify">Verifikasi</string>
 </resources>

@@ -1340,6 +1340,7 @@
     <string name="tg_search_hint">חיפוש שירים מטלגרם</string>
     <string name="tg_send_code">שליחת קוד</string>
     <string name="tg_start_scan">התחלת סריקה</string>
+    <string name="tg_manage_channels">ניהול ערוצים</string>
     <string name="tg_unlock">שחרור</string>
     <string name="tg_verify">אימות</string>
 </resources>

@@ -1336,6 +1336,7 @@
     <string name="tg_search_hint">टेलीग्राम गाने खोजें</string>
     <string name="tg_send_code">कोड भेजें</string>
     <string name="tg_start_scan">स्कैन शुरू करें</string>
+    <string name="tg_manage_channels">चैनल प्रबंधित करें</string>
     <string name="tg_unlock">अनलॉक करें</string>
     <string name="tg_verify">सत्यापित करें</string>
 </resources>

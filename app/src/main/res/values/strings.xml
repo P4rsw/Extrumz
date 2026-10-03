@@ -1167,6 +1167,7 @@
     <string name="tg_chats_empty">هنوز کانالی اسکن نشده است.</string>
     <string name="tg_connected">متصل به تلگرام</string>
     <string name="tg_start_scan">شروع اسکن</string>
+    <string name="tg_manage_channels">مدیریت کانال‌ها</string>
     <string name="tg_scan_failed">اتصال تلگرام برقرار نشد — چت‌ها بارگذاری نشدند؛ دوباره تلاش کن.</string>
     <string name="tg_retry">تلاش دوباره</string>
     <string name="tg_close">بستن</string>

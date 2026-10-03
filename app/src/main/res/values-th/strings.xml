@@ -1321,6 +1321,7 @@
     <string name="tg_search_hint">ค้นหาเพลง Telegram</string>
     <string name="tg_send_code">ส่งรหัส</string>
     <string name="tg_start_scan">เริ่มสแกน</string>
+    <string name="tg_manage_channels">จัดการช่อง</string>
     <string name="tg_unlock">ปลดล็อก</string>
     <string name="tg_verify">ยืนยัน</string>
 </resources>

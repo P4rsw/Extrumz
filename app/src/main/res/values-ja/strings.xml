@@ -1318,6 +1318,7 @@
     <string name="tg_search_hint">Telegramの曲を検索</string>
     <string name="tg_send_code">コードを送信</string>
     <string name="tg_start_scan">スキャン開始</string>
+    <string name="tg_manage_channels">チャンネルを管理</string>
     <string name="tg_unlock">ロック解除</string>
     <string name="tg_verify">確認</string>
 </resources>

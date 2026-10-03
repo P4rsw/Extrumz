@@ -1336,6 +1336,7 @@
     <string name="tg_search_hint">Rechercher des chansons Telegram</string>
     <string name="tg_send_code">Envoyer le code</string>
     <string name="tg_start_scan">Lancer l\'analyse</string>
+    <string name="tg_manage_channels">Gérer les chaînes</string>
     <string name="tg_unlock">Déverrouiller</string>
     <string name="tg_verify">Vérifier</string>
 </resources>

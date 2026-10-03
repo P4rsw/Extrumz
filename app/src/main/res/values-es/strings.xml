@@ -1307,6 +1307,7 @@
     <string name="tg_search_hint">Buscar canciones de Telegram</string>
     <string name="tg_send_code">Enviar código</string>
     <string name="tg_start_scan">Iniciar escaneo</string>
+    <string name="tg_manage_channels">Gestionar canales</string>
     <string name="tg_unlock">Desbloquear</string>
     <string name="tg_verify">Verificar</string>
 </resources>

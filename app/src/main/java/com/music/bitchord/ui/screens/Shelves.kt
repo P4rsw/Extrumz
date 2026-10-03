@@ -300,8 +300,17 @@ internal fun ShelfCard(
     Column(
         modifier = modifier.combinedClickable(onClick = onClick, onLongClick = onLongPress),
     ) {
-        when (item.browseId) {
-            "local:downloads" -> {
+        when {
+            // Telegram entries — the manage card and every scanned channel.
+            // Mesh rather than artwork: a channel photo is not indexed yet
+            // (see LibraryScanner's photoUrl), so the placeholder would be a
+            // grey square, and the shared blue reads as "from Telegram".
+            item.browseId?.startsWith("tg:") == true -> ServiceCard(
+                colors = listOf(Color(0xFF2AABEE), Color(0xFF229ED9)),
+                trackKey = item.browseId ?: "tg",
+                icon = BitChordIcons.Explore,
+            )
+            item.browseId == "local:downloads" -> {
                 val palette = remember { MeshPalette(listOf(Color(0xFF1E3C72), Color(0xFF2A5298))) }
                 Box(
                     modifier = Modifier
@@ -324,7 +333,7 @@ internal fun ShelfCard(
                     )
                 }
             }
-            "local:all" -> ServiceCard(
+            item.browseId == "local:all" -> ServiceCard(
                 colors = listOf(Color(0xFF134E5E), Color(0xFF71B280)),
                 trackKey = "local:all",
                 icon = Icons.Rounded.LibraryMusic,

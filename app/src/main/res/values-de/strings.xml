@@ -1336,6 +1336,7 @@
     <string name="tg_search_hint">Telegram-Lieder suchen</string>
     <string name="tg_send_code">Code senden</string>
     <string name="tg_start_scan">Scan starten</string>
+    <string name="tg_manage_channels">Kanäle verwalten</string>
     <string name="tg_unlock">Entsperren</string>
     <string name="tg_verify">Bestätigen</string>
 </resources>

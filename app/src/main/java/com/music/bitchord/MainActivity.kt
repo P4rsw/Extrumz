@@ -110,6 +110,7 @@ import com.music.bitchord.data.NerdStats
 import com.music.bitchord.data.TrackLog
 import com.music.bitchord.data.telegram.TelegramAuthController
 import com.music.bitchord.data.telegram.TelegramLoginLink
+import com.music.bitchord.data.telegram.TelegramUi
 import com.music.bitchord.data.model.BrowseType
 import com.music.bitchord.data.model.HomeShelf
 import com.music.bitchord.data.model.LikeStatus
@@ -409,6 +410,13 @@ private fun BitChordApp(
     var showSpotifyCanvasAuth by remember { mutableStateOf(false) }
 
     var showHistory by remember { mutableStateOf(false) }
+    // The full-screen channel picker (see [ChannelsScreen]), reached from the
+    // Library shelf and — with the other landing — from Search's pill.
+    var showChannels by remember { mutableStateOf(false) }
+    // Where closing that picker lands. The Library shelf hands the listener to
+    // the filtered Songs tab; the Search pill keeps them where they were so
+    // the results re-filter in place.
+    var channelsReturnToSongs by remember { mutableStateOf(true) }
     // A Library shelf's "Show all" — the shelf it was opened from, so its own
     // cards can be laid out again as a full-screen grid. See [LibraryGridPage].
     var libraryShowAll by remember { mutableStateOf<HomeShelf?>(null) }
@@ -945,7 +953,9 @@ private fun BitChordApp(
     val onBrowseLongPress: (ShelfItem) -> Unit = { item ->
         val id = item.browseId
         val type = id?.let { viewModel.browseTypeOf(it) }
-        if (id != null && type != BrowseType.ARTIST) {
+        // Telegram cards (`tg:channels`, `tg:chat:<id>`) open a picker or set
+        // the filter — there is no page or queue behind them to act on.
+        if (id != null && !id.startsWith("tg:") && type != BrowseType.ARTIST) {
             browseActions = BrowseTarget(
                 browseId = id,
                 title = item.title,
@@ -1053,26 +1063,47 @@ private fun BitChordApp(
     // card opens the same way from either.
     val onLibraryItemClick: (ShelfItem) -> Unit = { item ->
         item.browseId?.let { id ->
-            if (id == "local:all" && !LocalMediaRepository.hasStoragePermission(context)) {
-                val perm = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                    Manifest.permission.READ_MEDIA_AUDIO
-                } else {
-                    Manifest.permission.READ_EXTERNAL_STORAGE
+            when {
+                // The full-screen picker, from the manage card (shelf or grid).
+                id == "tg:channels" -> {
+                    channelsReturnToSongs = true
+                    showChannels = true
                 }
-                mediaPermissionLauncher.launch(perm)
+                // A channel card picks straight away — same toggle the
+                // picker's own rows use — and Songs is where the filter chip
+                // shows the choice. `libraryShowAll` goes with it: the grid's
+                // key would otherwise outrank the tab's in the switch above.
+                id.startsWith("tg:chat:") -> id.removePrefix("tg:chat:").toLongOrNull()
+                    ?.let { chatId ->
+                        val current = TelegramUi.selectedChatId.value
+                        TelegramUi.selectedChatId.value =
+                            if (current == chatId) null else chatId
+                        selectedTab = TAB_HOME
+                        libraryShowAll = null
+                    }
+                else -> {
+                    if (id == "local:all" && !LocalMediaRepository.hasStoragePermission(context)) {
+                        val perm = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                            Manifest.permission.READ_MEDIA_AUDIO
+                        } else {
+                            Manifest.permission.READ_EXTERNAL_STORAGE
+                        }
+                        mediaPermissionLauncher.launch(perm)
+                    }
+                    // Left set rather than cleared: a card opened from a shelf's
+                    // "Show all" page stacks a detail page over it exactly as one
+                    // opened from the Library tab stacks over that, so back from the
+                    // release lands on the grid rather than skipping past it. Every
+                    // place that reads `libraryShowAll` alongside `detail` favours
+                    // `detail` while both are set — see the AnimatedContent below.
+                    viewModel.openDetail(
+                        browseId = id,
+                        title = item.title,
+                        subtitle = item.subtitle,
+                        thumbnailUrl = item.thumbnailUrl,
+                    )
+                }
             }
-            // Left set rather than cleared: a card opened from a shelf's
-            // "Show all" page stacks a detail page over it exactly as one
-            // opened from the Library tab stacks over that, so back from the
-            // release lands on the grid rather than skipping past it. Every
-            // place that reads `libraryShowAll` alongside `detail` favours
-            // `detail` while both are set — see the AnimatedContent below.
-            viewModel.openDetail(
-                browseId = id,
-                title = item.title,
-                subtitle = item.subtitle,
-                thumbnailUrl = item.thumbnailUrl,
-            )
         }
     }
     // Takes a list so a single tap on an album/playlist header can queue the
@@ -1418,6 +1449,7 @@ private fun BitChordApp(
                 showEqualizer = false
                 showReplay = false
                 showHistory = false
+                showChannels = false
                 libraryShowAll = null
 
                 when (sourceType) {
@@ -1432,10 +1464,9 @@ private fun BitChordApp(
                         replayLandingPage = ReplayStoryPage.INTRO
                         showReplay = true
                     }
-                    // Channels stopped being a tab; the way back to them is the
-                    // Library shelf. Nothing sets this source any more, so
-                    // falling through to Home rather than a dead index.
-                    PlaybackSourceType.EXPLORE -> selectedTab = TAB_HOME
+                    // Channels stopped being a tab; a track filed under a
+                    // channel goes back to the picker it was chosen in.
+                    PlaybackSourceType.EXPLORE -> showChannels = true
                     // A radio seed's source is the track it was seeded from.
                     // Opening it used to hand the id to a browser; there is no
                     // page behind it any more, so there is nowhere to go.
@@ -1495,12 +1526,13 @@ private fun BitChordApp(
         }
         BackHandler(
             enabled = detail == null && !showSettings &&
-                !showEqualizer && !showReplay &&
+                !showEqualizer && !showReplay && !showChannels &&
                 selectedTab != TAB_HOME,
         ) {
             selectedTab = TAB_HOME
         }
         BackHandler(enabled = showHistory) { showHistory = false }
+        BackHandler(enabled = showChannels) { showChannels = false }
         // Disabled while a detail page is open over the grid: that one's own
         // BackHandler below has to close first, or back would skip past it
         // straight to Library. See [onLibraryItemClick].
@@ -1522,6 +1554,7 @@ private fun BitChordApp(
                 AnimatedContent(
                     targetState = when {
                         showHistory -> "history"
+                        showChannels -> "channels"
                         // `&& detail == null`: a card opened from the grid
                         // stacks a detail page over it exactly as one opened
                         // from the Library tab does — see
@@ -1604,7 +1637,7 @@ private fun BitChordApp(
                     val live = detailStack.lastOrNull()?.takeIf {
                         it.browseId == key && key != "settings" &&
                             key != "replay" && key != "history" &&
-                            key != "library_show_all"
+                            key != "library_show_all" && key != "channels"
                     }
                     // Held for the same reason, one step further on: a popped
                     // page is off the stack before it has finished animating
@@ -1625,6 +1658,20 @@ private fun BitChordApp(
                             onSongSwipe = onSongSwipe,
                             onRetry = viewModel::loadHistory,
                             contentPadding = listPadding,
+                        )
+                    } else if (key == "channels") {
+                        ChannelsScreen(
+                            contentPadding = listPadding,
+                            onChannelSelected = {
+                                showChannels = false
+                                // The shelf's entries land on Songs with the
+                                // filter already on; the Search pill's stay on
+                                // Search, where the results re-filter.
+                                if (channelsReturnToSongs) {
+                                    selectedTab = TAB_HOME
+                                    libraryShowAll = null
+                                }
+                            },
                         )
                     } else if (key == "library_show_all") {
                         libraryShowAll?.let { shelf ->
@@ -2029,10 +2076,11 @@ private fun BitChordApp(
                     )
                 }
 
-                FrostedTopBar(
-                    title = when {
-                        showHistory -> stringResource(R.string.history)
-                        libraryShowAll != null && detail == null -> libraryShowAll?.title.orEmpty()
+                    FrostedTopBar(
+                        title = when {
+                            showHistory -> stringResource(R.string.history)
+                            showChannels -> stringResource(R.string.tab_channels)
+                            libraryShowAll != null && detail == null -> libraryShowAll?.title.orEmpty()
                         showEqualizer -> stringResource(R.string.equalizer)
                         showSettings -> stringResource(R.string.settings)
                         showReplay -> stringResource(R.string.replay)
@@ -2049,6 +2097,9 @@ private fun BitChordApp(
                     // Search has no large in-list header to hand the title back to —
                     // the field takes that space — so its bar title is always up.
                     scrolled = when {
+                        // The picker owns its list; its big title stays up the
+                        // way the Channels tab's did when it was a tab.
+                        showChannels -> false
                         showSettings ||
                             showEqualizer ||
                             showHistory ||
@@ -2064,6 +2115,7 @@ private fun BitChordApp(
                     pullFraction = { 0f },
                     onBack = when {
                         showHistory -> ({ showHistory = false })
+                        showChannels -> ({ showChannels = false })
                         libraryShowAll != null && detail == null -> ({ libraryShowAll = null })
                         showEqualizer -> ({ showEqualizer = false })
                         showSettings -> ({ showSettings = false })
@@ -2078,7 +2130,8 @@ private fun BitChordApp(
                             // Left of the account photo, and only on Library itself:
                             // a history is a record of what was played, which reads
                             // as that tab's business rather than every tab's.
-                            if (!showHistory && !showReplay && libraryShowAll == null &&
+                            if (!showHistory && !showReplay && !showChannels &&
+                                libraryShowAll == null &&
                                 detail == null && selectedTab == TAB_LIBRARY
                             ) {
                                 IconButton(
@@ -2152,7 +2205,13 @@ private fun BitChordApp(
                             TopBarDownloadButton(onClick = { showDownloadManager = true })
                             TopBarAccountButton(
                                 account = account,
-                                onClick = { showSettings = true },
+                                onClick = {
+                                    // Settings is a page of its own; it must
+                                    // not open over the picker and lose to it
+                                    // in the content switch above.
+                                    showChannels = false
+                                    showSettings = true
+                                },
                             )
                         }
                     },
@@ -2175,6 +2234,7 @@ private fun BitChordApp(
                     showEqualizer = false
                     showReplay = false
                     showHistory = false
+                    showChannels = false
                     libraryShowAll = null
                     selectedTab = index
 

@@ -36,9 +36,11 @@ import com.music.bitchord.data.telegram.TelegramAuthState
 import com.music.bitchord.data.telegram.TelegramUi
 
 /**
- * The scanned chats/channels. Picking one narrows the songs tab to that
- * chat (tap it again there to clear). When the listener has not authorized
- * yet, the authorize button is the first thing on screen — not buried.
+ * The scanned chats/channels, as a full-screen picker. Picking one narrows the
+ * songs tab to that chat (tap it again there to clear) — or the search results,
+ * when the picker was opened from Search's channel pill. When the listener has
+ * not authorized yet, the authorize button is the first thing on screen — not
+ * buried.
  */
 @Composable
 fun ChannelsScreen(

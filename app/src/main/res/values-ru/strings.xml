@@ -1360,6 +1360,7 @@
     <string name="tg_search_hint">Поиск песен в Telegram</string>
     <string name="tg_send_code">Отправить код</string>
     <string name="tg_start_scan">Начать сканирование</string>
+    <string name="tg_manage_channels">Управление каналами</string>
     <string name="tg_unlock">Разблокировать</string>
     <string name="tg_verify">Подтвердить</string>
 </resources>
