@@ -1145,6 +1145,8 @@
     <!-- Telegram (TeleMusic) -->
     <string name="tab_songs">آهنگ‌ها</string>
     <string name="tab_channels">کانال‌ها</string>
+    <string name="tab_search">جستجو</string>
+    <string name="tab_library">کتابخانه</string>
     <string name="tg_login">ورود به تلگرام</string>
     <string name="tg_login_subtitle">برای جمع‌آوری آهنگ‌های کانال‌ها و گروه‌هایت وارد شو</string>
     <string name="tg_phone">شماره تلفن (با کد کشور)</string>

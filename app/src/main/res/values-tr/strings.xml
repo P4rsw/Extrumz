@@ -1261,6 +1261,14 @@
 
 
     <string name="tab_channels">Kanallar</string>
+
+
+
+    <string name="tab_search">Arama</string>
+
+
+
+    <string name="tab_library">Kitaplık</string>
     <string name="tab_songs">Şarkılar</string>
     <string name="tg_all_chats">Tüm kanallar</string>
     <string name="tg_chats_empty">Henüz kanal taranmadı.</string>

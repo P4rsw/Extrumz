@@ -1287,6 +1287,14 @@
 
 
     <string name="tab_channels">Saluran</string>
+
+
+
+    <string name="tab_search">Pencarian</string>
+
+
+
+    <string name="tab_library">Perpustakaan</string>
     <string name="tab_songs">Lagu</string>
     <string name="tg_all_chats">Semua saluran</string>
     <string name="tg_chats_empty">Belum ada saluran yang dipindai.</string>

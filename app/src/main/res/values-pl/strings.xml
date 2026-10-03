@@ -1342,6 +1342,14 @@
 
 
     <string name="tab_channels">Kanały</string>
+
+
+
+    <string name="tab_search">Wyszukiwanie</string>
+
+
+
+    <string name="tab_library">Biblioteka</string>
     <string name="tab_songs">Piosenki</string>
     <string name="tg_all_chats">Wszystkie kanały</string>
     <string name="tg_chats_empty">Jeszcze nie zeskanowano żadnego kanału.</string>

@@ -1330,6 +1330,14 @@
 
 
     <string name="tab_channels">Каналы</string>
+
+
+
+    <string name="tab_search">Поиск</string>
+
+
+
+    <string name="tab_library">Библиотека</string>
     <string name="tab_songs">Треки</string>
     <string name="tg_all_chats">Все каналы</string>
     <string name="tg_chats_empty">Каналы ещё не сканированы.</string>

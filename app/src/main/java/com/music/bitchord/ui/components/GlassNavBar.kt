@@ -112,9 +112,10 @@ fun GlassNavBar(
     // handler out of the key.
     val currentOnTabSelected by rememberUpdatedState(onTabSelected)
 
-    // Search is the odd one out in the iOS 26 layout: a circle of its own beside
-    // the pill rather than a quarter of it. It is the last tab in BitChord's
-    // order, which is where the shape wants it anyway.
+    // The last tab in the owner's chosen order (Songs | Search | Library) is
+    // the odd one out in the iOS 26 layout: a circle of its own beside the
+    // pill rather than a quarter of it. That lands on Library — where the
+    // shape wants it anyway — and the icon-only slot below draws it.
     val standaloneIndex = tabs.lastIndex
 
     // A factory, not a value — see the note in FloatingTabBar's header. Each of

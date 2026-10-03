@@ -611,9 +611,9 @@ private fun BitChordApp(
     val historyListState = rememberLazyListState()
     val libraryShowAllGridState = rememberLazyGridState()
     val searchListState = rememberLazyListState()
-    // The Songs and Channels tabs lay out their own lists, so there is nothing
-    // hoisted to read an offset from. One state nobody attaches stands in for
-    // them: it never scrolls, and the top bar's title stays at full size there.
+    // The home tab lays out its own list, so there is nothing hoisted to read
+    // an offset from. One state nobody attaches stands in for it: it never
+    // scrolls, and the top bar's title stays at full size there.
     val idleListState = rememberLazyListState()
     val currentListState = when (selectedTab) {
         TAB_LIBRARY -> libraryListState
@@ -670,11 +670,13 @@ private fun BitChordApp(
     val replayLabel = stringResource(R.string.replay)
     val queueLabel = stringResource(R.string.queue)
     val songsLabel = stringResource(R.string.tab_songs)
-    val channelsLabel = stringResource(R.string.tab_channels)
-    val tabs = remember(songsLabel, channelsLabel) {
+    val searchTabLabel = stringResource(R.string.tab_search)
+    val libraryTabLabel = stringResource(R.string.tab_library)
+    val tabs = remember(songsLabel, searchTabLabel, libraryTabLabel) {
         listOf(
             BottomTab(songsLabel, BitChordIcons.MusicNote),
-            BottomTab(channelsLabel, BitChordIcons.Explore),
+            BottomTab(searchTabLabel, BitChordIcons.Search),
+            BottomTab(libraryTabLabel, BitChordIcons.Library),
         )
     }
 
@@ -1430,7 +1432,10 @@ private fun BitChordApp(
                         replayLandingPage = ReplayStoryPage.INTRO
                         showReplay = true
                     }
-                    PlaybackSourceType.EXPLORE -> selectedTab = TAB_EXPLORE
+                    // Channels stopped being a tab; the way back to them is the
+                    // Library shelf. Nothing sets this source any more, so
+                    // falling through to Home rather than a dead index.
+                    PlaybackSourceType.EXPLORE -> selectedTab = TAB_HOME
                     // A radio seed's source is the track it was seeded from.
                     // Opening it used to hand the id to a browser; there is no
                     // page behind it any more, so there is nowhere to go.
@@ -1839,21 +1844,6 @@ private fun BitChordApp(
                             contentPadding = listPadding,
                         )
                     } else when (key.removePrefix(TAB_KEY).toIntOrNull() ?: selectedTab) {
-                        TAB_HOME -> SongsScreen(
-                            contentPadding = listPadding,
-                            currentSong = player.song,
-                            onSongClick = { songs, index ->
-                                playFrom(
-                                    songs,
-                                    index,
-                                    QueueSource(songsLabel, PlaybackSourceType.BROWSE),
-                                )
-                            },
-                        )
-                        TAB_EXPLORE -> ChannelsScreen(
-                            contentPadding = listPadding,
-                            onChannelSelected = { selectedTab = TAB_HOME },
-                        )
                         TAB_SEARCH -> SearchScreen(
                             query = query,
                             onQueryChange = viewModel::onQueryChange,
@@ -1966,7 +1956,7 @@ private fun BitChordApp(
                             onTypeaheadLongPress = openSongMenu,
                             contentPadding = listPadding,
                         )
-                        else -> LibraryScreen(
+                        TAB_LIBRARY -> LibraryScreen(
                             listState = libraryListState,
                             onShelfItemClick = onLibraryItemClick,
                             // Every shelf here has a menu behind it now — a saved
@@ -1983,6 +1973,20 @@ private fun BitChordApp(
                             },
                             contentPadding = listPadding,
                             downloadedPlaylists = downloadedPlaylists,
+                        )
+                        // [TAB_HOME] itself, and any stray value a tab key
+                        // could carry, land on the default home tab — the
+                        // three real branches above are explicit.
+                        else -> SongsScreen(
+                            contentPadding = listPadding,
+                            currentSong = player.song,
+                            onSongClick = { songs, index ->
+                                playFrom(
+                                    songs,
+                                    index,
+                                    QueueSource(songsLabel, PlaybackSourceType.BROWSE),
+                                )
+                            },
                         )
                     }
                 }
@@ -2796,9 +2800,8 @@ private const val SEEK_END_GUARD_MS = 1_000L
 private val DETAIL_TITLE_DROP = 320.dp
 
 private const val TAB_HOME = 0
-private const val TAB_EXPLORE = 1
+private const val TAB_SEARCH = 1
 private const val TAB_LIBRARY = 2
-private const val TAB_SEARCH = 3
 
 /**
  * What a tab's key is prefixed with in the content switcher above.

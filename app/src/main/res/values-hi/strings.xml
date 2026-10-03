@@ -1306,6 +1306,14 @@
 
 
     <string name="tab_channels">चैनल</string>
+
+
+
+    <string name="tab_search">खोज</string>
+
+
+
+    <string name="tab_library">लाइब्रेरी</string>
     <string name="tab_songs">गाने</string>
     <string name="tg_all_chats">सभी चैनल</string>
     <string name="tg_chats_empty">अभी तक कोई चैनल स्कैन नहीं हुआ।</string>

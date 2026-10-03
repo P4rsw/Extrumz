@@ -1306,6 +1306,14 @@
 
 
     <string name="tab_channels">Chaînes</string>
+
+
+
+    <string name="tab_search">Recherche</string>
+
+
+
+    <string name="tab_library">Bibliothèque</string>
     <string name="tab_songs">Chansons</string>
     <string name="tg_all_chats">Toutes les chaînes</string>
     <string name="tg_chats_empty">Aucune chaîne analysée pour le moment.</string>

@@ -1287,6 +1287,14 @@
 
 
     <string name="tab_channels">频道</string>
+
+
+
+    <string name="tab_search">搜索</string>
+
+
+
+    <string name="tab_library">资料库</string>
     <string name="tab_songs">歌曲</string>
     <string name="tg_all_chats">所有频道</string>
     <string name="tg_chats_empty">尚未扫描任何频道。</string>

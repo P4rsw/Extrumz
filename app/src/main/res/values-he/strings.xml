@@ -1310,6 +1310,14 @@
 
 
     <string name="tab_channels">ערוצים</string>
+
+
+
+    <string name="tab_search">חיפוש</string>
+
+
+
+    <string name="tab_library">ספרייה</string>
     <string name="tab_songs">שירים</string>
     <string name="tg_all_chats">כל הערוצים</string>
     <string name="tg_chats_empty">עוד לא נסרקו ערוצים.</string>

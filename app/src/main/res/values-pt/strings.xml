@@ -1310,6 +1310,14 @@
 
 
     <string name="tab_channels">Canais</string>
+
+
+
+    <string name="tab_search">Pesquisa</string>
+
+
+
+    <string name="tab_library">Biblioteca</string>
     <string name="tab_songs">Músicas</string>
     <string name="tg_all_chats">Todos os canais</string>
     <string name="tg_chats_empty">Nenhum canal foi digitalizado ainda.</string>

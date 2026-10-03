@@ -1293,6 +1293,12 @@
 
 
     <string name="tab_channels">ช่อง</string>
+
+
+    <string name="tab_search">ค้นหา</string>
+
+
+    <string name="tab_library">คลังเพลง</string>
     <string name="tab_songs">เพลง</string>
     <string name="tg_all_chats">ช่องทั้งหมด</string>
     <string name="tg_chats_empty">ยังไม่ได้สแกนช่องใดเลย</string>

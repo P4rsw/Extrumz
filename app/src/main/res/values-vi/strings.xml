@@ -1228,6 +1228,10 @@
     <string name="prioritize_spotify_canvas_subtitle">Thử Spotify trước Apple Music và các nhà cung cấp ảnh bìa động khác</string>
 
     <string name="tab_channels">Kênh</string>
+
+    <string name="tab_search">Tìm kiếm</string>
+
+    <string name="tab_library">Thư viện</string>
     <string name="tab_songs">Bài hát</string>
     <string name="tg_all_chats">Tất cả kênh</string>
     <string name="tg_chats_empty">Chưa quét kênh nào.</string>

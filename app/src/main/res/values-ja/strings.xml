@@ -1288,6 +1288,14 @@
 
 
     <string name="tab_channels">チャンネル</string>
+
+
+
+    <string name="tab_search">検索</string>
+
+
+
+    <string name="tab_library">ライブラリ</string>
     <string name="tab_songs">曲</string>
     <string name="tg_all_chats">すべてのチャンネル</string>
     <string name="tg_chats_empty">まだチャンネルをスキャンしていません。</string>
