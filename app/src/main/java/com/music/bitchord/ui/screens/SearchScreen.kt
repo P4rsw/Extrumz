@@ -42,6 +42,9 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
@@ -54,6 +57,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import coil3.compose.AsyncImage
+import com.music.bitchord.data.db.TelegramDb
 import com.music.bitchord.data.model.BrowseItem
 import com.music.bitchord.data.model.BrowseType
 import com.music.bitchord.data.model.ROW_ART_PX
@@ -64,6 +68,7 @@ import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.model.UiState
 import com.music.bitchord.R
 import com.music.bitchord.data.model.SearchHistoryEntity
+import com.music.bitchord.data.telegram.TelegramUi
 import com.music.bitchord.ui.components.MessageState
 import com.music.bitchord.ui.components.PAGE_GUTTER
 import com.music.bitchord.ui.components.topBarContentPadding
@@ -110,12 +115,20 @@ fun SearchScreen(
     onHistoryClear: () -> Unit,
     /** Long-press handler for typeahead rows — opens the song actions sheet. */
     onTypeaheadLongPress: ((Song) -> Unit)? = null,
+    /** Opens the channel picker; picking one narrows the results below. */
+    onOpenChannels: () -> Unit,
     modifier: Modifier = Modifier,
     contentPadding: PaddingValues,
 ) {
     val focusRequester = remember { FocusRequester() }
     val focusManager = LocalFocusManager.current
     val keyboardController = LocalSoftwareKeyboardController.current
+    // One filter, three doors in — the Library shelf, this pill, and the
+    // Songs chip — all turning the same TelegramUi.selectedChatId.
+    val chatId by TelegramUi.selectedChatId.collectAsState()
+    val chatName by produceState<String?>(initialValue = null, chatId) {
+        value = chatId?.let { id -> TelegramDb.chatDao.getById(id)?.title }
+    }
     // Tapping the search tab from the nav bar sets focusRequested;
     // respond by focusing the field and opening the keyboard.
     LaunchedEffect(focusRequested) {
@@ -164,6 +177,15 @@ fun SearchScreen(
                 onSubmit = onSubmit,
                 focusRequester = focusRequester,
                 modifier = Modifier.padding(start = PAGE_GUTTER, end = PAGE_GUTTER, bottom = 4.dp),
+            )
+            // The channel filter lives under the field whatever the list is
+            // doing: it narrows the rows below and the typeahead while the
+            // user types, so it is never a part of "is there a result set".
+            ChannelFilterPill(
+                chatId = chatId,
+                chatName = chatName,
+                onOpenPicker = onOpenChannels,
+                onClear = { TelegramUi.selectedChatId.value = null },
             )
             // The filters only mean something once there is a result set to narrow;
             // they stay up for an empty or failed search too, or picking a filter
@@ -758,3 +780,56 @@ private fun SearchFilterTabs(filter: SearchFilter, onFilterChange: (SearchFilter
 
 /** Rounded, but well short of a capsule — the corner reads as a cut, not a curve. */
 private val FILTER_PILL_SHAPE = RoundedCornerShape(12.dp)
+
+/**
+ * The channel filter, as a pill under the search field. Untapped it opens the
+ * picker; tapped it names the channel the results are narrowed to, with the ✕
+ * clearing it — the same toggle the Songs chip and the Library shelf use.
+ */
+@Composable
+private fun ChannelFilterPill(
+    chatId: Long?,
+    chatName: String?,
+    onOpenPicker: () -> Unit,
+    onClear: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .horizontalScroll(rememberScrollState())
+            .padding(horizontal = PAGE_GUTTER, vertical = 2.dp),
+    ) {
+        if (chatId == null) {
+            Box(
+                modifier = Modifier
+                    .clip(FILTER_PILL_SHAPE)
+                    .background(MaterialTheme.colorScheme.surfaceVariant)
+                    .clickable(onClick = onOpenPicker)
+                    .padding(horizontal = 12.dp, vertical = 6.dp),
+            ) {
+                Text(
+                    text = stringResource(R.string.tab_channels),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onBackground,
+                    maxLines = 1,
+                )
+            }
+        } else {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .clip(FILTER_PILL_SHAPE)
+                    .background(MaterialTheme.colorScheme.onBackground)
+                    .clickable(onClick = onClear)
+                    .padding(horizontal = 12.dp, vertical = 6.dp),
+            ) {
+                Text(
+                    text = "✕ " + (chatName ?: stringResource(R.string.tab_channels)),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.background,
+                    maxLines = 1,
+                )
+            }
+        }
+    }
+}

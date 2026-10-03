@@ -14,6 +14,7 @@ import com.music.bitchord.data.lyrics.LyricsSource
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.data.telegram.Telegram
 import com.music.bitchord.data.telegram.TelegramAuthState
+import com.music.bitchord.data.telegram.TelegramUi
 import com.music.bitchord.data.model.Account
 import com.music.bitchord.data.model.BrowseType
 import com.music.bitchord.data.model.DetailPage
@@ -34,11 +35,14 @@ import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import com.music.bitchord.data.sources.SourceKind
@@ -68,7 +72,15 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     val query: StateFlow<String> = _query.asStateFlow()
 
     private val _results = MutableStateFlow<UiState<List<SearchResult>>?>(null)
-    val results: StateFlow<UiState<List<SearchResult>>?> = _results.asStateFlow()
+    // Search rows plus the channel filter, as one stream: with a channel
+    // chosen the published rows are narrowed to it (post-fetch, so remote
+    // results are filtered the same way local FTS rows are), and clearing
+    // the filter brings the full set straight back off the cache.
+    val results: StateFlow<UiState<List<SearchResult>>?> = combine(
+        _results.asStateFlow(),
+        TelegramUi.selectedChatId,
+    ) { state, chatId -> state.narrowedTo(chatId) }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
     /** The mixed YouTube Music result page is the fast, useful default. */
     private val _filter = MutableStateFlow(SearchFilter.ALL)
@@ -110,7 +122,13 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
      * the field.
      */
     private val _typeaheadResults = MutableStateFlow<List<SearchResult>>(emptyList())
-    val typeaheadResults: StateFlow<List<SearchResult>> = _typeaheadResults.asStateFlow()
+    // The same filter over the live rows under the field, so a channel chosen
+    // anywhere narrows typing too.
+    val typeaheadResults: StateFlow<List<SearchResult>> = combine(
+        _typeaheadResults.asStateFlow(),
+        TelegramUi.selectedChatId,
+    ) { rows, chatId -> if (chatId == null) rows else rows.forChannel(chatId) }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     // The search pipeline's own state. Declared here, above [init], because
     // that is where the collector is started from and a property declared
@@ -840,6 +858,34 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         searchCache.put(key, SearchCacheEntry(rows, continuation = null))
         searchSession = SearchSession(key, requestId, _filter.value, continuation = null)
         return UiState.Success(rows)
+    }
+
+    /**
+     * The channel filter, applied after the fact. With no channel chosen the
+     * rows stand as they are; with one, only that channel's indexed tracks
+     * remain — and a set that empties out says so the way a search that never
+     * found anything does.
+     */
+    private fun UiState<List<SearchResult>>?.narrowedTo(
+        chatId: Long?,
+    ): UiState<List<SearchResult>>? {
+        if (chatId == null) return this
+        val rows = (this as? UiState.Success)?.data ?: return this
+        val kept = rows.forChannel(chatId)
+        return if (kept.isEmpty()) {
+            UiState.Error(text(R.string.no_results))
+        } else {
+            UiState.Success(kept)
+        }
+    }
+
+    /** A row survives the channel filter only if it was indexed from that chat. */
+    private fun List<SearchResult>.forChannel(chatId: Long): List<SearchResult> = filter { row ->
+        when (row) {
+            is SearchResult.TopTrack -> row.song.sourceChatId == chatId
+            is SearchResult.Track -> row.song.sourceChatId == chatId
+            is SearchResult.Browse -> false
+        }
     }
 
     private fun searchResultKey(row: SearchResult): String = when (row) {

@@ -2001,6 +2001,12 @@ private fun BitChordApp(
                             onHistoryRemove = viewModel::removeSearch,
                             onHistoryClear = viewModel::clearSearchHistory,
                             onTypeaheadLongPress = openSongMenu,
+                            // From Search the picker keeps the listener on
+                            // Search — the rows re-filter in place.
+                            onOpenChannels = {
+                                channelsReturnToSongs = false
+                                showChannels = true
+                            },
                             contentPadding = listPadding,
                         )
                         TAB_LIBRARY -> LibraryScreen(

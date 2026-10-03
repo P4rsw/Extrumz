@@ -188,6 +188,7 @@ class TelegramSource(
         thumbnailUrl = coverUrl.ifBlank { null },
         durationText = durationText(duration),
         sourceQuality = "HIGH",
+        sourceChatId = sourceChatId,
     )
 
     // ── Tier 1: MediaStore /Telegram/ ───────────────────────────────────

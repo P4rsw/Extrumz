@@ -95,6 +95,13 @@ data class Song(
     val playbackSourceType: PlaybackSourceType? = null,
     /** Browse id for an album, playlist, or other source page. */
     val playbackSourceId: String? = null,
+    /**
+     * The Telegram chat/channel this row was indexed from; 0 for anything
+     * that never went through the index (device files). This is what the
+     * channel filter narrows search results by — the same
+     * `TelegramUi.selectedChatId` the Songs chip and the Library shelf turn.
+     */
+    val sourceChatId: Long = 0L,
 ) {
     /** Legacy derived property: true if and only if [queueTier] is [QueueTier.AUTOPLAY]. */
     val fromAutoplay: Boolean get() = queueTier == QueueTier.AUTOPLAY
