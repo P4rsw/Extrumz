@@ -137,6 +137,25 @@ comment changed.
 
 ---
 
+## Round 2 — user + Gemini feedback (2026-10-03): commit `9b621b4`
+
+Every finding was verified against the source line-by-line before patching; tests re-run with `--rerun` after (555 + 555 = 1110, 0 failures, both flavors).
+
+| # | Finding | Verdict | Action |
+|---|---|---|---|
+| U-1 | Zero-track chats (dialogs scanned or never scanned) shown in shelf + picker | Confirmed — `observeAllByTrackCount` returned every `chats` row, all inserted at trackCount=0 | `WHERE trackCount > 0` in ChatDao; both consumers fixed at once |
+| U-2 | «کانال‌ها» title wraps as کانال‌ه / ا in Library | Open — only render sites are the Library `SectionHeader` and the `FrostedTopBar` `showChannels` branch; wrap requires a narrow width that could not be proven without the screenshot (device offline) | Awaiting user screenshot |
+| G-1 | `tabs[selectedTab]` crashes on a saved index from the pre-stage-1 build | Confirmed edge — restore of old `TAB_SEARCH=3` into a 3-tab list | `getOrNull(...) ?: tabs.first().label` (also removed the dead "Play" remap, G-6a) |
+| G-2 | Songs play stamps BROWSE with null sourceId → Now Playing source tap dead-ends | Confirmed, and **pre-existing** (present before `593be6f`) | Stamps `PlaybackSourceType.HOME`; HOME branch returns to TAB_HOME |
+| G-3 | typeahead capped to 8 *before* the channel filter → dropdown can starve | Confirmed — stage-1 introduced the ordering | Store the full result; `take(TYPEAHEAD_MAX_RESULTS)` now lands after `forChannel` |
+| G-4 | `recordSearch` reads raw `_typeaheadResults`/`_results` → history records off-screen songs | Confirmed | Reads filtered `typeaheadResults`/`results`; KDoc updated |
+| G-5a | EXPLORE restore should force `channelsReturnToSongs = true` | **Rejected** — the flag is (re)set at every picker open, so carrying the last opener's intent is the *correct* semantic; forcing true would throw pill users back to Songs and lose their search context. Default is already `true` for a fresh restore. |
+| G-5b | `showChannels`/`channelsReturnToSongs` are plain `remember` | Half-confirmed — rotation is already covered by manifest `configChanges`, but `uiMode`/`locale`/`fontScale` recreations are not | Both moved to `rememberSaveable` |
+| G-6b | Unused `homeLabel`/`playLabel`/`exploreLabel`/`libraryLabel` | Confirmed (grep: declarations only) | Deleted |
+| G-7 | `suggestionTitles` ignores the channel filter | Confirmed | Signature takes `chatId`; rows filtered on `sourceChatId` before dedupe/cap |
+
+Device verification of U-1 / G-2 / G-3 pending phone reconnection.
+
 ## Review (Hermes) — 2026-10-03: PASS
 
 **Build/tests re-run independently (forced, not UP-TO-DATE):**
