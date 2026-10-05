@@ -2,6 +2,9 @@ package com.music.bitchord.data.telegram
 
 import android.content.Context
 import com.music.bitchord.BuildConfig
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.suspendCancellableCoroutine
 import org.drinkless.tdlib.Client
 import org.drinkless.tdlib.TdApi
@@ -224,20 +227,14 @@ class AndroidMusicTelegramClient(
     override suspend fun getChatInfo(chatId: Long): ChatInfo? = runCatching {
         val chat = send(TdApi.GetChat(chatId))
         val type = chat.type
-        val username = if (type is TdApi.ChatTypeSupergroup) {
-            runCatching {
-                send(TdApi.GetSupergroup(type.supergroupId)).usernames
-                    ?.activeUsernames
-                    ?.firstOrNull()
-                    ?.takeIf { it.isNotBlank() }
-            }.getOrNull()
-        } else {
-            null
-        }
+        // Usernames only ever build t.me links and nothing reads this field
+        // (grep finds the write-only entity column); resolving them cost an
+        // extra RPC per supergroup on top of GetChat, so they come back lazily
+        // if a UI actually needs one.
         ChatInfo(
             chatId = chat.id,
             title = chat.title,
-            username = username,
+            username = null,
             isChannel = type is TdApi.ChatTypeSupergroup && type.isChannel,
             isGroup = type is TdApi.ChatTypeBasicGroup ||
                 (type is TdApi.ChatTypeSupergroup && !type.isChannel)
@@ -246,13 +243,18 @@ class AndroidMusicTelegramClient(
 
     override suspend fun listTrackedCandidateChats(): List<ChatInfo> {
         awaitReady()
-        val result = mutableListOf<ChatInfo>()
+        // GetChats only answers with dialogs TDLib has already cached; LoadChats
+        // pulls them into that cache page by page. When the whole list already
+        // fits, TDLib answers with an error — harmless here.
+        runCatching { send(TdApi.LoadChats(TdApi.ChatListMain(), TelegramConfig.MAX_TOP_CHATS)) }
         val slice = send(TdApi.GetChats(TdApi.ChatListMain(), TelegramConfig.MAX_TOP_CHATS))
-        for (id in slice.chatIds) {
-            getChatInfo(id)?.let { result.add(it) }
-            if (result.size >= TelegramConfig.MAX_TOP_CHATS) break
+        // One GetChat per dialog, fetched in parallel. awaitAll preserves the
+        // input order, and GetChats answers newest-first, so the freshness
+        // ranking fullScan launches in survives intact.
+        val infos = coroutineScope {
+            slice.chatIds.map { id -> async { getChatInfo(id) } }.awaitAll()
         }
-        return result
+        return infos.filterNotNull().take(TelegramConfig.MAX_TOP_CHATS)
     }
 
     override suspend fun getAudioByMessage(chatId: Long, messageId: Long): RemoteAudio? {

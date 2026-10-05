@@ -276,7 +276,7 @@ class LibraryScanner(
         private const val CHATS_LOAD_TIMEOUT_MS = 120_000L
 
         /** Pause between GetChats attempts while dialogs are still loading. */
-        private const val CHATS_RETRY_DELAY_MS = 8_000L
+        private const val CHATS_RETRY_DELAY_MS = 1_000L
 
         /** Chats scanned at once by [fullScan] (approved range: 4–8). */
         private const val SCAN_PARALLEL_CHATS = 6
