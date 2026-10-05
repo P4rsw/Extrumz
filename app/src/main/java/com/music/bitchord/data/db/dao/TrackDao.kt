@@ -36,6 +36,10 @@ interface TrackDao {
     @Update
     suspend fun update(track: Track)
 
+    /** One transaction for a page of merge-updates (Room updates by primary key). */
+    @Update
+    suspend fun updateAll(tracks: List<Track>)
+
     @Query("UPDATE tracks SET isFavorite = :favorite WHERE fileUniqueId = :id")
     suspend fun setFavorite(id: String, favorite: Boolean)
 

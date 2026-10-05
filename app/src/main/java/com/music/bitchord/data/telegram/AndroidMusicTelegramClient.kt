@@ -7,6 +7,8 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import org.drinkless.tdlib.Client
 import org.drinkless.tdlib.TdApi
 import java.io.File
@@ -251,15 +253,35 @@ class AndroidMusicTelegramClient(
     override suspend fun listTrackedCandidateChats(): List<ChatInfo> {
         awaitReady()
         // GetChats only answers with dialogs TDLib has already cached; LoadChats
-        // pulls them into that cache page by page. When the whole list already
-        // fits, TDLib answers with an error — harmless here.
-        runCatching { send(TdApi.LoadChats(TdApi.ChatListMain(), TelegramConfig.MAX_TOP_CHATS)) }
+        // pulls them into that cache page by page, and a single call only fills
+        // ONE bounded batch — on a fresh account most of MAX_TOP_CHATS would
+        // still be missing. Loop until TDLib says it's all there (its error once
+        // the list already fits is the stop signal, not a failure) or the answers
+        // stop growing. Any other error degrades to exactly the old one-call
+        // behavior: proceed with whatever is cached.
+        // LoadChats answers Ok per batch (the result carries no list), and
+        // fails with NOT_FOUND only once the whole list is in cache — that
+        // failure is the natural stop signal. Any other error degrades to
+        // exactly the old single-call behavior: proceed with what is cached.
+        var round = 0
+        while (round < TelegramConfig.CHAT_LOAD_ROUNDS) {
+            round++
+            val loaded = runCatching {
+                send(TdApi.LoadChats(TdApi.ChatListMain(), TelegramConfig.MAX_TOP_CHATS))
+            }.isSuccess
+            if (!loaded) break
+        }
         val slice = send(TdApi.GetChats(TdApi.ChatListMain(), TelegramConfig.MAX_TOP_CHATS))
-        // One GetChat per dialog, fetched in parallel. awaitAll preserves the
-        // input order, and GetChats answers newest-first, so the freshness
-        // ranking fullScan launches in survives intact.
+        // One GetChat per dialog, fetched in parallel but bounded: unbounded
+        // it is up to MAX_TOP_CHATS concurrent JNI calls, which spikes slow
+        // phones. awaitAll preserves the input order regardless of which
+        // permit each coroutine got, and GetChats answers newest-first, so the
+        // freshness ranking fullScan launches in survives intact.
         val infos = coroutineScope {
-            slice.chatIds.map { id -> async { getChatInfo(id) } }.awaitAll()
+            val permits = Semaphore(TelegramConfig.GET_INFO_PARALLEL)
+            slice.chatIds
+                .map { id -> async { permits.withPermit { getChatInfo(id) } } }
+                .awaitAll()
         }
         // Dropping a chat is a decision, not an accident — but it must leave
         // a trace, or "why is chat N never scanned" has no answer in the log.
@@ -393,7 +415,7 @@ class AndroidMusicTelegramClient(
             performer = audio.performer?.takeIf { it.isNotBlank() },
             fileName = audio.fileName?.takeIf { it.isNotBlank() },
             mimeType = audio.mimeType ?: "audio/mpeg",
-            durationSeconds = audio.duration ?: 0,
+            durationSeconds = audio.duration,
             sizeBytes = file.expectedSize.takeIf { it > 0 } ?: file.size,
             caption = this.caption?.text.orEmpty(),
             dateSeconds = message.date.toLong(),

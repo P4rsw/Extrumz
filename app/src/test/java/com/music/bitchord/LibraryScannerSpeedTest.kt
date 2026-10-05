@@ -28,6 +28,7 @@ import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -124,6 +125,12 @@ class LibraryScannerSpeedTest {
         override suspend fun update(track: Track) {
             updateCount++
             rows[track.fileUniqueId] = track
+        }
+
+        var updateAllCount = 0
+        override suspend fun updateAll(tracks: List<Track>) {
+            updateAllCount++
+            tracks.forEach { rows[it.fileUniqueId] = it }
         }
 
         override suspend fun count(): Int = rows.size
@@ -514,6 +521,58 @@ class LibraryScannerSpeedTest {
         // The boundary then moved to the newest message actually seen.
         assertEquals(300L, chats.rows[1L]!!.lastScannedMessageId)
         assertEquals(252, chats.rows[1L]!!.trackCount)
+    }
+
+    // --- round2: Gemini review findings -------------------------------------
+
+    @Test
+    fun `a second fullScan is a no-op while one runs and cancel frees the gate`() = runTest {
+        val client = FakeTelegramClient(
+            chats = listOf(chatInfo(1L)),
+            messagesByChat = mutableMapOf(1L to listOf(audio(1L, 100L))),
+            hangingChats = setOf(1L),
+        )
+        val scanner = LibraryScanner(client, FakeTrackDao(), FakeChatDao())
+        val job = launch { scanner.fullScan() }
+        // The first scan passes the gate and parks inside the hanging chat.
+        testScheduler.advanceUntilIdle()
+        assertTrue(scanner.progress.value.isRunning)
+
+        // With the gate closed this returns immediately; with the old
+        // read-then-write guard it would queue a SECOND scan behind the first
+        // and park here until the timeout (null).
+        val second = withTimeoutOrNull(1_000) { scanner.fullScan() }
+        assertNotNull(second)
+
+        job.cancelAndJoin()
+        // The finally must clear isRunning on cancellation — otherwise a
+        // cancelled scan leaves the banner and the start button stuck.
+        assertFalse(scanner.progress.value.isRunning)
+    }
+
+    @Test
+    fun `a file already in the DB is written back with one batched update`() = runTest {
+        val chats = FakeChatDao()
+        val tracks = FakeTrackDao()
+        // A first channel indexes the file the normal way.
+        val first = FakeTelegramClient(
+            chats = listOf(chatInfo(1L)),
+            messagesByChat = mutableMapOf(1L to listOf(audio(1L, 100L, uniqueId = "shared-file"))),
+        )
+        LibraryScanner(first, tracks, chats).fullScan()
+        assertEquals(1, tracks.rows.size)
+
+        // A second channel carries the SAME file — the merge-update path.
+        val second = FakeTelegramClient(
+            chats = listOf(chatInfo(2L)),
+            messagesByChat = mutableMapOf(2L to listOf(audio(2L, 100L, uniqueId = "shared-file"))),
+        )
+        LibraryScanner(second, tracks, chats).fullScan()
+
+        // One page of already-known files → exactly one batched update call and
+        // zero per-row statements (the N+1 the review flagged).
+        assertEquals(1, tracks.updateAllCount)
+        assertEquals(0, tracks.updateCount)
     }
 
     private companion object {

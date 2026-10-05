@@ -7,6 +7,7 @@ import com.music.bitchord.data.db.dao.TrackDao
 import com.music.bitchord.data.db.entity.ChatSource
 import com.music.bitchord.data.db.entity.ChatType
 import com.music.bitchord.data.db.entity.Track
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
@@ -51,8 +52,16 @@ class LibraryScanner(
     private val _progress = MutableStateFlow(ScanProgress())
     val progress: StateFlow<ScanProgress> = _progress.asStateFlow()
 
+    /**
+     * One scan at a time. onReady's auto-scan and a manual tap arrive on
+     * DIFFERENT threads milliseconds apart (observed in logcat), so the old
+     * read-then-write on the StateFlow let both through — two scans would
+     * race the same pages. CAS makes the loser a no-op.
+     */
+    private val scanGate = AtomicBoolean(false)
+
     suspend fun fullScan() {
-        if (_progress.value.isRunning) return
+        if (!scanGate.compareAndSet(false, true)) return
         _progress.value = ScanProgress(isRunning = true)
         try {
             // Right after Ready, TDLib is still pulling dialogs through the
@@ -100,6 +109,12 @@ class LibraryScanner(
                     lastErrorDetail = e.message ?: e::class.simpleName,
                 )
             }
+        } finally {
+            // Clear isRunning FIRST while the gate still excludes any other
+            // scan (so the flag can only be ours), then release the gate — a
+            // cancelled scan must not leave the banner/button stuck.
+            _progress.update { if (it.isRunning) it.copy(isRunning = false) else it }
+            scanGate.set(false)
         }
     }
 
@@ -230,7 +245,7 @@ class LibraryScanner(
             // is what indexAudio counted one-by-one before.
             inserted = trackDao.insertAll(toInsert).count { it != -1L }
         }
-        for (track in toUpdate) trackDao.update(track)
+        if (toUpdate.isNotEmpty()) trackDao.updateAll(toUpdate)
         if (inserted > 0) {
             _progress.update { it.copy(tracksIndexed = it.tracksIndexed + inserted) }
         }
