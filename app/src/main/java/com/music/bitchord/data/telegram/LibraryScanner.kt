@@ -25,7 +25,14 @@ data class ScanProgress(
     val tracksIndexed: Int = 0,
     /** GetChats attempts spent waiting for dialogs to load (0 = not waiting). */
     val attempts: Int = 0,
-    val lastError: String? = null
+    /** Short, translatable banner line — never the raw exception. */
+    val lastError: String? = null,
+    /**
+     * The raw message behind [lastError] (e.g. "database disk image is
+     * malformed"), shown small and muted under the banner title so a real
+     * failure is not blamed on the Telegram connection alone.
+     */
+    val lastErrorDetail: String? = null
 )
 
 /**
@@ -57,8 +64,10 @@ class LibraryScanner(
                 // lastError is what the tabs surface as the failure line — a
                 // silent zero here is what made the first-run auto-scan look
                 // like it had never run.
+                val reason = "no candidate chats after ${CHATS_LOAD_TIMEOUT_MS}ms"
                 _progress.value = ScanProgress(
-                    lastError = "no candidate chats after ${CHATS_LOAD_TIMEOUT_MS}ms",
+                    lastError = reason,
+                    lastErrorDetail = reason,
                 )
                 return
             }
@@ -81,9 +90,15 @@ class LibraryScanner(
             // Cancelling the scan (scope shutdown) is not a scan failure and
             // must not be swallowed into lastError.
             if (e is CancellationException) throw e
-            TrackLog.w(TAG, "fullScan failed: ${e::class.simpleName}: ${e.message}")
+            // Full exception (with stack) to the log; the banner gets the
+            // message twice over — as the line and as the detail under it.
+            TrackLog.w(TAG, "fullScan failed: ${e::class.simpleName}: ${e.message}", e)
             _progress.update {
-                it.copy(isRunning = false, lastError = e.message ?: e::class.simpleName)
+                it.copy(
+                    isRunning = false,
+                    lastError = e.message ?: e::class.simpleName,
+                    lastErrorDetail = e.message ?: e::class.simpleName,
+                )
             }
         }
     }
@@ -126,9 +141,14 @@ class LibraryScanner(
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            TrackLog.w(TAG, "chat ${info.chatId} failed: ${e::class.simpleName}: ${e.message}")
+            // Full exception (with stack) to the log; the state keeps both the
+            // per-chat banner line and the raw message as the detail under it.
+            TrackLog.w(TAG, "chat ${info.chatId} failed: ${e::class.simpleName}: ${e.message}", e)
             _progress.update {
-                it.copy(lastError = "chat ${info.chatId}: ${e.message ?: e::class.simpleName}")
+                it.copy(
+                    lastError = "chat ${info.chatId}: ${e.message ?: e::class.simpleName}",
+                    lastErrorDetail = e.message ?: e::class.simpleName,
+                )
             }
         } finally {
             // Counted even for the failed chat, so the banner's fraction can

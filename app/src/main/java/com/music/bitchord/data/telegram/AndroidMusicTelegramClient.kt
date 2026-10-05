@@ -2,6 +2,7 @@ package com.music.bitchord.data.telegram
 
 import android.content.Context
 import com.music.bitchord.BuildConfig
+import com.music.bitchord.data.TrackLog
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
@@ -11,6 +12,8 @@ import org.drinkless.tdlib.TdApi
 import java.io.File
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
+
+private const val TAG = "TelegramClient"
 
 class AndroidMusicTelegramClient(
     context: Context
@@ -239,6 +242,10 @@ class AndroidMusicTelegramClient(
             isGroup = type is TdApi.ChatTypeBasicGroup ||
                 (type is TdApi.ChatTypeSupergroup && !type.isChannel)
         )
+    }.onFailure { e ->
+        // A null here drops the chat from every future scan silently — log the
+        // real exception (with chatId) here, where the cause still is.
+        TrackLog.w(TAG, "getChatInfo($chatId) failed: ${e::class.simpleName}: ${e.message}", e)
     }.getOrNull()
 
     override suspend fun listTrackedCandidateChats(): List<ChatInfo> {
@@ -253,6 +260,13 @@ class AndroidMusicTelegramClient(
         // ranking fullScan launches in survives intact.
         val infos = coroutineScope {
             slice.chatIds.map { id -> async { getChatInfo(id) } }.awaitAll()
+        }
+        // Dropping a chat is a decision, not an accident — but it must leave
+        // a trace, or "why is chat N never scanned" has no answer in the log.
+        infos.forEachIndexed { index, info ->
+            if (info == null) {
+                TrackLog.w(TAG, "candidate chat ${slice.chatIds[index]} dropped: no chat info")
+            }
         }
         return infos.filterNotNull().take(TelegramConfig.MAX_TOP_CHATS)
     }

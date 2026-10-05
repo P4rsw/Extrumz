@@ -162,6 +162,7 @@ class LibraryScannerSpeedTest {
         private val messagesByChat: MutableMap<Long, List<RemoteAudio>> = mutableMapOf(),
         private val failingChats: Set<Long> = emptySet(),
         private val hangingChats: Set<Long> = emptySet(),
+        private val listFailsWith: String? = null,
     ) : MusicTelegramClient {
         private val chats = chats
         override val authState: StateFlow<TelegramAuthState> =
@@ -213,7 +214,11 @@ class LibraryScannerSpeedTest {
             return RemoteAudioPage(list.subList(start, end), next)
         }
 
-        override suspend fun listTrackedCandidateChats(): List<ChatInfo> = chats
+        override suspend fun listTrackedCandidateChats(): List<ChatInfo> {
+            listFailsWith?.let { error(it) }
+            return chats
+        }
+
         override suspend fun getChatInfo(chatId: Long): ChatInfo? =
             chats.firstOrNull { it.chatId == chatId }
 
@@ -324,9 +329,24 @@ class LibraryScannerSpeedTest {
         assertEquals(3, progress.chatsScanned)
         assertNotNull(progress.lastError)
         assertTrue(progress.lastError!!.contains("boom"))
+        // The raw exception survives for the detail line under the banner title.
+        assertEquals("boom 2", progress.lastErrorDetail)
         // The healthy chats made it in; the failing chat still upserted + counted.
         assertEquals(setOf(1L, 3L), tracks.rows.values.map { it.sourceChatId }.toSet())
         assertEquals(3, chats.upsertCount)
+    }
+
+    @Test
+    fun `a candidate-list failure keeps the raw exception text for the banner`() = runTest {
+        val client = FakeTelegramClient(chats = emptyList(), listFailsWith = "list broken")
+        val scanner = LibraryScanner(client, FakeTrackDao(), FakeChatDao())
+
+        scanner.fullScan()
+
+        val progress = scanner.progress.value
+        assertFalse(progress.isRunning)
+        assertEquals("list broken", progress.lastError)
+        assertEquals("list broken", progress.lastErrorDetail)
     }
 
     @Test

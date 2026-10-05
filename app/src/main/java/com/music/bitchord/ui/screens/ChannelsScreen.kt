@@ -6,10 +6,13 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
@@ -55,7 +58,16 @@ fun ChannelsScreen(
     val chats by TelegramDb.chatDao.observeAllByTrackCount()
         .collectAsState(initial = emptyList())
 
-    Column(modifier = modifier.fillMaxSize()) {
+    // This screen starts at y=0, under the glass bars, so its topmost content
+    // has to clear the system status bar itself — without this the scan button
+    // sits at y≈39 where the status bar (0..127) swallows the tap (device
+    // evidence, stage 2.5). The centred empty-state keeps its own sizing; the
+    // whole column just shifts down together.
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .windowInsetsPadding(WindowInsets.statusBars),
+    ) {
         if (authState !is TelegramAuthState.Ready) {
             Card(
                 modifier = Modifier
@@ -107,12 +119,24 @@ fun ChannelsScreen(
         // Surfaced rather than swallowed: a scan that ended with nothing
         // loaded has to say so, or the empty list below reads as "no music".
         if (!scan.isRunning && scan.lastError != null) {
-            Text(
-                stringResource(R.string.tg_scan_failed),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.error,
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
-            )
+            Column(Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
+                Text(
+                    stringResource(R.string.tg_scan_failed),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                )
+                // The title stays the generic (translated) line; the real
+                // exception — a malformed DB, a failed RPC — is what makes the
+                // failure actionable, so it runs underneath in a muted tone.
+                displayErrorDetail(scan.lastErrorDetail)?.let { detail ->
+                    Text(
+                        detail,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 2.dp),
+                    )
+                }
+            }
         }
 
         if (chats.isEmpty()) {
@@ -166,6 +190,17 @@ fun ChannelsScreen(
             }
         }
     }
+}
+
+/**
+ * The exception line shown under the scan-failure title: blank stays hidden,
+ * and anything longer than [max] characters is cut with an ellipsis so a
+ * stack-length message can neither crash the banner nor push it around.
+ */
+internal fun displayErrorDetail(detail: String?, max: Int = 120): String? {
+    val text = detail?.trim().orEmpty()
+    if (text.isEmpty()) return null
+    return if (text.length > max) text.take(max) + "…" else text
 }
 
 @Composable
