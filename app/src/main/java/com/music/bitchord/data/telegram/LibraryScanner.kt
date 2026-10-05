@@ -25,7 +25,7 @@ data class ScanProgress(
     val tracksIndexed: Int = 0,
     /** GetChats attempts spent waiting for dialogs to load (0 = not waiting). */
     val attempts: Int = 0,
-    /** Short, translatable banner line — never the raw exception. */
+    /** Banner line — a short, possibly technical reason for the failure. The UI renders the translated title, never this raw; the untranslated cause sits in [lastErrorDetail]. */
     val lastError: String? = null,
     /**
      * The raw message behind [lastError] (e.g. "database disk image is

@@ -144,13 +144,24 @@ fun SongsScreen(
 
         // A scan that ended empty (chats never loaded) says so here rather
         // than leaving the empty-state hint below to imply there is no music.
+        // Same two-line treatment as ChannelsScreen (review parity fix): the
+        // translated title, then the real cause underneath in a muted tone.
         if (!scan.isRunning && scan.lastError != null) {
-            Text(
-                stringResource(R.string.tg_scan_failed),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.error,
-                modifier = Modifier.padding(horizontal = 16.dp),
-            )
+            Column(Modifier.padding(horizontal = 16.dp)) {
+                Text(
+                    stringResource(R.string.tg_scan_failed),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                )
+                displayErrorDetail(scan.lastErrorDetail)?.let { detail ->
+                    Text(
+                        detail,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 2.dp),
+                    )
+                }
+            }
         }
 
         Spacer(Modifier.height(8.dp))
