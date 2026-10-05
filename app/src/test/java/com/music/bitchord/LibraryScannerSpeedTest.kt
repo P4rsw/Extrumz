@@ -435,6 +435,67 @@ class LibraryScannerSpeedTest {
         assertEquals(0, tracks.rows.size)
     }
 
+    // --- س۳: resume boundary -------------------------------------------------
+
+    @Test
+    fun `the first scan walks the whole chat like before`() = runTest {
+        val client = FakeTelegramClient(
+            chats = listOf(chatInfo(1L)),
+            messagesByChat = mutableMapOf(1L to descendingMessages(1L, 250)),
+        )
+        val tracks = FakeTrackDao()
+        val chats = FakeChatDao()
+        val scanner = LibraryScanner(client, tracks, chats)
+
+        scanner.fullScan()
+
+        // stopBefore = 0: full traversal, pages of 100 + 100 + 50.
+        assertEquals(3, client.pageRequests.size)
+        assertEquals(250, tracks.rows.size)
+        assertEquals(250, scanner.progress.value.tracksIndexed)
+        assertEquals(250L, chats.rows[1L]!!.lastScannedMessageId)
+        assertEquals(250, chats.rows[1L]!!.trackCount)
+    }
+
+    @Test
+    fun `the second scan stops at the boundary and never re-indexes below it`() = runTest {
+        val original = descendingMessages(1L, 250) // ids 250..1, newest first
+        val client = FakeTelegramClient(
+            chats = listOf(chatInfo(1L)),
+            messagesByChat = mutableMapOf(1L to original),
+        )
+        val tracks = FakeTrackDao()
+        val chats = FakeChatDao()
+        val scanner = LibraryScanner(client, tracks, chats)
+        scanner.fullScan()
+        assertEquals(3, client.pageRequests.size)
+        assertEquals(250L, chats.rows[1L]!!.lastScannedMessageId)
+
+        // Two genuinely new messages arrive on top.
+        client.setMessages(1L, listOf(audio(1L, 300L), audio(1L, 299L)) + original)
+        val requestsBefore = client.pageRequests.size
+        val updatesBefore = tracks.updateCount
+        val insertsBefore = tracks.insertAllCount
+
+        scanner.fullScan()
+
+        // Fewer pages: the boundary halts the walk after the first one.
+        assertEquals(requestsBefore + 1, client.pageRequests.size)
+        // Nothing at or below the boundary was even merged (no update pass).
+        assertEquals(updatesBefore, tracks.updateCount)
+        // Only the two new messages went in — one batch insert for that page.
+        assertEquals(insertsBefore + 1, tracks.insertAllCount)
+        assertEquals(252, tracks.rows.size)
+        // Progress is per-run: the second run indexed only the two new ones.
+        assertEquals(2, scanner.progress.value.tracksIndexed)
+        // The upsert between scans kept the boundary and the count.
+        assertEquals(250L, chats.lastUpserted!!.lastScannedMessageId)
+        assertEquals(250, chats.lastUpserted!!.trackCount)
+        // The boundary then moved to the newest message actually seen.
+        assertEquals(300L, chats.rows[1L]!!.lastScannedMessageId)
+        assertEquals(252, chats.rows[1L]!!.trackCount)
+    }
+
     private companion object {
         /** Simulated per-RPC latency; virtual time in runTest keeps it free. */
         const val RPC_DELAY_MS = 50L

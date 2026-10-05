@@ -101,6 +101,7 @@ class LibraryScanner(
                 info.isGroup -> ChatType.SUPERGROUP
                 else -> ChatType.PRIVATE
             }
+            val existing = chatDao.getById(info.chatId)
             chatDao.upsert(
                 ChatSource(
                     chatId = info.chatId,
@@ -109,11 +110,19 @@ class LibraryScanner(
                     photoUrl = null,
                     type = type,
                     isTracked = true,
-                    lastScannedMessageId = 0L,
-                    trackCount = 0
+                    // REPLACE must not wipe the resume boundary or the shelf's
+                    // track count — a zeroed count hides the channel from
+                    // observeAllByTrackCount until this scan finishes.
+                    lastScannedMessageId = existing?.lastScannedMessageId ?: 0L,
+                    trackCount = existing?.trackCount ?: 0
                 )
             )
-            scanChat(info.chatId, fromMessageId = 0L, full = true)
+            scanChat(
+                chatId = info.chatId,
+                fromMessageId = 0L,
+                full = true,
+                stopBefore = existing?.lastScannedMessageId ?: 0L,
+            )
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -207,7 +216,23 @@ class LibraryScanner(
         }
     }
 
-    private suspend fun scanChat(chatId: Long, fromMessageId: Long, full: Boolean) {
+    /**
+     * Pages one chat from the newest message backwards ([fromMessageId] 0 =
+     * newest; TDLib answers newest-first and walks older via
+     * `nextFromMessageId`) and indexes what it finds.
+     *
+     * [stopBefore] is the resume boundary: only messages above it are indexed,
+     * and paging stops as soon as the next cursor reaches it. A rescan thus
+     * walks the SAME newest-first path and halts at the boundary — it must not
+     * START at the boundary, which would collect only older messages (the
+     * wrong direction for "what has arrived since").
+     */
+    private suspend fun scanChat(
+        chatId: Long,
+        fromMessageId: Long,
+        full: Boolean,
+        stopBefore: Long = 0L,
+    ) {
         var cursor = fromMessageId
         var emptyPages = 0
         // Largest (most recent) message ID seen in this scan.
@@ -217,27 +242,29 @@ class LibraryScanner(
             if (page.audios.isEmpty()) {
                 emptyPages++
                 if (page.nextFromMessageId == 0L || page.nextFromMessageId == cursor) break
+                if (page.nextFromMessageId in 1..stopBefore) break
                 if (emptyPages >= 2) break
                 cursor = page.nextFromMessageId
                 continue
             }
             emptyPages = 0
-            for (audio in page.audios) {
+            val fresh = page.audios.filter { it.messageId > stopBefore }
+            for (audio in fresh) {
                 if (audio.messageId > maxMessageId) maxMessageId = audio.messageId
             }
-            batchIndex(page.audios)
+            batchIndex(fresh)
             if (!full) break
             val next = page.nextFromMessageId
             if (next == 0L || next == cursor) break
+            if (next in 1..stopBefore) break
             cursor = next
         }
-        // Store the NEWEST scanned message ID so an incremental pass (a
-        // future watcher) starts from there, and a *cumulative* track count —
-        // rows this chat has in the database — not what this one pass saw,
-        // which would reset the number on every rescan.
+        // Persist the highest boundary ever scanned — never lower it, so a
+        // boundary kept through the upsert survives even a chat that ends up
+        // contributing nothing new (empty, all-below, failed mid-way).
         chatDao.updateScanProgress(
             chatId = chatId,
-            messageId = maxOf(fromMessageId, maxMessageId),
+            messageId = maxOf(stopBefore, maxMessageId),
             trackCount = trackDao.countForChat(chatId)
         )
     }
