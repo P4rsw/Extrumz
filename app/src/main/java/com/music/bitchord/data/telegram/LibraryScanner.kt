@@ -8,10 +8,15 @@ import com.music.bitchord.data.db.entity.ChatSource
 import com.music.bitchord.data.db.entity.ChatType
 import com.music.bitchord.data.db.entity.Track
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 
 data class ScanProgress(
     val isRunning: Boolean = false,
@@ -57,40 +62,69 @@ class LibraryScanner(
                 )
                 return
             }
-            _progress.value = _progress.value.copy(totalChats = chats.size)
+            _progress.update { it.copy(totalChats = chats.size) }
 
-            chats.forEach { info ->
-                val type = when {
-                    info.isChannel -> ChatType.CHANNEL
-                    info.isGroup -> ChatType.SUPERGROUP
-                    else -> ChatType.PRIVATE
+            // Chats scan concurrently (bounded by the semaphore) but are
+            // LAUNCHED in list order: GetChats answers newest-dialogs-first, so
+            // the chats the user is most likely to open claim the first
+            // permits. A failure stays inside its own chat (scanOneChat).
+            val semaphore = Semaphore(SCAN_PARALLEL_CHATS)
+            coroutineScope {
+                chats.forEach { info ->
+                    launch {
+                        semaphore.withPermit { scanOneChat(info) }
+                    }
                 }
-                chatDao.upsert(
-                    ChatSource(
-                        chatId = info.chatId,
-                        title = info.title,
-                        username = info.username,
-                        photoUrl = null,
-                        type = type,
-                        isTracked = true,
-                        lastScannedMessageId = 0L,
-                        trackCount = 0
-                    )
-                )
-                scanChat(info.chatId, fromMessageId = 0L, full = true)
-                _progress.value =
-                    _progress.value.copy(chatsScanned = _progress.value.chatsScanned + 1)
             }
-            _progress.value = _progress.value.copy(isRunning = false)
+            _progress.update { it.copy(isRunning = false) }
         } catch (e: Exception) {
             // Cancelling the scan (scope shutdown) is not a scan failure and
             // must not be swallowed into lastError.
             if (e is CancellationException) throw e
             TrackLog.w(TAG, "fullScan failed: ${e::class.simpleName}: ${e.message}")
-            _progress.value = _progress.value.copy(
-                isRunning = false,
-                lastError = e.message ?: e::class.simpleName
+            _progress.update {
+                it.copy(isRunning = false, lastError = e.message ?: e::class.simpleName)
+            }
+        }
+    }
+
+    /**
+     * Upserts one chat's row and scans it. A failure here is contained: it is
+     * logged, surfaced on [ScanProgress.lastError], and the chat still counts
+     * toward [ScanProgress.chatsScanned] so progress always reaches
+     * [ScanProgress.totalChats]. Only cancellation escapes to cancel the run.
+     */
+    private suspend fun scanOneChat(info: ChatInfo) {
+        try {
+            val type = when {
+                info.isChannel -> ChatType.CHANNEL
+                info.isGroup -> ChatType.SUPERGROUP
+                else -> ChatType.PRIVATE
+            }
+            chatDao.upsert(
+                ChatSource(
+                    chatId = info.chatId,
+                    title = info.title,
+                    username = info.username,
+                    photoUrl = null,
+                    type = type,
+                    isTracked = true,
+                    lastScannedMessageId = 0L,
+                    trackCount = 0
+                )
             )
+            scanChat(info.chatId, fromMessageId = 0L, full = true)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            TrackLog.w(TAG, "chat ${info.chatId} failed: ${e::class.simpleName}: ${e.message}")
+            _progress.update {
+                it.copy(lastError = "chat ${info.chatId}: ${e.message ?: e::class.simpleName}")
+            }
+        } finally {
+            // Counted even for the failed chat, so the banner's fraction can
+            // never stall below totalChats.
+            _progress.update { it.copy(chatsScanned = it.chatsScanned + 1) }
         }
     }
 
@@ -109,7 +143,7 @@ class LibraryScanner(
             attempt++
             // Published so the banners can show "attempt N" during the wait —
             // two minutes with no visible change reads as a hang.
-            _progress.value = _progress.value.copy(attempts = attempt)
+            _progress.update { it.copy(attempts = attempt) }
             val chats = client.listTrackedCandidateChats()
             if (chats.isNotEmpty()) {
                 if (attempt > 1) {
@@ -135,10 +169,41 @@ class LibraryScanner(
         val track = MetadataMerger.merge(audio, timeSource(), existing = existing)
         if (existing == null) {
             trackDao.insert(track)
-            _progress.value =
-                _progress.value.copy(tracksIndexed = _progress.value.tracksIndexed + 1)
+            _progress.update { it.copy(tracksIndexed = it.tracksIndexed + 1) }
         } else {
             trackDao.update(track)
+        }
+    }
+
+    /**
+     * Indexes one page with one lookup + one insert instead of the two
+     * per-song queries [indexAudio] spends: a 1 800-track channel used to cost
+     * ~3 600 queries, now ~2 per page. Existing rows are merged and updated so
+     * favorites/play counts survive a rescan, exactly like [indexAudio].
+     * [TrackDao.insertAll]'s IGNORE makes a file shared by two chats racing
+     * each other harmless (first writer wins).
+     */
+    private suspend fun batchIndex(audios: List<RemoteAudio>) {
+        if (audios.isEmpty()) return
+        val now = timeSource()
+        val existingById =
+            trackDao.getByIds(audios.map { it.uniqueFileId }).associateBy { it.fileUniqueId }
+        val toInsert = mutableListOf<Track>()
+        val toUpdate = mutableListOf<Track>()
+        for (audio in audios) {
+            val existing = existingById[audio.uniqueFileId]
+            val merged = MetadataMerger.merge(audio, now, existing = existing)
+            if (existing == null) toInsert += merged else toUpdate += merged
+        }
+        var inserted = 0
+        if (toInsert.isNotEmpty()) {
+            // -1 rows are the IGNORE conflicts; only real inserts count, which
+            // is what indexAudio counted one-by-one before.
+            inserted = trackDao.insertAll(toInsert).count { it != -1L }
+        }
+        for (track in toUpdate) trackDao.update(track)
+        if (inserted > 0) {
+            _progress.update { it.copy(tracksIndexed = it.tracksIndexed + inserted) }
         }
     }
 
@@ -158,9 +223,9 @@ class LibraryScanner(
             }
             emptyPages = 0
             for (audio in page.audios) {
-                indexAudio(audio)
                 if (audio.messageId > maxMessageId) maxMessageId = audio.messageId
             }
+            batchIndex(page.audios)
             if (!full) break
             val next = page.nextFromMessageId
             if (next == 0L || next == cursor) break
@@ -185,6 +250,9 @@ class LibraryScanner(
 
         /** Pause between GetChats attempts while dialogs are still loading. */
         private const val CHATS_RETRY_DELAY_MS = 8_000L
+
+        /** Chats scanned at once by [fullScan] (approved range: 4–8). */
+        private const val SCAN_PARALLEL_CHATS = 6
 
         /** App-wide scanner bound to the shared client and database. */
         fun create(): LibraryScanner =
