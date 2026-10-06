@@ -12,6 +12,7 @@ import com.music.bitchord.data.db.entity.ChatSource
 import com.music.bitchord.data.db.entity.ChatType
 import com.music.bitchord.data.db.entity.Track
 import com.music.bitchord.data.telegram.ChatInfo
+import com.music.bitchord.data.telegram.TelegramClientException
 import com.music.bitchord.data.telegram.LibraryScanner
 import com.music.bitchord.data.telegram.MusicTelegramClient
 import com.music.bitchord.data.telegram.RemoteAudio
@@ -169,6 +170,7 @@ class LibraryScannerSpeedTest {
         chats: List<ChatInfo>,
         private val messagesByChat: MutableMap<Long, List<RemoteAudio>> = mutableMapOf(),
         private val failingChats: Set<Long> = emptySet(),
+        private val goneChats: Set<Long> = emptySet(),
         private val hangingChats: Set<Long> = emptySet(),
         private val listFailsWith: String? = null,
     ) : MusicTelegramClient {
@@ -199,6 +201,7 @@ class LibraryScannerSpeedTest {
             limit: Int,
         ): RemoteAudioPage {
             if (chatId in failingChats) error("boom $chatId")
+            if (chatId in goneChats) throw TelegramClientException("Chat not found", 400)
             if (chatId in hangingChats) awaitCancellation()
             pageRequests += chatId to fromMessageId
             if (seen.add(chatId)) firstRequestOrder += chatId
@@ -707,6 +710,42 @@ class LibraryScannerSpeedTest {
         assertEquals(8, tracks.rows.size) // 3 + 5
         assertFalse(scanner.progress.value.isRunning)
         assertNull(scanner.progress.value.lastError)
+    }
+
+    // --- round 5: a chat that is gone from Telegram entirely -----------------
+
+    @Test
+    fun `a gone chat is untracked silently instead of failing the banner`() = runTest {
+        val client = FakeTelegramClient(
+            chats = listOf(chatInfo(1L)),
+            messagesByChat = mutableMapOf(1L to descendingMessages(1L, 3)),
+            goneChats = setOf(7L),
+        )
+        val chats = FakeChatDao()
+        chats.rows[7L] = ChatSource(
+            chatId = 7L,
+            title = "Deleted channel",
+            username = null,
+            photoUrl = null,
+            type = ChatType.CHANNEL,
+            trackCount = 10,
+        )
+        val tracks = FakeTrackDao()
+        val scanner = LibraryScanner(client, tracks, chats)
+
+        scanner.fullScan()
+
+        // The row stays (history intact) but leaves the scan set, and the
+        // launch is NOT turned into a red banner.
+        assertFalse(chats.rows[7L]!!.isTracked)
+        assertNull(scanner.progress.value.lastError)
+        assertFalse(scanner.progress.value.isRunning)
+        assertEquals(3, tracks.rows.size)
+
+        // A later pass must not spend a single request on the dead chat.
+        val before = client.pageRequests.size
+        scanner.quietRepass()
+        assertEquals(before, client.pageRequests.size)
     }
 
     private companion object {

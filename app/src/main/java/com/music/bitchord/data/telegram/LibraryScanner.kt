@@ -200,6 +200,20 @@ class LibraryScanner(
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
+            if (e is TelegramClientException && e.message == "Chat not found") {
+                // Gone from Telegram entirely: absent from every chat list and
+                // from TDLib's own database ("Failed to load chat … from
+                // database: Not found") across passes and relaunches — 30 shelf
+                // rows on 2026-10-06, while the one archived-but-intact chat
+                // beside them scanned fine. Retrying forever would put the same
+                // error on the banner every launch, so the row is untracked
+                // here; re-adding the chat through the app re-tracks it.
+                chatDao.getById(info.chatId)?.let { row ->
+                    chatDao.upsert(row.copy(isTracked = false))
+                }
+                TrackLog.w(TAG, "chat ${info.chatId} is gone from Telegram — untracked")
+                return
+            }
             // Full exception (with stack) to the log; the state keeps both the
             // per-chat banner line and the raw message as the detail under it.
             TrackLog.w(TAG, "chat ${info.chatId} failed: ${e::class.simpleName}: ${e.message}", e)
