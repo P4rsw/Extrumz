@@ -119,6 +119,50 @@ class LibraryScanner(
     }
 
     /**
+     * A silent second pass, [QUIET_REPASS_DELAYS_MS] after the first scan: no
+     * banner, no button state, no progress. A scan that starts seconds after
+     * Ready races TDLib's dialog sync — the least-active chats answer the
+     * audio search with an empty page, keep lastScannedMessageId = 0, and are
+     * missed by EVERY auto-scan (which always starts at Ready + seconds).
+     * Nothing fails and nothing logs: the same 1-4 chats stayed at bound 0
+     * across launches while a scan minutes later found them all (device log,
+     * 2026-10-06). Retrying them once the sync settles closes the hole
+     * without touching the first pass's timing.
+     *
+     * Quietly gives up the whole pass if a user-started scan owns the gate.
+     */
+    suspend fun quietRepass() {
+        for (delayMs in QUIET_REPASS_DELAYS_MS) {
+            delay(delayMs)
+            // A scan started meanwhile owns the candidates; retrying now would race it.
+            if (!scanGate.compareAndSet(false, true)) return
+            try {
+                val candidates = client.listTrackedCandidateChats()
+                if (candidates.isEmpty()) continue
+                val unscanned = chatDao.getTrackedOnce()
+                    .filter { it.lastScannedMessageId == 0L }
+                    .map { it.chatId }
+                    .toHashSet()
+                val targets = candidates.filter { it.chatId in unscanned }
+                if (targets.isEmpty()) return
+                val semaphore = Semaphore(SCAN_PARALLEL_CHATS)
+                coroutineScope {
+                    targets.forEach { info ->
+                        launch { semaphore.withPermit { scanOneChat(info) } }
+                    }
+                }
+                TrackLog.d(TAG, "quiet re-pass: retried ${targets.size} unscanned candidates")
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                TrackLog.w(TAG, "quiet re-pass failed: ${e::class.simpleName}: ${e.message}", e)
+            } finally {
+                scanGate.set(false)
+            }
+        }
+    }
+
+    /**
      * Upserts one chat's row and scans it. A failure here is contained: it is
      * logged, surfaced on [ScanProgress.lastError], and the chat still counts
      * toward [ScanProgress.chatsScanned] so progress always reaches
@@ -315,6 +359,12 @@ class LibraryScanner(
 
         /** Chats scanned at once by [fullScan] (approved range: 4–8). */
         private const val SCAN_PARALLEL_CHATS = 6
+
+        /**
+         * Quiet re-pass schedule: one round a minute after the scan (the
+         * observed dialog-settle window) and one at 4 min for slow proxies.
+         */
+        private val QUIET_REPASS_DELAYS_MS = longArrayOf(60_000L, 240_000L)
 
         /** App-wide scanner bound to the shared client and database. */
         fun create(): LibraryScanner =

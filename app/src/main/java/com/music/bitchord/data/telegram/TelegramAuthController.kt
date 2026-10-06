@@ -58,8 +58,14 @@ object TelegramAuthController {
                 // scanner guards and waits internally), so a silent death
                 // of the auto-scan can't repeat unnoticed.
                 TrackLog.d(TAG, "authorization ready; starting auto-scan")
-                runCatching { Telegram.scanner.fullScan() }
-                    .onFailure { TrackLog.w(TAG, "auto-scan failed: ${it.message}") }
+                runCatching {
+                    Telegram.scanner.fullScan()
+                    // Silent second pass: the auto-scan races TDLib's dialog
+                    // sync, so the least-active chats answer empty and stay at
+                    // bound 0 launch after launch — nothing fails, nothing
+                    // logs. quietRepass retries them once the sync settles.
+                    Telegram.scanner.quietRepass()
+                }.onFailure { TrackLog.w(TAG, "auto-scan failed: ${it.message}") }
             },
         ).also { starter = it }
         scope.launch {
@@ -72,8 +78,10 @@ object TelegramAuthController {
     fun startScan() {
         ensureStarted()
         scope.launch {
-            runCatching { Telegram.scanner.fullScan() }
-                .onFailure { TrackLog.w(TAG, "manual scan failed: ${it.message}") }
+            runCatching {
+                Telegram.scanner.fullScan()
+                Telegram.scanner.quietRepass()
+            }.onFailure { TrackLog.w(TAG, "manual scan failed: ${it.message}") }
         }
     }
 

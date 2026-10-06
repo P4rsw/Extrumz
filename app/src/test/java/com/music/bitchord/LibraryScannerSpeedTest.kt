@@ -575,6 +575,73 @@ class LibraryScannerSpeedTest {
         assertEquals(0, tracks.updateCount)
     }
 
+    // --- round3: quiet re-pass after the scan (mid-sync misses) -------------
+
+    @Test
+    fun `quiet re-pass scans a candidate whose data arrived after the first pass`() = runTest {
+        val client = FakeTelegramClient(
+            chats = listOf(chatInfo(1L), chatInfo(2L)),
+            messagesByChat = mutableMapOf(1L to descendingMessages(1L, 3)),
+        )
+        val chats = FakeChatDao()
+        val tracks = FakeTrackDao()
+        val scanner = LibraryScanner(client, tracks, chats)
+
+        scanner.fullScan()
+
+        // First pass: chat 1 indexed; chat 2 answered empty (sync race) and
+        // therefore kept lastScannedMessageId = 0 — the launch bug.
+        assertEquals(3, tracks.rows.size)
+        assertEquals(0L, chats.rows[2L]!!.lastScannedMessageId)
+
+        // TDLib finishes syncing chat 2 inside the quiet window.
+        client.setMessages(2L, descendingMessages(2L, 5))
+        scanner.quietRepass()
+
+        assertEquals(8, tracks.rows.size)
+        assertTrue(chats.rows[2L]!!.lastScannedMessageId > 0L)
+        // Already-scanned chat 1 is NOT touched again by the re-pass.
+        assertEquals(1, client.pageRequests.count { it.first == 1L })
+        // The pass never surfaces on the UI.
+        assertFalse(scanner.progress.value.isRunning)
+        assertNull(scanner.progress.value.lastError)
+    }
+
+    @Test
+    fun `quiet re-pass does no work when every candidate is already scanned`() = runTest {
+        val client = FakeTelegramClient(
+            chats = listOf(chatInfo(1L)),
+            messagesByChat = mutableMapOf(1L to descendingMessages(1L, 3)),
+        )
+        val scanner = LibraryScanner(client, FakeTrackDao(), FakeChatDao())
+        scanner.fullScan()
+        val requestsAfterScan = client.pageRequests.size
+
+        scanner.quietRepass()
+
+        assertEquals(requestsAfterScan, client.pageRequests.size)
+        assertFalse(scanner.progress.value.isRunning)
+    }
+
+    @Test
+    fun `quiet re-pass yields to a scan that owns the gate`() = runTest {
+        val client = FakeTelegramClient(
+            chats = listOf(chatInfo(1L)),
+            hangingChats = setOf(1L),
+        )
+        val scanner = LibraryScanner(client, FakeTrackDao(), FakeChatDao())
+        val job = launch { scanner.fullScan() }
+        testScheduler.advanceUntilIdle()
+        assertTrue(scanner.progress.value.isRunning)
+
+        // The gate is held: the re-pass must come back without scanning anything.
+        scanner.quietRepass()
+
+        assertTrue(client.pageRequests.isEmpty())
+        job.cancelAndJoin()
+        assertFalse(scanner.progress.value.isRunning)
+    }
+
     private companion object {
         /** Simulated per-RPC latency; virtual time in runTest keeps it free. */
         const val RPC_DELAY_MS = 50L
