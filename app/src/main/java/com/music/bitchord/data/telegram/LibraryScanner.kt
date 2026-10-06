@@ -137,7 +137,7 @@ class LibraryScanner(
             // A scan started meanwhile owns the candidates; retrying now would race it.
             if (!scanGate.compareAndSet(false, true)) return
             try {
-                val candidates = client.listTrackedCandidateChats()
+                val candidates = withShelfExtras(client.listTrackedCandidateChats())
                 if (candidates.isEmpty()) continue
                 val unscanned = chatDao.getTrackedOnce()
                     .filter { it.lastScannedMessageId == 0L }
@@ -237,11 +237,11 @@ class LibraryScanner(
                 if (attempt > 1) {
                     TrackLog.d(TAG, "candidate chats loaded after $attempt attempts")
                 }
-                return chats
+                return withShelfExtras(chats)
             }
             if (timeSource() >= deadline) {
                 TrackLog.w(TAG, "candidate chats still empty after $attempt attempts")
-                return emptyList()
+                return withShelfExtras(emptyList())
             }
             TrackLog.d(
                 TAG,
@@ -251,6 +251,35 @@ class LibraryScanner(
             delay(CHATS_RETRY_DELAY_MS)
         }
     }
+
+    /**
+     * Candidate set for one pass: whatever the main chat list reports, plus
+     * every tracked chat that is still unscanned but missing from that list.
+     * Archived or left dialogs never appear in `GetChats(ChatListMain)` — the
+     * 2026-10-06 device run proved the hole: 31 tracked chats (16 of them with
+     * music) received ZERO `SearchChatMessages` requests across three passes
+     * while the other 129 were searched, and the same log carries a
+     * `ChatListArchive` dump. The shelf row is synthesized here so those chats
+     * stay scannable; if TDLib truly doesn't know one, `scanOneChat` fails out
+     * loud instead of vanishing silently.
+     */
+    private suspend fun withShelfExtras(slice: List<ChatInfo>): List<ChatInfo> {
+        val known = slice.mapTo(HashSet()) { it.chatId }
+        val extras = chatDao.getTrackedOnce()
+            .filter { it.lastScannedMessageId == 0L && it.chatId !in known }
+        if (extras.isEmpty()) return slice
+        TrackLog.d(TAG, "candidates: +${extras.size} tracked chats outside the main list")
+        return slice + extras.map { it.asChatInfo() }
+    }
+
+    /** The shelf's own row, shaped for a pass — the main list never has these. */
+    private fun ChatSource.asChatInfo() = ChatInfo(
+        chatId = chatId,
+        title = title,
+        username = username,
+        isChannel = type == ChatType.CHANNEL,
+        isGroup = type == ChatType.SUPERGROUP,
+    )
 
     suspend fun indexAudio(audio: RemoteAudio) {
         val existing = trackDao.getById(audio.uniqueFileId)

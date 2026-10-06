@@ -9,6 +9,7 @@ import com.music.bitchord.data.db.dao.ChatTrackCount
 import com.music.bitchord.data.db.dao.MediaAlbumCount
 import com.music.bitchord.data.db.dao.TrackDao
 import com.music.bitchord.data.db.entity.ChatSource
+import com.music.bitchord.data.db.entity.ChatType
 import com.music.bitchord.data.db.entity.Track
 import com.music.bitchord.data.telegram.ChatInfo
 import com.music.bitchord.data.telegram.LibraryScanner
@@ -640,6 +641,72 @@ class LibraryScannerSpeedTest {
         assertTrue(client.pageRequests.isEmpty())
         job.cancelAndJoin()
         assertFalse(scanner.progress.value.isRunning)
+    }
+
+    // --- round 4: tracked chats the main list never reports (archived/left) --
+
+    @Test
+    fun `fullScan scans a tracked chat the main list does not contain`() = runTest {
+        // Chat 7 lives on the shelf (the app's own table) but never in
+        // GetChats(ChatListMain) — the archived-dialog hole the device showed
+        // on 2026-10-06: no SearchChatMessages request was ever sent for it.
+        val client = FakeTelegramClient(
+            chats = listOf(chatInfo(1L)),
+            messagesByChat = mutableMapOf(
+                1L to descendingMessages(1L, 3),
+                7L to descendingMessages(7L, 4),
+            ),
+        )
+        val chats = FakeChatDao()
+        chats.rows[7L] = ChatSource(
+            chatId = 7L,
+            title = "Archived channel",
+            username = null,
+            photoUrl = null,
+            type = ChatType.PRIVATE,
+        )
+        val tracks = FakeTrackDao()
+
+        LibraryScanner(client, tracks, chats).fullScan()
+
+        assertTrue(chats.rows[7L]!!.lastScannedMessageId > 0L)
+        assertEquals(7, tracks.rows.size) // 3 + 4
+        assertFalse(chats.rows[7L]!!.isTracked == false)
+    }
+
+    @Test
+    fun `quiet re-pass retries a shelf-only chat after the sync window`() = runTest {
+        val client = FakeTelegramClient(
+            chats = listOf(chatInfo(1L)),
+            messagesByChat = mutableMapOf(1L to descendingMessages(1L, 3)),
+        )
+        val chats = FakeChatDao()
+        // An archived music chat: on the shelf with history, outside the main
+        // list, and its messages arrive only after the sync window.
+        chats.rows[9L] = ChatSource(
+            chatId = 9L,
+            title = "Archived music",
+            username = null,
+            photoUrl = null,
+            type = ChatType.CHANNEL,
+            lastScannedMessageId = 0L,
+            trackCount = 522,
+        )
+        val tracks = FakeTrackDao()
+        val scanner = LibraryScanner(client, tracks, chats)
+
+        scanner.fullScan()
+
+        // First pass found nothing (empty page) — the launch-time victim.
+        assertEquals(0L, chats.rows[9L]!!.lastScannedMessageId)
+        client.setMessages(9L, descendingMessages(9L, 5))
+
+        scanner.quietRepass()
+
+        assertTrue(chats.rows[9L]!!.lastScannedMessageId > 0L)
+        assertEquals(8, tracks.rows.size) // 3 + 5
+        assertFalse(scanner.progress.value.isRunning)
+        assertNull(scanner.progress.value.lastError)
     }
 
     private companion object {
