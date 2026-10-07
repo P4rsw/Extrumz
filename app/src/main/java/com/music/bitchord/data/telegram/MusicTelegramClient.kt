@@ -139,7 +139,13 @@ interface MusicTelegramClient {
      */
     suspend fun downloadTrackCover(chatId: Long, messageId: Long): String? = null
 
-    /** Candidate chats worth scanning (channels/supergroups), capped at [TelegramConfig.MAX_TOP_CHATS]. */
+    /**
+     * Candidate chats worth scanning (channels/supergroups): every dialog in
+     * the main list plus the archive list, each capped at
+     * [TelegramConfig.MAX_TOP_CHATS] — an archived channel must appear here,
+     * or the scanner reads its "Chat not found" as "left Telegram" and
+     * untracks it.
+     */
     suspend fun listTrackedCandidateChats(): List<ChatInfo>
 
     /** Local filesystem path of a file, downloading it when needed. */

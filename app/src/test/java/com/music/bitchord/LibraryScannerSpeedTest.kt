@@ -803,6 +803,42 @@ class LibraryScannerSpeedTest {
         assertEquals(before, client.pageRequests.size)
     }
 
+    // --- round 6: "Chat not found" on a chat TDLib itself listed -------------
+
+    @Test
+    fun `a chat that TDLib lists keeps its tracking when the search misses`() = runTest {
+        // The shape of 2026-10-07: the chat is IN the candidate list TDLib just
+        // reported (it was never gone — its dialog was simply in ChatListArchive,
+        // or the local cache had not caught up), yet SearchChatMessages answers
+        // "Chat not found". Reading that as "left Telegram" untracked 18 live
+        // channels, so the row must survive and the failure must surface
+        // instead of vanishing.
+        val client = FakeTelegramClient(
+            chats = listOf(chatInfo(7L)),
+            goneChats = setOf(7L),
+        )
+        val chats = FakeChatDao()
+        chats.rows[7L] = ChatSource(
+            chatId = 7L,
+            title = "Archived music",
+            username = null,
+            photoUrl = null,
+            type = ChatType.CHANNEL,
+            trackCount = 10,
+        )
+        val tracks = FakeTrackDao()
+        val scanner = LibraryScanner(client, tracks, chats)
+
+        scanner.fullScan()
+
+        assertTrue("a listed chat must never be untracked", chats.rows[7L]!!.isTracked)
+        assertTrue(
+            "and the miss is reported, not swallowed",
+            scanner.progress.value.lastError.orEmpty().contains("Chat not found"),
+        )
+        assertFalse(scanner.progress.value.isRunning)
+    }
+
     // --- م۴: live indexing ---------------------------------------------------
 
     @Test
@@ -950,6 +986,65 @@ class LibraryScannerSpeedTest {
 
         assertEquals(1, tracks.rows.size) // keeper only — the live repost was dropped
         assertNull(tracks.rows["u-live-500"])
+    }
+
+    @Test
+    fun `a rescan preserves the downloaded HQ avatar instead of clobbering it`() = runTest {
+        // The regression the device showed on 10-03: GetChats only carries the
+        // inline minithumbnail, and scanOneChat's REPLACE wrote it over the
+        // covers/hq_* avatar Tier 2 had downloaded — every channel went back
+        // to pixelated the moment the user tapped re-scan (measured: 6 HQ
+        // avatars → 0). The full-size URL is strictly better than anything
+        // GetChats can hand back, so it must survive the upsert.
+        val hq = "file:///data/user/0/com.music.bitchord/files/covers/hq_abc.jpg"
+        val chats = FakeChatDao()
+        chats.rows[1L] = ChatSource(
+            chatId = 1L,
+            title = "chat 1",
+            username = null,
+            photoUrl = hq,
+            type = ChatType.CHANNEL,
+        )
+        val client = FakeTelegramClient(
+            chats = listOf(ChatInfo(
+                chatId = 1L, title = "chat 1", username = null,
+                isChannel = true, isGroup = false,
+                photoUrl = "file:///data/user/0/com.music.bitchord/files/covers/9911.jpg",
+            )),
+            messagesByChat = mutableMapOf(1L to descendingMessages(1L, 2)),
+        )
+
+        LibraryScanner(client, FakeTrackDao(), chats).fullScan()
+
+        assertEquals("the downloaded avatar survives the rescan", hq, chats.rows[1L]!!.photoUrl)
+    }
+
+    @Test
+    fun `a rescan still fills a chat whose avatar row has none`() = runTest {
+        // The preserve rule is not a freeze: a row with nothing must take
+        // whatever the scan brings, or channels scanned before photoUrl
+        // existed would stay coverless forever.
+        val inline = "file:///data/user/0/com.music.bitchord/files/covers/9911.jpg"
+        val chats = FakeChatDao()
+        chats.rows[1L] = ChatSource(
+            chatId = 1L,
+            title = "chat 1",
+            username = null,
+            photoUrl = null,
+            type = ChatType.CHANNEL,
+        )
+        val client = FakeTelegramClient(
+            chats = listOf(ChatInfo(
+                chatId = 1L, title = "chat 1", username = null,
+                isChannel = true, isGroup = false,
+                photoUrl = inline,
+            )),
+            messagesByChat = mutableMapOf(1L to descendingMessages(1L, 2)),
+        )
+
+        LibraryScanner(client, FakeTrackDao(), chats).fullScan()
+
+        assertEquals(inline, chats.rows[1L]!!.photoUrl)
     }
 
     private companion object {

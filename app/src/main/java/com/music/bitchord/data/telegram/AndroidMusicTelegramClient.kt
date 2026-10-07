@@ -5,6 +5,7 @@ import android.net.Uri
 import com.music.bitchord.BuildConfig
 import com.music.bitchord.data.TrackLog
 import kotlinx.coroutines.async
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -17,6 +18,25 @@ import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
 private const val TAG = "TelegramClient"
+
+/**
+ * [runCatching] catches [CancellationException] too — a cancelled cover
+ * fetch would then come back as `null`, and `Covers.fetchOnce` reads a
+ * `null` as "this cover does not exist" and memoizes it for the whole
+ * MISS_TTL, blanking a row that was never actually missing. Same trap in
+ * `getChatInfo`: a cancelled GetChat reads as "chat has no info" and the
+ * candidate chat silently drops out of the pass. Cancellation is a control
+ * flow signal, not a failure, so it leaves here untouched; everything else
+ * still folds into a failed [Result] exactly as before.
+ */
+private inline fun <T> runCatchingCancellable(block: () -> T): Result<T> =
+    try {
+        Result.success(block())
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Throwable) {
+        Result.failure(e)
+    }
 
 class AndroidMusicTelegramClient(
     context: Context
@@ -243,7 +263,7 @@ class AndroidMusicTelegramClient(
         return persistInlineCover(fileId, data)
     }
 
-    override suspend fun getChatInfo(chatId: Long): ChatInfo? = runCatching {
+    override suspend fun getChatInfo(chatId: Long): ChatInfo? = runCatchingCancellable {
         val chat = send(TdApi.GetChat(chatId))
         val type = chat.type
         // Usernames only ever build t.me links and nothing reads this field
@@ -281,20 +301,46 @@ class AndroidMusicTelegramClient(
         var round = 0
         while (round < TelegramConfig.CHAT_LOAD_ROUNDS) {
             round++
-            val loaded = runCatching {
+            val loaded = runCatchingCancellable {
                 send(TdApi.LoadChats(TdApi.ChatListMain(), TelegramConfig.MAX_TOP_CHATS))
             }.isSuccess
             if (!loaded) break
         }
-        val slice = send(TdApi.GetChats(TdApi.ChatListMain(), TelegramConfig.MAX_TOP_CHATS))
-        // One GetChat per dialog, fetched in parallel but bounded: unbounded
-        // it is up to MAX_TOP_CHATS concurrent JNI calls, which spikes slow
-        // phones. awaitAll preserves the input order regardless of which
-        // permit each coroutine got, and GetChats answers newest-first, so the
-        // freshness ranking fullScan launches in survives intact.
+        // ChatListArchive is a SEPARATE list: LoadChats(ChatListMain) never
+        // touches it, so an archived dialog never enters TDLib's cache — and a
+        // chat outside that cache answers GetChat / SearchChatMessages with
+        // "Chat not found", which scanOneChat reads as "gone from Telegram" and
+        // untracks (18 live channels lost that way on 2026-10-07) and which
+        // downloadChatPhoto turns into a memoized "no such photo" (the 17 blank
+        // shelf avatars). Loading the archive list is the whole fix: its own
+        // NOT_FOUND-once-complete failure is the same natural stop signal as
+        // the main list's, so it gets the same bounded loop.
+        var archiveRound = 0
+        while (archiveRound < TelegramConfig.CHAT_LOAD_ROUNDS) {
+            archiveRound++
+            val loaded = runCatchingCancellable {
+                send(TdApi.LoadChats(TdApi.ChatListArchive(), TelegramConfig.MAX_TOP_CHATS))
+            }.isSuccess
+            if (!loaded) break
+        }
+        val mainIds = send(TdApi.GetChats(TdApi.ChatListMain(), TelegramConfig.MAX_TOP_CHATS)).chatIds
+        val archiveIds = runCatchingCancellable<TdApi.Chats> {
+            send(TdApi.GetChats(TdApi.ChatListArchive(), TelegramConfig.MAX_TOP_CHATS))
+        }.getOrNull()?.chatIds ?: longArrayOf()
+        // Main first: GetChats answers newest-dialogs-first, so the freshness
+        // ranking fullScan launches in survives; archive appends behind it,
+        // deduped because each list is read independently. The merged set is
+        // NOT re-capped to MAX_TOP_CHATS: taking it would hand every slot back
+        // to the main list and reopen exactly the hole fixed above. Each list
+        // is already bounded by the GetChats limit, and one GetChat per
+        // dialog below stays parallel but bounded — unbounded it is up to
+        // MAX_TOP_CHATS concurrent JNI calls, which spikes slow phones.
+        // awaitAll preserves input order regardless of which permit each
+        // coroutine got, so main-then-archive is what fullScan receives.
+        val chatIds = mainIds + archiveIds.filter { it !in mainIds.toHashSet() }
         val infos = coroutineScope {
             val permits = Semaphore(TelegramConfig.GET_INFO_PARALLEL)
-            slice.chatIds
+            chatIds
                 .map { id -> async { permits.withPermit { getChatInfo(id) } } }
                 .awaitAll()
         }
@@ -302,21 +348,24 @@ class AndroidMusicTelegramClient(
         // a trace, or "why is chat N never scanned" has no answer in the log.
         infos.forEachIndexed { index, info ->
             if (info == null) {
-                TrackLog.w(TAG, "candidate chat ${slice.chatIds[index]} dropped: no chat info")
+                TrackLog.w(TAG, "candidate chat ${chatIds[index]} dropped: no chat info")
             }
         }
-        return infos.filterNotNull().take(TelegramConfig.MAX_TOP_CHATS)
+        // Each list is capped by GetChats itself; re-taking MAX_TOP_CHATS here
+        // would truncate the archive half whenever the main list is full —
+        // the very failure this function was fixed for.
+        return infos.filterNotNull()
     }
 
     override suspend fun getAudioByMessage(chatId: Long, messageId: Long): RemoteAudio? {
         awaitReady()
-        return runCatching {
+        return runCatchingCancellable {
             val message = send(TdApi.GetMessage(chatId, messageId))
             (message.content as? TdApi.MessageAudio)?.toRemoteAudio(message)
         }.getOrNull()
     }
 
-    override suspend fun downloadChatPhoto(chatId: Long): String? = runCatching {
+    override suspend fun downloadChatPhoto(chatId: Long): String? = runCatchingCancellable {
         awaitReady()
         val photo = send(TdApi.GetChat(chatId)).photo ?: return null
         // Big first — shelf cards render at CARD_ART_PX — small as last resort.
@@ -325,7 +374,7 @@ class AndroidMusicTelegramClient(
         TrackLog.w(TAG, "downloadChatPhoto($chatId) failed: ${e::class.simpleName}: ${e.message}", e)
     }.getOrNull()
 
-    override suspend fun downloadTrackCover(chatId: Long, messageId: Long): String? = runCatching {
+    override suspend fun downloadTrackCover(chatId: Long, messageId: Long): String? = runCatchingCancellable {
         awaitReady()
         val message = send(TdApi.GetMessage(chatId, messageId))
         val audio = (message.content as? TdApi.MessageAudio)?.audio ?: return null

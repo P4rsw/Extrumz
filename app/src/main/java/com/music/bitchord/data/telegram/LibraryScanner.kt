@@ -64,6 +64,20 @@ class LibraryScanner(
     private val scanGate = AtomicBoolean(false)
 
     /**
+     * Chat ids TDLib itself reported for the pass in flight — main list plus
+     * archive. Membership here is what separates "TDLib knows this chat but
+     * the search failed" from "TDLib has no such chat at all", and only the
+     * second one may untrack a row: reading a plain "Chat not found" as
+     * "left Telegram" untracked 18 live archived channels on 2026-10-07,
+     * because [withShelfExtras] sees archived dialogs as *missing from the
+     * slice* — the same symptom a genuinely deleted chat has. Written by
+     * [withShelfExtras] under [scanGate] and read by the scans that gate
+     * launches, so a single field is enough.
+     */
+    @Volatile
+    private var listedChats: Set<Long> = emptySet()
+
+    /**
      * Live indexing: fresh audios are indexed the moment they arrive instead
      * of waiting for the next full scan. The client publishes EVERY incoming
      * audio message; only TRACKED chats contribute to the library, so a
@@ -259,12 +273,19 @@ class LibraryScanner(
                 else -> ChatType.PRIVATE
             }
             val existing = chatDao.getById(info.chatId)
+            // F8: preserve any HQ photoUrl the row already carries (covers/hq_*).
+            // GetChats only returns inline minithumbnail; upsert(REPLACE) would
+            // clobber the full-size avatar we downloaded earlier.
+            val preservedPhotoUrl = existing?.photoUrl?.takeIf {
+                it.isNotBlank() && it.contains(Covers.HQ_PREFIX)
+            } ?: info.photoUrl?.takeIf { it.isNotBlank() }
+                ?: existing?.photoUrl
             chatDao.upsert(
                 ChatSource(
                     chatId = info.chatId,
                     title = info.title,
                     username = info.username,
-                    photoUrl = info.photoUrl,
+                    photoUrl = preservedPhotoUrl,
                     type = type,
                     isTracked = true,
                     // REPLACE must not wipe the resume boundary or the shelf's
@@ -284,18 +305,33 @@ class LibraryScanner(
             throw e
         } catch (e: Exception) {
             if (e is TelegramClientException && e.message == "Chat not found") {
-                // Gone from Telegram entirely: absent from every chat list and
-                // from TDLib's own database ("Failed to load chat … from
-                // database: Not found") across passes and relaunches — 30 shelf
-                // rows on 2026-10-06, while the one archived-but-intact chat
-                // beside them scanned fine. Retrying forever would put the same
-                // error on the banner every launch, so the row is untracked
-                // here; re-adding the chat through the app re-tracks it.
-                chatDao.getById(info.chatId)?.let { row ->
-                    chatDao.upsert(row.copy(isTracked = false))
+                if (info.chatId in listedChats) {
+                    // TDLib listed this chat in main or archive for THIS pass,
+                    // so it exists — "Chat not found" is a cache/lookup miss on
+                    // a chat TDLib already reported, not a chat that left
+                    // Telegram. Untracking here is what silently removed 18
+                    // live archived channels on 2026-10-07 (the scan side of
+                    // the same hole withShelfExtras had already noted). Keep
+                    // the row, let the failure reach the banner below, and
+                    // retry on the next pass instead of dropping history.
+                    TrackLog.w(
+                        TAG,
+                        "chat ${info.chatId} answered \"Chat not found\" while TDLib lists it — kept tracked",
+                    )
+                } else {
+                    // Gone from Telegram entirely: absent from every chat list and
+                    // from TDLib's own database ("Failed to load chat … from
+                    // database: Not found") across passes and relaunches — 30 shelf
+                    // rows on 2026-10-06, while the one archived-but-intact chat
+                    // beside them scanned fine. Retrying forever would put the same
+                    // error on the banner every launch, so the row is untracked
+                    // here; re-adding the chat through the app re-tracks it.
+                    chatDao.getById(info.chatId)?.let { row ->
+                        chatDao.upsert(row.copy(isTracked = false))
+                    }
+                    TrackLog.w(TAG, "chat ${info.chatId} is gone from Telegram — untracked")
+                    return
                 }
-                TrackLog.w(TAG, "chat ${info.chatId} is gone from Telegram — untracked")
-                return
             }
             // Full exception (with stack) to the log; the state keeps both the
             // per-chat banner line and the raw message as the detail under it.
@@ -362,6 +398,7 @@ class LibraryScanner(
      */
     private suspend fun withShelfExtras(slice: List<ChatInfo>): List<ChatInfo> {
         val known = slice.mapTo(HashSet()) { it.chatId }
+        listedChats = known
         val extras = chatDao.getTrackedOnce()
             .filter { it.lastScannedMessageId == 0L && it.chatId !in known }
         if (extras.isEmpty()) return slice
