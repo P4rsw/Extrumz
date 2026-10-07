@@ -17,11 +17,13 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -31,15 +33,21 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import coil3.compose.AsyncImage
 import com.music.bitchord.R
 import com.music.bitchord.data.db.TelegramDb
 import com.music.bitchord.data.db.entity.Track
+import com.music.bitchord.data.model.ROW_ART_PX
 import com.music.bitchord.data.model.Song
+import com.music.bitchord.data.model.artworkAt
 import com.music.bitchord.data.sources.SourceKind
 import com.music.bitchord.data.sources.SourceRegistry
+import com.music.bitchord.data.telegram.Covers
 import com.music.bitchord.data.telegram.Telegram
 import com.music.bitchord.data.telegram.TelegramAuthController
 import com.music.bitchord.data.telegram.TelegramAuthState
@@ -191,9 +199,17 @@ fun SongsScreen(
                 contentPadding = PaddingValues(bottom = 96.dp),
             ) {
                 itemsIndexed(songs) { index, song ->
+                    // F8: a row with no cover fetches it once (inline
+                    // minithumbnail — one small message, no file download);
+                    // a row that already carries one short-circuits before
+                    // any RPC, so a fling through the list costs nothing.
+                    LaunchedEffect(song.videoId, song.thumbnailUrl) {
+                        Covers.ensureTrackCover(song.videoId, song.thumbnailUrl)
+                    }
                     SongRow(
                         title = song.title,
                         subtitle = song.subtitle(),
+                        coverUrl = song.thumbnailUrl,
                         isCurrent = currentSong?.videoId == song.videoId,
                         onClick = { onSongClick(songs, index) },
                     )
@@ -207,6 +223,7 @@ fun SongsScreen(
 private fun SongRow(
     title: String,
     subtitle: String,
+    coverUrl: String?,
     isCurrent: Boolean,
     onClick: () -> Unit,
 ) {
@@ -217,6 +234,24 @@ private fun SongRow(
             .clickable(onClick = onClick)
             .padding(horizontal = 16.dp, vertical = 10.dp),
     ) {
+        // F8: the cover sits beside the name like a media list should. The
+        // placeholder holds the slot so a late fetch never reflows the row.
+        Box(
+            Modifier
+                .size(44.dp)
+                .clip(RoundedCornerShape(8.dp))
+                .background(MaterialTheme.colorScheme.surfaceVariant),
+        ) {
+            if (coverUrl != null) {
+                AsyncImage(
+                    model = coverUrl.artworkAt(ROW_ART_PX),
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize(),
+                )
+            }
+        }
+        Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
             Text(
                 title,

@@ -40,6 +40,28 @@ interface ChatDao {
     @Query("UPDATE chats SET isTracked = :tracked WHERE chatId = :chatId")
     suspend fun setTracked(chatId: Long, tracked: Boolean)
 
+    /**
+     * F8: fill a chat avatar that has none — rows scanned before photoUrl
+     * existed, or photos whose inline bytes only land later. Never overwrites
+     * an avatar already on the row.
+     */
+    @Query(
+        "UPDATE chats SET photoUrl = :photoUrl " +
+            "WHERE chatId = :chatId AND (photoUrl IS NULL OR photoUrl = '')"
+    )
+    suspend fun setPhotoUrlIfEmpty(chatId: Long, photoUrl: String)
+
+    /**
+     * F8 quality upgrade: the full-size photo replaces the inline minithumbnail
+     * the shelf card is built from; inequality-guarded so an unchanged URL
+     * emits no Flow event.
+     */
+    @Query(
+        "UPDATE chats SET photoUrl = :photoUrl " +
+            "WHERE chatId = :chatId AND IFNULL(photoUrl, '') != :photoUrl"
+    )
+    suspend fun setPhotoUrl(chatId: Long, photoUrl: String)
+
     // Only chats that actually hold music: every dialog gets inserted at 0
     // before (or without) a scan finding anything, and a list of zeroes is
     // noise in both the Library shelf and the picker (user report, 10-03).

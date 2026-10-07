@@ -148,6 +148,7 @@ import com.music.bitchord.data.model.LikeStatus
 import com.music.bitchord.data.model.PlaybackSourceType
 import com.music.bitchord.data.model.PLAYER_ART_PX
 import com.music.bitchord.data.model.Song
+import com.music.bitchord.data.telegram.Covers
 import com.music.bitchord.playback.BACK_RESTARTS_AFTER_MS
 import dev.chrisbanes.haze.HazeInputScale
 import dev.chrisbanes.haze.HazeState
@@ -579,7 +580,16 @@ fun NowPlayingScreen(
 
     // The cover every surface below reads from — one value rather than each
     // triggering its own lookup.
-    val remoteArt = song.thumbnailUrl
+    // F8: the first time this track's player opens, the full-size cover
+    // replaces the ~90px inline one — sleeves and the full-bleed banner draw
+    // at PLAYER_ART_PX, far past upscale territory. The upgrade is written
+    // back to the track's row, so every other surface sharpens from that one
+    // fetch, and once the URL carries covers/hq_ no RPC is ever issued again.
+    var upgradedArt by remember(song.videoId) { mutableStateOf<String?>(null) }
+    LaunchedEffect(song.videoId, song.thumbnailUrl) {
+        upgradedArt = Covers.trackCoverHq(song.videoId, song.thumbnailUrl)
+    }
+    val remoteArt = upgradedArt ?: song.thumbnailUrl
     // This is produced by the palette's existing 128 px decode and cache. It
     // samples the upper band rather than the whole sleeve because that is what
     // lies beneath the status bar when the player expands to full bleed.

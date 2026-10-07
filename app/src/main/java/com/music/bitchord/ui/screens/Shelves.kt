@@ -19,6 +19,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -36,6 +37,7 @@ import com.music.bitchord.R
 import coil3.compose.AsyncImage
 import com.music.bitchord.data.model.CARD_ART_PX
 import com.music.bitchord.data.model.ShelfItem
+import com.music.bitchord.data.telegram.Covers
 import java.util.Locale
 import com.music.bitchord.data.model.artworkAt
 import com.music.bitchord.data.settings.AppSettings
@@ -306,7 +308,22 @@ internal fun ShelfCard(
             // Telegram entries — the manage card and every scanned channel.
             // A channel with an indexed photo shows it; the rest keep the
             // shared blue mesh, which reads as "from Telegram".
-            item.browseId?.startsWith("tg:") == true ->
+            item.browseId?.startsWith("tg:") == true -> {
+                // F8: every channel card shows its photo. A channel with no
+                // indexed bytes fetches its inline photo once; the first time
+                // the card is actually on screen the full-size photo replaces
+                // the ~90px inline one — CARD_ART_PX is far past upscale
+                // territory, which is where the old blur came from. Both are
+                // no-ops once the row holds a covers/hq_* URL, and both stay
+                // silent while a scan is indexing: one fetch per channel,
+                // ever, at two in flight at most.
+                val chatId = item.browseId?.removePrefix("tg:chat:")?.toLongOrNull()
+                LaunchedEffect(item.browseId, item.thumbnailUrl) {
+                    if (chatId != null) {
+                        Covers.ensureChatPhoto(chatId, item.thumbnailUrl)
+                        Covers.chatPhotoHq(chatId, item.thumbnailUrl)
+                    }
+                }
                 if (item.thumbnailUrl.isNullOrBlank()) {
                     ServiceCard(
                         colors = listOf(Color(0xFF2AABEE), Color(0xFF229ED9)),
@@ -326,6 +343,7 @@ internal fun ShelfCard(
                             .background(MaterialTheme.colorScheme.surfaceVariant),
                     )
                 }
+            }
             item.browseId == "local:downloads" -> {
                 val palette = remember { MeshPalette(listOf(Color(0xFF1E3C72), Color(0xFF2A5298))) }
                 Box(

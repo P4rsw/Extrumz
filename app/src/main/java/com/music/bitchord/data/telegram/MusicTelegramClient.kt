@@ -123,6 +123,22 @@ interface MusicTelegramClient {
      */
     suspend fun getAudioByMessage(chatId: Long, messageId: Long): RemoteAudio?
 
+    /**
+     * The chat's full-size photo, copied into the app's covers cache and
+     * returned as a `file://` URL — the sharp source behind a shelf card,
+     * which renders at CARD_ART_PX, far above the inline minithumbnail's
+     * ~90px. Defaults to null so fakes and unauthenticated clients need no
+     * artwork behaviour; [Covers] only calls it on a live session and only
+     * once per unique photo.
+     */
+    suspend fun downloadChatPhoto(chatId: Long): String? = null
+
+    /**
+     * One track's full-size album cover, same caching contract as
+     * [downloadChatPhoto]. Null when the message is gone or carries no cover.
+     */
+    suspend fun downloadTrackCover(chatId: Long, messageId: Long): String? = null
+
     /** Candidate chats worth scanning (channels/supergroups), capped at [TelegramConfig.MAX_TOP_CHATS]. */
     suspend fun listTrackedCandidateChats(): List<ChatInfo>
 

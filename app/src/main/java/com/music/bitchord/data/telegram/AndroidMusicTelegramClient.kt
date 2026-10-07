@@ -316,6 +316,52 @@ class AndroidMusicTelegramClient(
         }.getOrNull()
     }
 
+    override suspend fun downloadChatPhoto(chatId: Long): String? = runCatching {
+        awaitReady()
+        val photo = send(TdApi.GetChat(chatId)).photo ?: return null
+        // Big first — shelf cards render at CARD_ART_PX — small as last resort.
+        persistCoverFile(photo.big) ?: persistCoverFile(photo.small)
+    }.onFailure { e ->
+        TrackLog.w(TAG, "downloadChatPhoto($chatId) failed: ${e::class.simpleName}: ${e.message}", e)
+    }.getOrNull()
+
+    override suspend fun downloadTrackCover(chatId: Long, messageId: Long): String? = runCatching {
+        awaitReady()
+        val message = send(TdApi.GetMessage(chatId, messageId))
+        val audio = (message.content as? TdApi.MessageAudio)?.audio ?: return null
+        // albumCoverThumbnail is the real cover file — albumCoverMinithumbnail
+        // (~90px) is what row-level covers already get inline from a scan.
+        persistCoverFile(audio.albumCoverThumbnail?.file)
+    }.onFailure { e ->
+        TrackLog.w(TAG, "downloadTrackCover($chatId, $messageId) failed: ${e::class.simpleName}: ${e.message}", e)
+    }.getOrNull()
+
+    /**
+     * Fetches one artwork file, copies it into covers/ under a key that is
+     * stable across sessions (the remote's unique id, not this session's file
+     * id), and hands back a `file://` URL. A file already in the cache returns
+     * with no network at all; oversized artwork is refused outright so an
+     * open-ended scroll can never turn into an open-ended download.
+     */
+    private suspend fun persistCoverFile(file: TdApi.File?): String? {
+        if (file == null || file.id <= 0) return null
+        if (file.expectedSize > MAX_COVER_BYTES) return null
+        val key = file.remote?.uniqueId?.takeIf { it.isNotBlank() } ?: file.id.toString()
+        val target = File(File(appContext.filesDir, "covers").apply { mkdirs() }, "hq_$key.jpg")
+        if (!target.exists()) {
+            val local = send(TdApi.DownloadFile(file.id, 1, 0, 0, true))
+            val path = local.local?.path
+            if (local.local?.isDownloadingCompleted != true || path.isNullOrBlank()) return null
+            val bytes = File(path).readBytes()
+            if (bytes.isEmpty()) return null
+            target.writeBytes(bytes)
+        }
+        return Uri.fromFile(target).toString()
+    }
+
+    /** Artwork bigger than this is not worth its bytes on a phone. */
+    private val MAX_COVER_BYTES = 5_000_000L
+
     override suspend fun getStreamPath(fileId: String, offset: Long): String {
         val id = fileId.toIntOrNull() ?: error("Invalid file id")
         awaitReady()

@@ -54,6 +54,31 @@ interface TrackDao {
     )
     suspend fun getByChatAndMessage(chatId: Long, messageId: Long): Track?
 
+    /**
+     * F8 cover fill: record a row's inline thumbnail — but only while the row
+     * has none, so a rescan, an id3 parse or an earlier fill is never
+     * clobbered by a weaker source.
+     */
+    @Query(
+        "UPDATE tracks SET coverUrl = :coverUrl " +
+            "WHERE sourceChatId = :chatId AND sourceMessageId = :messageId " +
+            "AND (coverUrl IS NULL OR coverUrl = '')"
+    )
+    suspend fun setCoverIfEmpty(chatId: Long, messageId: Long, coverUrl: String)
+
+    /**
+     * F8 quality upgrade: the full-size cover replaces the ~90px inline one,
+     * in the one column every surface reads — so rows, cards and the player
+     * all redraw sharp from a single write. Inequality-guarded: an unchanged
+     * URL emits no Flow event.
+     */
+    @Query(
+        "UPDATE tracks SET coverUrl = :coverUrl " +
+            "WHERE sourceChatId = :chatId AND sourceMessageId = :messageId " +
+            "AND IFNULL(coverUrl, '') != :coverUrl"
+    )
+    suspend fun setCover(chatId: Long, messageId: Long, coverUrl: String)
+
     @Query("SELECT COUNT(*) FROM tracks")
     suspend fun count(): Int
 

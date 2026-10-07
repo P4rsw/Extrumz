@@ -79,6 +79,16 @@ class LibraryScannerSpeedTest {
         override suspend fun getTrackedOnce(): List<ChatSource> = rows.values.filter { it.isTracked }
         override suspend fun refreshTrackCount(chatId: Long) {}
         override suspend fun setTracked(chatId: Long, tracked: Boolean) {}
+        // F8: cover fill, with the same guard as Room — fill when empty,
+        // upgrade when the stronger cover lands.
+        override suspend fun setPhotoUrlIfEmpty(chatId: Long, photoUrl: String) {
+            rows[chatId]?.let { chat ->
+                if (chat.photoUrl.isNullOrBlank()) rows[chatId] = chat.copy(photoUrl = photoUrl)
+            }
+        }
+        override suspend fun setPhotoUrl(chatId: Long, photoUrl: String) {
+            rows[chatId]?.let { rows[chatId] = it.copy(photoUrl = photoUrl) }
+        }
         override fun observeAllByTrackCount(): Flow<List<ChatSource>> =
             flowOf(rows.values.filter { it.trackCount > 0 }.sortedByDescending { it.trackCount })
     }
@@ -179,6 +189,21 @@ class LibraryScannerSpeedTest {
         override suspend fun rePointPlaylistTracksLeftovers(from: String) = TODO()
         override suspend fun rePointPlayHistory(from: String, to: String) = TODO()
         override suspend fun rePointPlayHistoryLeftovers(from: String) = TODO()
+
+        // F8: cover fill, same guard as Room — fill when empty, upgrade when
+        // the stronger cover lands.
+        override suspend fun setCoverIfEmpty(chatId: Long, messageId: Long, coverUrl: String) {
+            getByChatAndMessage(chatId, messageId)?.let { track ->
+                if (track.coverUrl.isNullOrBlank()) {
+                    rows[track.fileUniqueId] = track.copy(coverUrl = coverUrl)
+                }
+            }
+        }
+        override suspend fun setCover(chatId: Long, messageId: Long, coverUrl: String) {
+            getByChatAndMessage(chatId, messageId)?.let { track ->
+                rows[track.fileUniqueId] = track.copy(coverUrl = coverUrl)
+            }
+        }
     }
 
     private class FakeTelegramClient(

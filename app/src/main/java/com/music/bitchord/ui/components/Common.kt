@@ -77,6 +77,7 @@ import com.music.bitchord.R
 import com.music.bitchord.data.model.ROW_ART_PX
 import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.model.artworkAt
+import com.music.bitchord.data.telegram.Covers
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.ui.composed
 import androidx.compose.ui.graphics.Shape
@@ -481,6 +482,12 @@ private fun SongRowContent(
     activeTint: Color = MaterialTheme.colorScheme.primary,
     selected: Boolean = false,
 ) {
+    // F8: a track row with no cover fetches it once — inline minithumbnail,
+    // one small message, no file download. Rows that already carry one
+    // short-circuit before any RPC, so scrolling a long list costs nothing.
+    LaunchedEffect(song.videoId, song.thumbnailUrl) {
+        Covers.ensureTrackCover(song.videoId, song.thumbnailUrl)
+    }
     val titleColor by animateColorAsState(
         targetValue = if (isCurrent) activeTint else MaterialTheme.colorScheme.onBackground,
         label = "song row title",
