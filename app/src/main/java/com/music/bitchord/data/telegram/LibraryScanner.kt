@@ -9,6 +9,7 @@ import com.music.bitchord.data.db.entity.ChatType
 import com.music.bitchord.data.db.entity.Track
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -59,6 +60,29 @@ class LibraryScanner(
      * race the same pages. CAS makes the loser a no-op.
      */
     private val scanGate = AtomicBoolean(false)
+
+    /**
+     * Live indexing: fresh audios are indexed the moment they arrive instead
+     * of waiting for the next full scan. The client publishes EVERY incoming
+     * audio message; only TRACKED chats contribute to the library, so a
+     * stray private chat never leaks in. Started from the auth controller's
+     * onReady — [liveStarted] makes repeat calls no-ops.
+     */
+    private val liveStarted = AtomicBoolean(false)
+
+    fun startLiveIndexing(scope: CoroutineScope) {
+        if (!liveStarted.compareAndSet(false, true)) return
+        scope.launch {
+            client.newAudioMessages.collect { audio ->
+                runCatching {
+                    if (chatDao.getById(audio.chatId)?.isTracked != true) return@collect
+                    indexAudio(audio)
+                }.onFailure {
+                    TrackLog.w(TAG, "live index failed for chat ${audio.chatId}: ${it.message}")
+                }
+            }
+        }
+    }
 
     suspend fun fullScan() {
         if (!scanGate.compareAndSet(false, true)) return
@@ -181,7 +205,7 @@ class LibraryScanner(
                     chatId = info.chatId,
                     title = info.title,
                     username = info.username,
-                    photoUrl = null,
+                    photoUrl = info.photoUrl,
                     type = type,
                     isTracked = true,
                     // REPLACE must not wipe the resume boundary or the shelf's

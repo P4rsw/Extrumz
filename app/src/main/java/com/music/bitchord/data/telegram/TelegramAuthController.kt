@@ -59,6 +59,9 @@ object TelegramAuthController {
                 // of the auto-scan can't repeat unnoticed.
                 TrackLog.d(TAG, "authorization ready; starting auto-scan")
                 runCatching {
+                    // Live indexing starts BEFORE the first scan: a message
+                    // arriving mid-scan is indexed now, not at the next pass.
+                    Telegram.scanner.startLiveIndexing(scope)
                     Telegram.scanner.fullScan()
                     // Silent second pass: the auto-scan races TDLib's dialog
                     // sync, so the least-active chats answer empty and stay at

@@ -55,7 +55,9 @@ data class ChatInfo(
     val title: String,
     val username: String?,
     val isChannel: Boolean,
-    val isGroup: Boolean
+    val isGroup: Boolean,
+    /** `file://` avatar written from Telegram's inline photo minithumbnail, null when the chat has none. */
+    val photoUrl: String? = null
 )
 
 class TelegramClientException(

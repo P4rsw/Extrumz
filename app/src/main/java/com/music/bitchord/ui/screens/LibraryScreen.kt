@@ -165,7 +165,7 @@ fun LibraryScreen(
                     ShelfItem(
                         title = chat.title,
                         subtitle = "${chat.trackCount} آهنگ",
-                        thumbnailUrl = null,
+                        thumbnailUrl = chat.photoUrl,
                         videoId = null,
                         browseId = "tg:chat:${chat.chatId}",
                     )

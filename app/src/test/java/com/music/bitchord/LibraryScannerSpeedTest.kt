@@ -24,6 +24,7 @@ import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.emptyFlow
@@ -179,7 +180,14 @@ class LibraryScannerSpeedTest {
             MutableStateFlow(TelegramAuthState.Ready)
         override val connectionState: StateFlow<TelegramConnectionState> =
             MutableStateFlow(TelegramConnectionState.READY)
-        override val newAudioMessages: Flow<RemoteAudio> = emptyFlow()
+        private val newAudioFeed = MutableSharedFlow<RemoteAudio>(extraBufferCapacity = 16)
+        override val newAudioMessages: Flow<RemoteAudio> = newAudioFeed
+
+        /** Test hook: models the client's incoming-audio emission. */
+        suspend fun publishNewAudio(audio: RemoteAudio) {
+            newAudioFeed.emit(audio)
+        }
+
 
         /** Every (chatId, cursor) page request, in order. */
         val pageRequests = mutableListOf<Pair<Long, Long>>()
@@ -746,6 +754,46 @@ class LibraryScannerSpeedTest {
         val before = client.pageRequests.size
         scanner.quietRepass()
         assertEquals(before, client.pageRequests.size)
+    }
+
+    // --- م۴: live indexing ---------------------------------------------------
+
+    @Test
+    fun `live indexing picks up a new audio in tracked chats and skips untracked ones`() = runTest {
+        val client = FakeTelegramClient(
+            chats = listOf(chatInfo(1L)),
+            messagesByChat = mutableMapOf(1L to mutableListOf(audio(1L, 100L))),
+        )
+        val tracks = FakeTrackDao()
+        val chats = FakeChatDao()
+        val scanner = LibraryScanner(client, tracks, chats)
+        scanner.fullScan() // seeds chat 1's tracked row, exactly like production
+        val before = tracks.rows.size
+        assertTrue(before > 0)
+
+        scanner.startLiveIndexing(backgroundScope)
+        testScheduler.runCurrent() // the collector must be subscribed before emit
+        client.publishNewAudio(audio(1L, 200L))
+        client.publishNewAudio(audio(9L, 300L)) // chat 9 was never tracked
+        // runCurrent, NOT advanceUntilIdle: the SharedFlow resume is an
+        // immediate task and the scheduler pump that only advances virtual
+        // time (advanceUntilIdle) leaves immediate tasks unpumped here.
+        testScheduler.runCurrent()
+
+        // Only the tracked chat's fresh audio landed; the stray chat is out.
+        assertEquals(before + 1, tracks.rows.size)
+        assertNotNull(
+            tracks.rows.values.firstOrNull {
+                it.sourceChatId == 1L && it.sourceMessageId == 200L
+            },
+        )
+        assertNull(tracks.rows.values.firstOrNull { it.sourceChatId == 9L })
+        assertNull(scanner.progress.value.lastError)
+
+        // Repeat starts are no-ops: one collector, no double indexing.
+        scanner.startLiveIndexing(backgroundScope)
+        testScheduler.runCurrent()
+        assertEquals(before + 1, tracks.rows.size)
     }
 
     private companion object {

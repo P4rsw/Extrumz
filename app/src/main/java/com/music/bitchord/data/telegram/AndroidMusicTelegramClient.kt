@@ -230,6 +230,19 @@ class AndroidMusicTelegramClient(
         )
     }
 
+    /**
+     * The chat avatar as a `file://` URL from Telegram's INLINE photo
+     * minithumbnail — no download round-trip, so scanning every tracked
+     * chat costs zero extra RPC. Photos without inline bytes come back null
+     * and the shelf keeps its blue mesh.
+     */
+    private fun chatPhotoUrl(photo: TdApi.ChatPhotoInfo?): String? {
+        val data = photo?.minithumbnail?.data
+        val fileId = photo?.small?.id ?: 0
+        if (data == null || data.isEmpty() || fileId <= 0) return null
+        return persistInlineCover(fileId, data)
+    }
+
     override suspend fun getChatInfo(chatId: Long): ChatInfo? = runCatching {
         val chat = send(TdApi.GetChat(chatId))
         val type = chat.type
@@ -243,7 +256,8 @@ class AndroidMusicTelegramClient(
             username = null,
             isChannel = type is TdApi.ChatTypeSupergroup && type.isChannel,
             isGroup = type is TdApi.ChatTypeBasicGroup ||
-                (type is TdApi.ChatTypeSupergroup && !type.isChannel)
+                (type is TdApi.ChatTypeSupergroup && !type.isChannel),
+            photoUrl = chatPhotoUrl(chat.photo)
         )
     }.onFailure { e ->
         // A null here drops the chat from every future scan silently — log the

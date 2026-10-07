@@ -304,14 +304,28 @@ internal fun ShelfCard(
     ) {
         when {
             // Telegram entries — the manage card and every scanned channel.
-            // Mesh rather than artwork: a channel photo is not indexed yet
-            // (see LibraryScanner's photoUrl), so the placeholder would be a
-            // grey square, and the shared blue reads as "from Telegram".
-            item.browseId?.startsWith("tg:") == true -> ServiceCard(
-                colors = listOf(Color(0xFF2AABEE), Color(0xFF229ED9)),
-                trackKey = item.browseId ?: "tg",
-                icon = BitChordIcons.Explore,
-            )
+            // A channel with an indexed photo shows it; the rest keep the
+            // shared blue mesh, which reads as "from Telegram".
+            item.browseId?.startsWith("tg:") == true ->
+                if (item.thumbnailUrl.isNullOrBlank()) {
+                    ServiceCard(
+                        colors = listOf(Color(0xFF2AABEE), Color(0xFF229ED9)),
+                        trackKey = item.browseId ?: "tg",
+                        icon = BitChordIcons.Explore,
+                    )
+                } else {
+                    AsyncImage(
+                        model = item.thumbnailUrl.artworkAt(CARD_ART_PX),
+                        contentDescription = null,
+                        contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .aspectRatio(1f)
+                            .clip(RoundedCornerShape(12.dp))
+                            .thumbnailBorder(RoundedCornerShape(12.dp))
+                            .background(MaterialTheme.colorScheme.surfaceVariant),
+                    )
+                }
             item.browseId == "local:downloads" -> {
                 val palette = remember { MeshPalette(listOf(Color(0xFF1E3C72), Color(0xFF2A5298))) }
                 Box(
