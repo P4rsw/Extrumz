@@ -165,6 +165,20 @@ class LibraryScannerSpeedTest {
         override fun observeTopFromChat(chatId: Long, limit: Int): Flow<List<Track>> = TODO()
         override fun observeByChat(chatId: Long): Flow<List<Track>> = TODO()
         override fun observeHistory(limit: Int): Flow<List<Track>> = TODO()
+
+        // F7: fingerprint index + collapse.
+        val repoints = mutableListOf<Pair<String, String>>()
+        override suspend fun loadAllTracks(): List<Track> = rows.values.toList()
+        override suspend fun deleteByFileUniqueIds(ids: List<String>) {
+            ids.forEach { rows.remove(it) }
+        }
+        override suspend fun repointToKeeper(from: String, to: String) {
+            repoints += from to to
+        }
+        override suspend fun rePointPlaylistTracks(from: String, to: String) = TODO()
+        override suspend fun rePointPlaylistTracksLeftovers(from: String) = TODO()
+        override suspend fun rePointPlayHistory(from: String, to: String) = TODO()
+        override suspend fun rePointPlayHistoryLeftovers(from: String) = TODO()
     }
 
     private class FakeTelegramClient(
@@ -294,9 +308,17 @@ class LibraryScannerSpeedTest {
             mediaAlbumId = null,
         )
 
-    /** Newest-first message list for one chat: [count] messages, ids count..1. */
-    private fun descendingMessages(chatId: Long, count: Int): List<RemoteAudio> =
-        (count downTo 1).map { audio(chatId, it.toLong()) }
+    /**
+     * Newest-first message list for one chat: ids count..1, newest first.
+     * Chats other than 1 get an id offset: F7 collapses cross-chat reposts
+     * by (performer,title,duration), and these fixtures index distinct songs
+     * per chat. Chat 1 keeps raw ids — round-2 asserts exact
+     * lastScannedMessageId values (250/300).
+     */
+    private fun descendingMessages(chatId: Long, count: Int): List<RemoteAudio> {
+        val offset = (chatId - 1) * 1_000_000L
+        return (count downTo 1).map { audio(chatId, it.toLong() + offset) }
+    }
 
     // --- س۱: chat-level parallelism -----------------------------------------
 
@@ -305,7 +327,7 @@ class LibraryScannerSpeedTest {
         val ids = (1L..12L).toList()
         val client = FakeTelegramClient(
             chats = ids.map { chatInfo(it) },
-            messagesByChat = ids.associateWith { listOf(audio(it, 100L)) }.toMutableMap(),
+            messagesByChat = ids.associateWith { listOf(audio(it, 100L + it)) }.toMutableMap(),
         )
         val tracks = FakeTrackDao()
         val chats = FakeChatDao()
@@ -333,7 +355,7 @@ class LibraryScannerSpeedTest {
         val ids = listOf(1L, 2L, 3L)
         val client = FakeTelegramClient(
             chats = ids.map { chatInfo(it) },
-            messagesByChat = ids.associateWith { listOf(audio(it, 10L)) }.toMutableMap(),
+            messagesByChat = ids.associateWith { listOf(audio(it, 10L + it)) }.toMutableMap(),
             failingChats = setOf(2L),
         )
         val tracks = FakeTrackDao()
@@ -794,6 +816,88 @@ class LibraryScannerSpeedTest {
         scanner.startLiveIndexing(backgroundScope)
         testScheduler.runCurrent()
         assertEquals(before + 1, tracks.rows.size)
+    }
+
+    // --- F7: one row per song -------------------------------------------------
+
+    @Test
+    fun `F7 collapses pre-existing duplicate rows and re-points their references`() = runTest {
+        val client = FakeTelegramClient(
+            chats = listOf(chatInfo(1L)),
+            messagesByChat = mutableMapOf(1L to listOf(audio(1L, 100L))),
+        )
+        val tracks = FakeTrackDao()
+        // The same song indexed twice under two Telegram file ids.
+        tracks.rows["k2"] = Track(
+            fileUniqueId = "k2", fileId = "f2",
+            title = "Same Song", performer = "Artist", duration = 100,
+            playCount = 2, lastPlayed = 5L,
+        )
+        tracks.rows["k1"] = Track(
+            fileUniqueId = "k1", fileId = "f1",
+            title = "Same Song", performer = "Artist", duration = 100,
+            isFavorite = true, playCount = 3, lastPlayed = 9L,
+        )
+        val chats = FakeChatDao()
+        val scanner = LibraryScanner(client, tracks, chats)
+
+        scanner.fullScan() // the first index load performs the collapse
+
+        assertNotNull(tracks.rows["k1"])
+        assertNull(tracks.rows["k2"])
+        assertEquals(listOf("k2" to "k1"), tracks.repoints) // references followed the keeper
+        val keeper = tracks.rows.getValue("k1")
+        assertTrue(keeper.isFavorite) // favorites OR'd across the group
+        assertEquals(5, keeper.playCount) // plays summed
+        assertEquals(9L, keeper.lastPlayed) // newest play kept
+        assertNotNull(tracks.rows["u-1-100"]) // the scanned song still indexed
+        assertNull(scanner.progress.value.lastError)
+
+        // Idempotent: a second pass finds groups of one and writes nothing.
+        val repointsAfterFirst = tracks.repoints.toList()
+        scanner.fullScan()
+        assertEquals(repointsAfterFirst, tracks.repoints)
+        assertEquals(2, tracks.rows.size)
+    }
+
+    @Test
+    fun `F7 drops a repost in a later chat instead of inserting a second row`() = runTest {
+        val client = FakeTelegramClient(
+            chats = listOf(chatInfo(1L), chatInfo(2L)),
+            messagesByChat = mutableMapOf(
+                1L to listOf(audio(1L, 500L)),
+                2L to listOf(audio(2L, 500L)), // same song, other file id
+            ),
+        )
+        val tracks = FakeTrackDao()
+        val chats = FakeChatDao()
+        val scanner = LibraryScanner(client, tracks, chats)
+
+        scanner.fullScan()
+
+        val songRows = tracks.rows.values.filter { it.title == "title 500" }
+        assertEquals(1, songRows.size) // one row serves both chats
+        assertNull(scanner.progress.value.lastError)
+    }
+
+    @Test
+    fun `F7 skips a live repost arriving after the scan`() = runTest {
+        val tracks = FakeTrackDao()
+        tracks.rows["keeper"] = Track(
+            fileUniqueId = "keeper", fileId = "f1",
+            title = "title 500", performer = "performer", duration = 1,
+        )
+        val client = FakeTelegramClient(chats = listOf(chatInfo(1L)), messagesByChat = mutableMapOf())
+        val chats = FakeChatDao()
+        val scanner = LibraryScanner(client, tracks, chats)
+
+        scanner.startLiveIndexing(backgroundScope)
+        testScheduler.runCurrent()
+        client.publishNewAudio(audio(1L, 500L, uniqueId = "u-live-500"))
+        testScheduler.runCurrent()
+
+        assertEquals(1, tracks.rows.size) // keeper only — the live repost was dropped
+        assertNull(tracks.rows["u-live-500"])
     }
 
     private companion object {

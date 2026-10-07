@@ -9,6 +9,8 @@ import com.music.bitchord.data.db.entity.ChatType
 import com.music.bitchord.data.db.entity.Track
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
@@ -82,6 +84,60 @@ class LibraryScanner(
                 }
             }
         }
+    }
+
+    // --- F7: one row per song ------------------------------------------------
+
+    /** Post-merge fingerprint: exactly what lands in the tracks row. */
+    private data class Fingerprint(val performer: String, val title: String, val duration: Int)
+
+    @Volatile
+    private var fingerprintIndex: MutableMap<Fingerprint, String>? = null
+
+    /** Serializes fp → keeper decisions: six chats scan in parallel. */
+    private val fingerprintLock = Mutex()
+
+    private fun fingerprintOf(track: Track) =
+        Fingerprint(track.performer.lowercase(), track.title.lowercase(), track.duration)
+
+    /**
+     * One whole-table load per process: collapses every pre-existing
+     * duplicate group (same song under different Telegram file ids — the
+     * reposts found in production) and returns fp → keeper id for the
+     * insert-time drop. Keeper = lowest file id, deterministic; playlist and
+     * history rows are re-pointed onto it and favorites/plays merged, so
+     * nothing user-owned is lost. Afterwards the scanner owns every writer
+     * of those columns and maintains the map incrementally; a row deleted
+     * outside it is re-checked at drop time (getById), which can cost a
+     * duplicate, never a song. Idempotent: a second load finds groups of
+     * one and does zero writes.
+     */
+    private suspend fun fingerprintIndex(): MutableMap<Fingerprint, String> {
+        fingerprintIndex?.let { return it }
+        val rows = trackDao.loadAllTracks()
+        val index = HashMap<Fingerprint, String>(rows.size)
+        val losers = mutableListOf<String>()
+        for ((fp, group) in rows.groupBy(::fingerprintOf)) {
+            val ordered = group.sortedBy { it.fileUniqueId }
+            val winner = ordered.first()
+            index[fp] = winner.fileUniqueId
+            if (ordered.size == 1) continue
+            val collapsed = ordered.drop(1)
+            losers += collapsed.map { it.fileUniqueId }
+            collapsed.forEach { trackDao.repointToKeeper(it.fileUniqueId, winner.fileUniqueId) }
+            trackDao.update(
+                winner.copy(
+                    isFavorite = ordered.any { it.isFavorite },
+                    playCount = ordered.sumOf { it.playCount },
+                    lastPlayed = ordered.mapNotNull { it.lastPlayed }.maxOrNull(),
+                ),
+            )
+        }
+        if (losers.isNotEmpty()) {
+            trackDao.deleteByFileUniqueIds(losers)
+            TrackLog.w(TAG, "F7: merged ${losers.size} duplicate rows away (reposts of one song)")
+        }
+        return index.also { fingerprintIndex = it }
     }
 
     suspend fun fullScan() {
@@ -323,9 +379,29 @@ class LibraryScanner(
         val existing = trackDao.getById(audio.uniqueFileId)
         val track = MetadataMerger.merge(audio, timeSource(), existing = existing)
         if (existing == null) {
+            val index = fingerprintIndex()
+            val fp = fingerprintOf(track)
+            val keeper = fingerprintLock.withLock {
+                val held = index[fp]
+                if (held == null || held == track.fileUniqueId) {
+                    index[fp] = track.fileUniqueId
+                    null
+                } else {
+                    held
+                }
+            }
+            if (keeper != null) {
+                // F7: the song already lives in the library under another file
+                // id — a repost, not a new track. The index is authoritative:
+                // keeper==self passes, so a batch whose insert failed retries
+                // cleanly on the next pass.
+                TrackLog.d(TAG, "F7: repost of ${track.title} skipped (keeper=$keeper)")
+                return
+            }
             trackDao.insert(track)
             _progress.update { it.copy(tracksIndexed = it.tracksIndexed + 1) }
         } else {
+            fingerprintLock.withLock { fingerprintIndex()[fingerprintOf(track)] = track.fileUniqueId }
             trackDao.update(track)
         }
     }
@@ -345,10 +421,34 @@ class LibraryScanner(
             trackDao.getByIds(audios.map { it.uniqueFileId }).associateBy { it.fileUniqueId }
         val toInsert = mutableListOf<Track>()
         val toUpdate = mutableListOf<Track>()
+        val index = fingerprintIndex()
+        var reposts = 0
         for (audio in audios) {
             val existing = existingById[audio.uniqueFileId]
             val merged = MetadataMerger.merge(audio, now, existing = existing)
-            if (existing == null) toInsert += merged else toUpdate += merged
+            if (existing != null) {
+                toUpdate += merged
+                fingerprintLock.withLock { index[fingerprintOf(merged)] = merged.fileUniqueId }
+                continue
+            }
+            val fp = fingerprintOf(merged)
+            val held = fingerprintLock.withLock {
+                val keeper = index[fp]
+                if (keeper == null || keeper == merged.fileUniqueId) {
+                    index[fp] = merged.fileUniqueId
+                    true
+                } else {
+                    false
+                }
+            }
+            if (!held) {
+                // F7: same song, different file id — a repost. Dropped at the
+                // door so a rescan can never grow the duplicate set again. The
+                // locked reserve makes six parallel chats agree on one owner.
+                reposts++
+                continue
+            }
+            toInsert += merged
         }
         var inserted = 0
         if (toInsert.isNotEmpty()) {
@@ -359,6 +459,9 @@ class LibraryScanner(
         if (toUpdate.isNotEmpty()) trackDao.updateAll(toUpdate)
         if (inserted > 0) {
             _progress.update { it.copy(tracksIndexed = it.tracksIndexed + inserted) }
+        }
+        if (reposts > 0) {
+            TrackLog.d(TAG, "F7: dropped $reposts reposts in this batch")
         }
     }
 

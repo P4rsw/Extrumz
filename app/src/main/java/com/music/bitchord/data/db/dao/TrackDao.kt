@@ -154,6 +154,40 @@ interface TrackDao {
     suspend fun upsertAll(tracks: List<Track>) {
         insertAll(tracks)
     }
+
+    /** F7 dedupe: whole-table load for the once-per-process fingerprint index. */
+    @Query("SELECT * FROM tracks")
+    suspend fun loadAllTracks(): List<Track>
+
+    @Query("DELETE FROM tracks WHERE fileUniqueId IN (:ids)")
+    suspend fun deleteByFileUniqueIds(ids: List<String>)
+
+    /**
+     * F7 dedupe: move EVERY playlist/history row of a collapsed duplicate onto
+     * its keeper. OR IGNORE first — a playlist that holds both songs keeps the
+     * keeper's row — then sweep whatever the conflict left, so no loser file
+     * id survives in a user-owned table. Both tables mirror into FTS5 by
+     * trigger and follow the UPDATE/DELETE on their own.
+     */
+    @Transaction
+    suspend fun repointToKeeper(from: String, to: String) {
+        rePointPlaylistTracks(from, to)
+        rePointPlaylistTracksLeftovers(from)
+        rePointPlayHistory(from, to)
+        rePointPlayHistoryLeftovers(from)
+    }
+
+    @Query("UPDATE OR IGNORE playlist_tracks SET trackFileUniqueId = :to WHERE trackFileUniqueId = :from")
+    suspend fun rePointPlaylistTracks(from: String, to: String)
+
+    @Query("DELETE FROM playlist_tracks WHERE trackFileUniqueId = :from")
+    suspend fun rePointPlaylistTracksLeftovers(from: String)
+
+    @Query("UPDATE OR IGNORE play_history SET trackFileUniqueId = :to WHERE trackFileUniqueId = :from")
+    suspend fun rePointPlayHistory(from: String, to: String)
+
+    @Query("DELETE FROM play_history WHERE trackFileUniqueId = :from")
+    suspend fun rePointPlayHistoryLeftovers(from: String)
 }
 
 data class ArtistCount(val performer: String, val cnt: Int)
