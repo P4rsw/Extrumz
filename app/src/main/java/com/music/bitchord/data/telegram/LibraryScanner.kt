@@ -141,6 +141,9 @@ class LibraryScanner(
     }
 
     suspend fun fullScan() {
+        // F7: collapse pre-existing duplicates even when every chat is already
+        // scanned to the latest message (batchIndex never runs then).
+        fingerprintIndex()
         if (!scanGate.compareAndSet(false, true)) return
         _progress.value = ScanProgress(isRunning = true)
         try {

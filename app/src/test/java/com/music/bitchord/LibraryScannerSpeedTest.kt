@@ -821,6 +821,33 @@ class LibraryScannerSpeedTest {
     // --- F7: one row per song -------------------------------------------------
 
     @Test
+    fun `F7 collapses even when the scan finds no new messages`() = runTest {
+        // Device case: every chat is scanned to the latest message, so no
+        // batchIndex call ever happens — the cleanup must not depend on it.
+        val tracks = FakeTrackDao()
+        tracks.rows["k2"] = Track(
+            fileUniqueId = "k2", fileId = "f2",
+            title = "Twin", performer = "Same", duration = 333,
+        )
+        tracks.rows["k1"] = Track(
+            fileUniqueId = "k1", fileId = "f1",
+            title = "Twin", performer = "Same", duration = 333, isFavorite = true,
+        )
+        val client = FakeTelegramClient(
+            chats = listOf(chatInfo(1L)),
+            messagesByChat = mutableMapOf(), // nothing new anywhere
+        )
+        val scanner = LibraryScanner(client, tracks, FakeChatDao())
+
+        scanner.fullScan()
+
+        assertNotNull(tracks.rows["k1"])
+        assertNull(tracks.rows["k2"])
+        assertEquals(listOf("k2" to "k1"), tracks.repoints)
+        assertTrue(tracks.rows.getValue("k1").isFavorite)
+    }
+
+    @Test
     fun `F7 collapses pre-existing duplicate rows and re-points their references`() = runTest {
         val client = FakeTelegramClient(
             chats = listOf(chatInfo(1L)),
