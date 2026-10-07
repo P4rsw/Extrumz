@@ -48,6 +48,7 @@ import com.music.bitchord.data.telegram.Telegram
 import com.music.bitchord.data.telegram.TelegramAuthController
 import com.music.bitchord.data.telegram.TelegramAuthState
 import com.music.bitchord.data.telegram.TelegramUi
+import kotlinx.coroutines.delay
 
 /**
  * The scanned chats/channels, as a full-screen picker. Picking one narrows the
@@ -229,11 +230,19 @@ private fun ChatRow(
     ) {
         val photoUrl = chat.photoUrl
         // F8: channels scanned before photoUrl existed (or with no inline
-        // bytes) fetch their avatar once, the first time the row is on screen.
-        // One key per chat, deduped — a fling through the list costs one fetch
-        // per channel, ever, and nothing at all once the row has a URL.
+        // bytes) fetch their avatar once, the first time the row is on screen —
+        // and Tier 2 (full-size) lands first, so a row carrying only the inline
+        // minithumbnail still upgrades to covers/hq_*. One key per chat,
+        // deduped — a fling through the list costs one fetch per channel, ever,
+        // and nothing at all once the row has an HQ URL.
         LaunchedEffect(chat.chatId, photoUrl) {
-            Covers.ensureChatPhoto(chat.chatId, photoUrl)
+            // Fling guard, same as the songs list: a row passed at speed
+            // unbinds before this expires, so a fast scroll through the
+            // channel list costs no requests — rows that stop on screen
+            // fetch, and the auth wait inside Covers resumes them the moment
+            // TDLib connects.
+            delay(250)
+            Covers.improveChatPhoto(chat.chatId, photoUrl)
         }
         Box(
             modifier = Modifier

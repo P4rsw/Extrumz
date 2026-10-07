@@ -4,17 +4,38 @@ import com.music.bitchord.data.db.TelegramDb
 import com.music.bitchord.data.sources.SourceRegistry
 import java.util.concurrent.ConcurrentHashMap
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 
 /**
  * Artwork, fetched the way a channel scan is run: only for whatever is actually
- * on screen, deduplicated so the same cover is never in flight twice, throttled
- * to two requests at once — a fast scroll costs cancelled requests, not a queue
- * and not a data bill. Not silenced while a scan indexes: a launch-time scan
- * would otherwise freeze covers in the exact minutes the user is looking.
+ * on screen plus a small window ahead of it, deduplicated so the same cover is
+ * never in flight twice, throttled to four requests at once — a fast scroll
+ * costs cancelled requests, not a queue and not a data bill. Not silenced while
+ * a scan indexes: a launch-time scan would otherwise freeze covers in the exact
+ * minutes the user is looking.
+ *
+ * Three guards keep a scrolling list from paying for the same absence twice:
+ *
+ *  - **Auth wait**: rows compose before TDLib finishes connecting. The old
+ *    "return null until Ready" never retried (the caller's effect keys don't
+ *    change when auth flips), which is how a channel could sit coverless for a
+ *    whole session. [fetchOnce] now suspends until Ready instead; the wait dies
+ *    with the row if it scrolls away.
+ *  - **Miss memo** ([MissMemo]): a fetch that completed and found NOTHING (no
+ *    full-size file, no inline bytes, message gone) is remembered for
+ *    [MISS_TTL_MS] — coverless rows, which are most of a scanned library, cost
+ *    one pair of RPCs per TTL instead of one per rebind. A *cancelled* fetch is
+ *    never memoized: a fling is not an answer.
+ *  - **Prefetch** ([prefetchTrackCovers]): on scroll settle the window ahead of
+ *    the viewport is warmed in an app-lifetime scope, so covers are already on
+ *    disk by the time their rows arrive instead of popping in one by one.
  *
  * Two tiers:
  *
@@ -33,8 +54,25 @@ object Covers {
     /** A covers/hq_* URL means this row already carries full-size artwork. */
     const val HQ_PREFIX = "covers/hq_"
 
+    /**
+     * How long a completed "nothing there" answer stands. Long enough that a
+     * coverless row scrolled past repeatedly costs one attempt, short enough
+     * that a miss caused by being offline resolves itself within one session.
+     */
+    private const val MISS_TTL_MS = 5 * 60_000L
+
     private val active = ConcurrentHashMap<String, Boolean>()
-    private val gate = Semaphore(2)
+    private val missed = MissMemo(MISS_TTL_MS)
+
+    /** Four parallel covers fill a screenful in about one round of fetches. */
+    private val gate = Semaphore(4)
+
+    /**
+     * App-lifetime scope for prefetches: a cover paid for while scrolling must
+     * finish even if the row that asked for it has already left composition —
+     * cancelling it would throw the download away and re-issue it next pass.
+     */
+    private val prefetchScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     /** (channelId, messageId) from a track id ("tg_-100…_12345") or a videoId. */
     fun tgIds(videoId: String?): Pair<Long, Long>? {
@@ -88,7 +126,11 @@ object Covers {
     suspend fun trackCoverHq(chatId: Long, messageId: Long, current: String?): String? {
         if (!current.isNullOrBlank() && current.contains(HQ_PREFIX)) return current
         return fetchOnce("ht:$chatId:$messageId") {
-            val url = Telegram.client.downloadTrackCover(chatId, messageId) ?: return@fetchOnce current
+            // Null on purpose, not `current`: a null is what the miss memo
+            // sees, so a row whose message has no full-size file stops asking
+            // for five minutes instead of once per rebind. The caller's
+            // `?: current` still shows the inline cover it already holds.
+            val url = Telegram.client.downloadTrackCover(chatId, messageId) ?: return@fetchOnce null
             TelegramDb.trackDao.setCover(chatId, messageId, url)
             url
         } ?: current
@@ -98,7 +140,7 @@ object Covers {
     suspend fun chatPhotoHq(chatId: Long, current: String?): String? {
         if (!current.isNullOrBlank() && current.contains(HQ_PREFIX)) return current
         return fetchOnce("hp:$chatId") {
-            val url = Telegram.client.downloadChatPhoto(chatId) ?: return@fetchOnce current
+            val url = Telegram.client.downloadChatPhoto(chatId) ?: return@fetchOnce null
             TelegramDb.chatDao.setPhotoUrl(chatId, url)
             url
         } ?: current
@@ -123,32 +165,86 @@ object Covers {
     }
 
     /**
+     * Warms covers for [videoIds] — pairs of (videoId, url the row already
+     * holds) — ahead of the viewport, called when scrolling settles. Rows that
+     * already carry full-size art are skipped outright; the rest join the same
+     * [gate] and dedupe as any row fetch, so a prefetch racing the row's own
+     * effect costs one RPC, not two. Skipped when unauthorized: the rows' own
+     * effects wait for Ready themselves, and queueing prefetches behind a login
+     * nobody has performed yet would only park coroutines.
+     */
+    fun prefetchTrackCovers(videoIds: List<Pair<String, String?>>) {
+        if (Telegram.client.authState.value !is TelegramAuthState.Ready) return
+        for ((videoId, current) in videoIds) {
+            if (!current.isNullOrBlank() && current.contains(HQ_PREFIX)) continue
+            prefetchScope.launch { improveTrackCover(videoId, current) }
+        }
+    }
+
+    /**
      * Runs [block] once per key: a second caller for the same cover finds the
      * key taken and returns null instead of racing the first — the winner's DB
      * write reaches the loser's row through its Flow anyway. Null also means
-     * "keep what you have": unauthorized, or a request is already in flight.
+     * "keep what you have" — a request is already in flight, or the memo says
+     * there is nothing to fetch.
+     *
+     * Auth is *awaited*, not checked: rows compose while TDLib is still
+     * connecting, and the caller's effect keys (id, url) don't change when
+     * Ready lands — an early return stranded the row coverless for the whole
+     * session, which is how "some channels never load" read from the UI. The
+     * wait holds no gate permit and no key, so it costs one suspended
+     * coroutine per visible row and resolves the moment authorization does.
+     *
      * Deliberately NOT silenced while a scan is indexing — fullScan() runs for
      * minutes on every launch, so a scan gate would freeze covers exactly when
      * the user first opens the app, which is when the blur was noticed. What
-     * keeps this light instead: the gate below caps all cover traffic at two
-     * files in flight, only rows actually on screen call in (~10 rows, never
-     * the whole library), and the key plus the callers' URL short-circuit cap
-     * each file at one fetch per lifetime. GetChat/GetMessage answer from
-     * TDLib's local cache; only the final small photo file touches the net.
-     * Disk work happens off the main thread; everything the caller wanted it
-     * for (a row's avatar) has already failed over to the placeholder by then.
+     * keeps this light instead: the gate caps all cover traffic at four files
+     * in flight, only rows on screen and one prefetch window call in (never
+     * the whole library), and the key, the miss memo, and the callers' URL
+     * short-circuit cap each file at one fetch per TTL. GetChat/GetMessage
+     * answer from TDLib's local cache; only the final small photo file touches
+     * the net. Disk work happens off the main thread; everything the caller
+     * wanted it for (a row's avatar) has already failed over to the placeholder
+     * by then.
+     *
+     * A CancellationException is rethrown WITHOUT memoizing: a row flung past
+     * says nothing about whether its cover exists, and memoizing it would
+     * blank that cover for the rest of the TTL.
      */
     private suspend fun fetchOnce(key: String, block: suspend () -> String?): String? {
-        if (Telegram.client.authState.value !is TelegramAuthState.Ready) return null
+        if (missed.isMissed(key)) return null
+        if (Telegram.client.authState.value !is TelegramAuthState.Ready) {
+            Telegram.client.authState.first { it is TelegramAuthState.Ready }
+        }
         if (active.putIfAbsent(key, true) != null) return null
-        try {
-            return withContext(Dispatchers.IO) { gate.withPermit { block() } }
+        return try {
+            val url = withContext(Dispatchers.IO) { gate.withPermit { block() } }
+            if (url == null) missed.record(key)
+            url
         } catch (e: CancellationException) {
             throw e
         } catch (e: Throwable) {
-            return null
+            missed.record(key)
+            null
         } finally {
             active.remove(key)
         }
+    }
+}
+
+/**
+ * Session memo of "this cover does not exist": key → expiry epoch millis.
+ * Injectable clock so the TTL rule is unit-testable without sleeping.
+ */
+internal class MissMemo(
+    private val ttlMs: Long,
+    private val now: () -> Long = System::currentTimeMillis,
+) {
+    private val expiry = ConcurrentHashMap<String, Long>()
+
+    fun isMissed(key: String): Boolean = expiry[key]?.let { now() < it } ?: false
+
+    fun record(key: String) {
+        expiry[key] = now() + ttlMs
     }
 }

@@ -82,6 +82,7 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.ui.composed
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.foundation.border
+import kotlinx.coroutines.delay
 
 fun Modifier.thumbnailBorder(shape: Shape): Modifier = composed {
     this.border(
@@ -487,6 +488,11 @@ private fun SongRowContent(
     // only as fallback. Rows that already carry a URL short-circuit before
     // any RPC, so scrolling a long list costs nothing.
     LaunchedEffect(song.videoId, song.thumbnailUrl) {
+        // Fling guard: a row passed at speed unbinds before this expires, so
+        // a fast scroll issues no requests — only rows that settle on screen
+        // fetch, and their covers are usually already warmed by the list's
+        // settle-prefetch by then.
+        delay(250)
         Covers.improveTrackCover(song.videoId, song.thumbnailUrl)
     }
     val titleColor by animateColorAsState(

@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
@@ -29,8 +30,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -53,6 +56,10 @@ import com.music.bitchord.data.telegram.TelegramAuthController
 import com.music.bitchord.data.telegram.TelegramAuthState
 import com.music.bitchord.data.telegram.TelegramUi
 import java.util.Locale
+import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.distinctUntilChanged
 
 /**
  * The offline Telegram library: every track the scanner has indexed in Room,
@@ -60,6 +67,22 @@ import java.util.Locale
  * The header dot shows whether TDLib is authorized — the list itself works
  * fully offline, which is the point of having scanned it.
  */
+
+/** Scroll-settle time before the prefetch window is warmed. */
+private const val PREFETCH_SETTLE_MS = 350L
+
+/** Rows warmed ahead of the viewport once scrolling settles. */
+private const val PREFETCH_WINDOW = 24
+
+/**
+ * How long a row must stay composed before it may touch the network. A fling
+ * unbinds rows in well under this, so fast scrolling costs no requests at all
+ * — only rows the reader actually stops on fetch, and the settle-prefetch
+ * covers the rows they are about to reach.
+ */
+private const val ROW_FETCH_DELAY_MS = 250L
+
+@OptIn(FlowPreview::class)
 @Composable
 fun SongsScreen(
     contentPadding: PaddingValues,
@@ -195,17 +218,46 @@ fun SongsScreen(
                 }
             }
         } else {
+            val listState = rememberLazyListState()
+            val songsNow by rememberUpdatedState(songs)
+            // F8: covers arrive one screenful early instead of one row at a
+            // time. When scrolling settles (350ms without a new index), the
+            // visible-plus-ahead window is warmed in an app-lifetime scope —
+            // the download finishes even if the user scrolls on, so nothing is
+            // paid twice, and rows that already carry full-size art are
+            // skipped before any RPC. The row effects below still cover rows
+            // the moment they bind, so an idle screen never waits on a timer.
+            LaunchedEffect(listState) {
+                snapshotFlow { listState.firstVisibleItemIndex }
+                    .distinctUntilChanged()
+                    .debounce(PREFETCH_SETTLE_MS)
+                    .collect { first ->
+                        Covers.prefetchTrackCovers(
+                            songsNow.drop(first).take(PREFETCH_WINDOW)
+                                .map { it.videoId to it.thumbnailUrl },
+                        )
+                    }
+            }
             LazyColumn(
+                state = listState,
                 contentPadding = PaddingValues(bottom = 96.dp),
             ) {
-                itemsIndexed(songs) { index, song ->
+                itemsIndexed(
+                    songs,
+                    // A stable key: without one, every Flow emission during a
+                    // rescan rebinds rows positionally, so covers swap slots
+                    // for a frame — the "mixed up" look after a manual scan.
+                    key = { _, song -> song.videoId },
+                ) { index, song ->
                     // F8: a row with no cover fetches it once; Tier 2 (full
                     // size) lands first so the 160px slot is drawn from the
                     // real cover, with the inline minithumbnail only as the
                     // fallback. A URL already on the row short-circuits
-                    // before any RPC, so a fling through the list costs
-                    // nothing.
+                    // before any RPC. The delay is the fling guard: a row
+                    // passed at speed unbinds before it expires, so only rows
+                    // that stay put on the screen ever ask the network.
                     LaunchedEffect(song.videoId, song.thumbnailUrl) {
+                        delay(ROW_FETCH_DELAY_MS)
                         Covers.improveTrackCover(song.videoId, song.thumbnailUrl)
                     }
                     SongRow(
