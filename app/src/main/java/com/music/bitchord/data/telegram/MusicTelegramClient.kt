@@ -40,7 +40,9 @@ data class RemoteAudio(
     val sizeBytes: Long,
     val caption: String,
     val dateSeconds: Long,
-    val mediaAlbumId: Long?
+    val mediaAlbumId: Long?,
+    /** Local `file://` cover written from Telegram's inline album minithumbnail, null when the message has none. */
+    val coverUrl: String? = null
 )
 
 data class RemoteAudioPage(

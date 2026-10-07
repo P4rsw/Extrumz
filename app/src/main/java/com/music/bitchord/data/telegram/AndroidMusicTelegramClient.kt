@@ -1,6 +1,7 @@
 package com.music.bitchord.data.telegram
 
 import android.content.Context
+import android.net.Uri
 import com.music.bitchord.BuildConfig
 import com.music.bitchord.data.TrackLog
 import kotlinx.coroutines.async
@@ -403,6 +404,22 @@ class AndroidMusicTelegramClient(
             ?: TelegramConfig.APPLICATION_VERSION
     }.getOrDefault(TelegramConfig.APPLICATION_VERSION)
 
+    /**
+     * Writes Telegram's inline album minithumbnail to the covers dir and
+     * returns a `file://` URL for it. Covers are keyed by TDLib's file id:
+     * the artwork shared by several messages is written once, and an
+     * existing file is never rewritten.
+     */
+    private fun persistInlineCover(fileId: Int, data: ByteArray?): String? {
+        if (data == null || data.isEmpty()) return null
+        return runCatching {
+            val dir = File(appContext.filesDir, "covers").apply { mkdirs() }
+            val cover = File(dir, "$fileId.jpg")
+            if (!cover.exists()) cover.writeBytes(data)
+            Uri.fromFile(cover).toString()
+        }.getOrNull()
+    }
+
     private fun TdApi.MessageAudio.toRemoteAudio(message: TdApi.Message): RemoteAudio? {
         val audio = this.audio ?: return null
         val file = audio.audio ?: return null
@@ -419,7 +436,8 @@ class AndroidMusicTelegramClient(
             sizeBytes = file.expectedSize.takeIf { it > 0 } ?: file.size,
             caption = this.caption?.text.orEmpty(),
             dateSeconds = message.date.toLong(),
-            mediaAlbumId = message.mediaAlbumId.takeIf { it != 0L }
+            mediaAlbumId = message.mediaAlbumId.takeIf { it != 0L },
+            coverUrl = persistInlineCover(file.id, audio.albumCoverMinithumbnail?.data)
         )
     }
 }

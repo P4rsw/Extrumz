@@ -48,7 +48,17 @@ object MetadataMerger {
         val year = id3?.year ?: captionTags.year ?: existing?.year ?: 0
         val trackNumber = id3?.trackNumber ?: existing?.trackNumber ?: 0
         val lyrics = firstNonBlank(id3?.lyrics, existing?.lyrics) ?: ""
-        val coverUrl = firstNonBlank(id3?.coverPath, existing?.coverUrl) ?: ""
+        // Local artwork (a downloaded file's own tags) outranks everything,
+        // then ID3, then Telegram's inline minithumbnail — the streaming
+        // library had NO cover source before this, which is why the app drew
+        // grey squares while the system player (reading the downloaded file)
+        // showed art.
+        val coverUrl = firstNonBlank(
+            existing?.coverUrl?.takeIf { isLocalCover(it) },
+            id3?.coverPath,
+            remote.coverUrl,
+            existing?.coverUrl,
+        ) ?: ""
 
         val hashtags = extractHashtags(remote.caption)
 
@@ -92,14 +102,41 @@ object MetadataMerger {
         val year: Int? = null
     )
 
+    /**
+     * `آلبوم: X` / `Album: X` metadata lines — the colon is required so a
+     * song simply titled "سال نو" can never be mistaken for a year label.
+     * Year values are kept verbatim (Persian channels usually write Jalali
+     * years; storing 1397 beats storing 0).
+     */
+    private val LABELLED_LINE =
+        Regex("""^(album|genre|year|آلبوم|ژانر|سال)\s*[:：]\s*(.+)$""", RegexOption.IGNORE_CASE)
+
+    private val FOUR_DIGIT_YEAR = Regex("""\d{4}""")
+
     private fun parseCaption(caption: String): CaptionMeta {
         if (caption.isBlank()) return CaptionMeta()
         val lines = caption.lines().map { it.trim() }.filter { it.isNotEmpty() }
-        val title = lines.firstOrNull { !it.startsWith("#") && !it.startsWith("@") }
-        val performer = lines.getOrNull(1)?.takeIf {
+        var album: String? = null
+        var genre: String? = null
+        var year: Int? = null
+        for (line in lines) {
+            val labelled = LABELLED_LINE.find(line) ?: continue
+            val value = labelled.groupValues[2].trim()
+            if (value.isEmpty()) continue
+            when (labelled.groupValues[1].lowercase()) {
+                "album", "آلبوم" -> album = value
+                "genre", "ژانر" -> genre = value
+                "year", "سال" -> year = FOUR_DIGIT_YEAR.find(value)?.value?.toIntOrNull()
+            }
+        }
+        // Title/performer come from the UNLABELLED lines only: a metadata
+        // line is metadata, never content.
+        val plain = lines.filter { !LABELLED_LINE.matches(it) }
+        val title = plain.firstOrNull { !it.startsWith("#") && !it.startsWith("@") }
+        val performer = plain.getOrNull(1)?.takeIf {
             !it.startsWith("#") && !it.startsWith("@")
         }
-        return CaptionMeta(title = title, performer = performer)
+        return CaptionMeta(title = title, performer = performer, album = album, genre = genre, year = year)
     }
 
     private fun extractHashtags(caption: String): List<String> =
@@ -107,6 +144,9 @@ object MetadataMerger {
             .findAll(caption)
             .map { it.groupValues[1] }
             .toList()
+
+    private fun isLocalCover(url: String): Boolean =
+        url.startsWith("file:") || url.startsWith("content:")
 
     private fun firstNonBlank(vararg values: String?): String? =
         values.firstOrNull { !it.isNullOrBlank() }
