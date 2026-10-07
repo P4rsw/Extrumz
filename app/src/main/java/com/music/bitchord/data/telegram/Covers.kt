@@ -12,8 +12,9 @@ import kotlinx.coroutines.withContext
 /**
  * Artwork, fetched the way a channel scan is run: only for whatever is actually
  * on screen, deduplicated so the same cover is never in flight twice, throttled
- * to two requests at once, and silent while a scan is indexing — a fast scroll
- * costs cancelled requests, not a queue and not a data bill.
+ * to two requests at once — a fast scroll costs cancelled requests, not a queue
+ * and not a data bill. Not silenced while a scan indexes: a launch-time scan
+ * would otherwise freeze covers in the exact minutes the user is looking.
  *
  * Two tiers:
  *
@@ -104,17 +105,41 @@ object Covers {
     }
 
     /**
+     * What a row calls: Tier 2 first — the full-size cover, written back to the
+     * row so every surface sharpens from one fetch. Tier 1 runs only when HQ
+     * could not land (no full-size file, unauthorized), filling the empty cell
+     * from the inline minithumbnail. A URL already on the row short-circuits
+     * both before any RPC.
+     */
+    suspend fun improveTrackCover(videoId: String?, current: String?): String? {
+        val hq = trackCoverHq(videoId, current)
+        return if (hq != current) hq else ensureTrackCover(videoId, current)
+    }
+
+    /** [improveTrackCover] for a channel avatar. */
+    suspend fun improveChatPhoto(chatId: Long, current: String?): String? {
+        val hq = chatPhotoHq(chatId, current)
+        return if (hq != current) hq else ensureChatPhoto(chatId, current)
+    }
+
+    /**
      * Runs [block] once per key: a second caller for the same cover finds the
      * key taken and returns null instead of racing the first — the winner's DB
      * write reaches the loser's row through its Flow anyway. Null also means
-     * "keep what you have": unauthorized, a scan is indexing, or a request is
-     * already in flight. Disk work happens off the main thread; everything the
-     * caller wanted it for (a row's avatar) has already failed over to the
-     * placeholder by then.
+     * "keep what you have": unauthorized, or a request is already in flight.
+     * Deliberately NOT silenced while a scan is indexing — fullScan() runs for
+     * minutes on every launch, so a scan gate would freeze covers exactly when
+     * the user first opens the app, which is when the blur was noticed. What
+     * keeps this light instead: the gate below caps all cover traffic at two
+     * files in flight, only rows actually on screen call in (~10 rows, never
+     * the whole library), and the key plus the callers' URL short-circuit cap
+     * each file at one fetch per lifetime. GetChat/GetMessage answer from
+     * TDLib's local cache; only the final small photo file touches the net.
+     * Disk work happens off the main thread; everything the caller wanted it
+     * for (a row's avatar) has already failed over to the placeholder by then.
      */
     private suspend fun fetchOnce(key: String, block: suspend () -> String?): String? {
         if (Telegram.client.authState.value !is TelegramAuthState.Ready) return null
-        if (Telegram.scanner.progress.value.isRunning) return null
         if (active.putIfAbsent(key, true) != null) return null
         try {
             return withContext(Dispatchers.IO) { gate.withPermit { block() } }

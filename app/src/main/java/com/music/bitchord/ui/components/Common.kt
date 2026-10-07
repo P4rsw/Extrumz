@@ -482,11 +482,12 @@ private fun SongRowContent(
     activeTint: Color = MaterialTheme.colorScheme.primary,
     selected: Boolean = false,
 ) {
-    // F8: a track row with no cover fetches it once — inline minithumbnail,
-    // one small message, no file download. Rows that already carry one
-    // short-circuit before any RPC, so scrolling a long list costs nothing.
+    // F8: a track row with no cover fetches it once — full-size first so
+    // the 160px slot is drawn from the real cover, inline minithumbnail
+    // only as fallback. Rows that already carry a URL short-circuit before
+    // any RPC, so scrolling a long list costs nothing.
     LaunchedEffect(song.videoId, song.thumbnailUrl) {
-        Covers.ensureTrackCover(song.videoId, song.thumbnailUrl)
+        Covers.improveTrackCover(song.videoId, song.thumbnailUrl)
     }
     val titleColor by animateColorAsState(
         targetValue = if (isCurrent) activeTint else MaterialTheme.colorScheme.onBackground,

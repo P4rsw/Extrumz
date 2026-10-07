@@ -309,19 +309,18 @@ internal fun ShelfCard(
             // A channel with an indexed photo shows it; the rest keep the
             // shared blue mesh, which reads as "from Telegram".
             item.browseId?.startsWith("tg:") == true -> {
-                // F8: every channel card shows its photo. A channel with no
-                // indexed bytes fetches its inline photo once; the first time
-                // the card is actually on screen the full-size photo replaces
-                // the ~90px inline one — CARD_ART_PX is far past upscale
-                // territory, which is where the old blur came from. Both are
-                // no-ops once the row holds a covers/hq_* URL, and both stay
-                // silent while a scan is indexing: one fetch per channel,
-                // ever, at two in flight at most.
+                // F8: every channel card shows its photo. One call fetches
+                // the full-size photo first — CARD_ART_PX is far past the
+                // inline minithumbnail's budget, which is where the old
+                // blur came from — and falls back to the inline bytes when
+                // no full-size file exists. Both are no-ops once the row
+                // holds a covers/hq_* URL, and both stay silent while a
+                // scan is indexing: one fetch per channel, ever, at two in
+                // flight at most.
                 val chatId = item.browseId?.removePrefix("tg:chat:")?.toLongOrNull()
                 LaunchedEffect(item.browseId, item.thumbnailUrl) {
                     if (chatId != null) {
-                        Covers.ensureChatPhoto(chatId, item.thumbnailUrl)
-                        Covers.chatPhotoHq(chatId, item.thumbnailUrl)
+                        Covers.improveChatPhoto(chatId, item.thumbnailUrl)
                     }
                 }
                 if (item.thumbnailUrl.isNullOrBlank()) {

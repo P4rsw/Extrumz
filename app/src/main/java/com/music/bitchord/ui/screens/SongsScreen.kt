@@ -199,12 +199,14 @@ fun SongsScreen(
                 contentPadding = PaddingValues(bottom = 96.dp),
             ) {
                 itemsIndexed(songs) { index, song ->
-                    // F8: a row with no cover fetches it once (inline
-                    // minithumbnail — one small message, no file download);
-                    // a row that already carries one short-circuits before
-                    // any RPC, so a fling through the list costs nothing.
+                    // F8: a row with no cover fetches it once; Tier 2 (full
+                    // size) lands first so the 160px slot is drawn from the
+                    // real cover, with the inline minithumbnail only as the
+                    // fallback. A URL already on the row short-circuits
+                    // before any RPC, so a fling through the list costs
+                    // nothing.
                     LaunchedEffect(song.videoId, song.thumbnailUrl) {
-                        Covers.ensureTrackCover(song.videoId, song.thumbnailUrl)
+                        Covers.improveTrackCover(song.videoId, song.thumbnailUrl)
                     }
                     SongRow(
                         title = song.title,
