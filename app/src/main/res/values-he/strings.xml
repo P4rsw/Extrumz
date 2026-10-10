@@ -1343,4 +1343,7 @@
     <string name="tg_manage_channels">ניהול ערוצים</string>
     <string name="tg_unlock">שחרור</string>
     <string name="tg_verify">אימות</string>
+    <string name="tg_show_empty_chats">הצג צ\'אטים ללא שירים</string>
+    <string name="tg_hide_empty_chats">סינון: צ\'אטים ללא שירים</string>
+    <string name="tg_restore_missing">שחזור צ\'אטים חסרים</string>
 </resources>

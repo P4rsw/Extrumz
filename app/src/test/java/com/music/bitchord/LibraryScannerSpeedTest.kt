@@ -92,6 +92,9 @@ class LibraryScannerSpeedTest {
         }
         override fun observeAllByTrackCount(): Flow<List<ChatSource>> =
             flowOf(rows.values.filter { it.trackCount > 0 }.sortedByDescending { it.trackCount })
+        // 4d71d1a added this to ChatDao (server-side restore of missing chats)
+        // and missed this fake — the whole unit-test source set stopped compiling.
+        override fun observeAllChats(): Flow<List<ChatSource>> = flowOf(rows.values.toList())
     }
 
     private class FakeTrackDao : TrackDao {

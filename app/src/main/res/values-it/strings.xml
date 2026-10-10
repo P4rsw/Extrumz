@@ -1277,4 +1277,7 @@
     <string name="tg_manage_channels">Gestisci canali</string>
     <string name="tg_unlock">Sblocca</string>
     <string name="tg_verify">Verifica</string>
+    <string name="tg_show_empty_chats">Mostra chat senza canzoni</string>
+    <string name="tg_hide_empty_chats">Filtro: chat senza canzoni</string>
+    <string name="tg_restore_missing">Ripristina chat mancanti</string>
 </resources>

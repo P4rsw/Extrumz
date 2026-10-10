@@ -1363,4 +1363,7 @@
     <string name="tg_manage_channels">Управление каналами</string>
     <string name="tg_unlock">Разблокировать</string>
     <string name="tg_verify">Подтвердить</string>
+    <string name="tg_show_empty_chats">Показать чаты без песен</string>
+    <string name="tg_hide_empty_chats">Фильтр: чаты без песен</string>
+    <string name="tg_restore_missing">Восстановить недостающие чаты</string>
 </resources>

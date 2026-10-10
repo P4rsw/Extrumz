@@ -1294,4 +1294,7 @@
     <string name="tg_manage_channels">Kanalları yönet</string>
     <string name="tg_unlock">Kilidi aç</string>
     <string name="tg_verify">Doğrula</string>
+    <string name="tg_show_empty_chats">Şarkısız sohbetleri göster</string>
+    <string name="tg_hide_empty_chats">Filtre: şarkısız sohbetler</string>
+    <string name="tg_restore_missing">Eksik sohbetleri geri getir</string>
 </resources>

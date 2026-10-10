@@ -1324,4 +1324,7 @@
     <string name="tg_manage_channels">จัดการช่อง</string>
     <string name="tg_unlock">ปลดล็อก</string>
     <string name="tg_verify">ยืนยัน</string>
+    <string name="tg_show_empty_chats">แสดงแชทที่ไม่มีเพลง</string>
+    <string name="tg_hide_empty_chats">ตัวกรอง: แชทที่ไม่มีเพลง</string>
+    <string name="tg_restore_missing">กู้คืนแชทที่หายไป</string>
 </resources>

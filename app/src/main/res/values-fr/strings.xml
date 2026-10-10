@@ -1339,4 +1339,7 @@
     <string name="tg_manage_channels">Gérer les chaînes</string>
     <string name="tg_unlock">Déverrouiller</string>
     <string name="tg_verify">Vérifier</string>
+    <string name="tg_show_empty_chats">Afficher les discussions sans chansons</string>
+    <string name="tg_hide_empty_chats">Filtre : discussions sans chansons</string>
+    <string name="tg_restore_missing">Restaurer les discussions manquantes</string>
 </resources>

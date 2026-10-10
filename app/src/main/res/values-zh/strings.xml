@@ -1320,4 +1320,7 @@
     <string name="tg_manage_channels">管理频道</string>
     <string name="tg_unlock">解锁</string>
     <string name="tg_verify">验证</string>
+    <string name="tg_show_empty_chats">显示没有歌曲的聊天</string>
+    <string name="tg_hide_empty_chats">筛选：没有歌曲的聊天</string>
+    <string name="tg_restore_missing">恢复丢失的聊天</string>
 </resources>

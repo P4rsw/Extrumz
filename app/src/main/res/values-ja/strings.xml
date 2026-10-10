@@ -1321,4 +1321,7 @@
     <string name="tg_manage_channels">チャンネルを管理</string>
     <string name="tg_unlock">ロック解除</string>
     <string name="tg_verify">確認</string>
+    <string name="tg_show_empty_chats">曲のないチャットを表示</string>
+    <string name="tg_hide_empty_chats">フィルター: 曲のないチャット</string>
+    <string name="tg_restore_missing">見つからないチャットを復元</string>
 </resources>

@@ -1257,4 +1257,7 @@
     <string name="tg_manage_channels">Quản lý kênh</string>
     <string name="tg_unlock">Mở khóa</string>
     <string name="tg_verify">Xác minh</string>
+    <string name="tg_show_empty_chats">Hiển thị trò chuyện không có bài hát</string>
+    <string name="tg_hide_empty_chats">Bộ lọc: trò chuyện không có bài hát</string>
+    <string name="tg_restore_missing">Khôi phục trò chuyện bị thiếu</string>
 </resources>

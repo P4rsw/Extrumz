@@ -1320,4 +1320,7 @@
     <string name="tg_manage_channels">Kelola saluran</string>
     <string name="tg_unlock">Buka</string>
     <string name="tg_verify">Verifikasi</string>
+    <string name="tg_show_empty_chats">Tampilkan obrolan tanpa lagu</string>
+    <string name="tg_hide_empty_chats">Filter: obrolan tanpa lagu</string>
+    <string name="tg_restore_missing">Pulihkan obrolan yang hilang</string>
 </resources>

@@ -1310,4 +1310,7 @@
     <string name="tg_manage_channels">Gestionar canales</string>
     <string name="tg_unlock">Desbloquear</string>
     <string name="tg_verify">Verificar</string>
+    <string name="tg_show_empty_chats">Mostrar chats sin canciones</string>
+    <string name="tg_hide_empty_chats">Filtro: chats sin canciones</string>
+    <string name="tg_restore_missing">Restaurar chats que faltan</string>
 </resources>

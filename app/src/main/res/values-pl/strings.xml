@@ -1375,4 +1375,7 @@
     <string name="tg_manage_channels">Zarządzaj kanałami</string>
     <string name="tg_unlock">Odblokuj</string>
     <string name="tg_verify">Zweryfikuj</string>
+    <string name="tg_show_empty_chats">Pokaż czaty bez piosenek</string>
+    <string name="tg_hide_empty_chats">Filtr: czaty bez piosenek</string>
+    <string name="tg_restore_missing">Przywróć brakujące czaty</string>
 </resources>
