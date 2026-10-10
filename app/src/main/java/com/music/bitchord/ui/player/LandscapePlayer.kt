@@ -52,6 +52,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import coil3.compose.AsyncImagePainter
@@ -268,13 +269,31 @@ internal fun LandscapeArtwork(
     canvasRendered: Boolean,
     isPlaying: Boolean,
     onCanvasRenderedChange: (Boolean) -> Unit,
+    /**
+     * A cover under [com.music.bitchord.data.telegram.Covers.PLAYER_MIN_PX]
+     * stops filling this region and becomes a centred card of this side
+     * instead — the portrait sleeve's treatment ([smallArtCardSize], shared
+     * so both orientations read as one decision). Null for a full-size cover.
+     */
+    cardSize: Dp? = null,
+    /** Whether the drawn cover is smaller than the region it lands on. */
+    sharpen: Boolean = false,
     modifier: Modifier = Modifier,
     overlay: @Composable BoxScope.() -> Unit = {},
 ) {
     Box(modifier = modifier) {
         Box(
             modifier = Modifier
-                .fillMaxSize()
+                .then(
+                    if (cardSize != null) {
+                        // Centred in the region rather than filling it: the
+                        // frame must hug the picture, and the region around
+                        // it is bare backdrop, same as portrait.
+                        Modifier.align(Alignment.Center).size(cardSize)
+                    } else {
+                        Modifier.fillMaxSize()
+                    },
+                )
                 // Only cast once there is a picture: on the flat placeholder
                 // tile a shadow reads as a second, darker square.
                 .shadow(if (artLoaded || canvasRendered) 14.dp else 0.dp, RoundedCornerShape(10.dp))
@@ -299,6 +318,7 @@ internal fun LandscapeArtwork(
                 // portrait sleeve's note on TextureView stacking order.
                 modifier = Modifier
                     .fillMaxSize()
+                    .sharpenUpscale(sharpen)
                     .drawWithContent { if (artLoaded || !canvasRendered) drawContent() },
             )
             canvas?.let { clip ->
