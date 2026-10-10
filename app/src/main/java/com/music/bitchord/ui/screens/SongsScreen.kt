@@ -234,7 +234,7 @@ fun SongsScreen(
                     .collect { first ->
                         Covers.prefetchTrackCovers(
                             songsNow.drop(first).take(PREFETCH_WINDOW)
-                                .map { it.videoId to it.thumbnailUrl },
+                                .map { Covers.Row(it.videoId, it.thumbnailUrl, it.title, it.artist) },
                         )
                     }
             }
@@ -258,7 +258,7 @@ fun SongsScreen(
                     // that stay put on the screen ever ask the network.
                     LaunchedEffect(song.videoId, song.thumbnailUrl) {
                         delay(ROW_FETCH_DELAY_MS)
-                        Covers.improveTrackCover(song.videoId, song.thumbnailUrl)
+                        Covers.improveTrackCover(song.videoId, song.thumbnailUrl, song.title, song.artist)
                     }
                     SongRow(
                         title = song.title,

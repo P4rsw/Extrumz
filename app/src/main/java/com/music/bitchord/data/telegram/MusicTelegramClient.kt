@@ -174,6 +174,20 @@ interface MusicTelegramClient {
     suspend fun downloadTrackCover(chatId: Long, messageId: Long): String? = null
 
     /**
+     * Tier 3 artwork: an external sleeve lookup (iTunes Search — keyless,
+     * one small JSON) for a track whose Telegram message carries NO album
+     * cover at all, so the row would otherwise stay placeholder forever.
+     * Null when nothing plausible matched. Default null: fakes and tests
+     * without network simply keep today's behaviour.
+     */
+    suspend fun externalCoverUrl(
+        chatId: Long,
+        messageId: Long,
+        title: String?,
+        artist: String?,
+    ): String? = null
+
+    /**
      * Candidate chats worth scanning (channels/supergroups): every dialog in
      * the main list plus the archive list, each capped at
      * [TelegramConfig.MAX_TOP_CHATS] — an archived channel must appear here,

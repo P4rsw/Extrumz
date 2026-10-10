@@ -93,6 +93,10 @@ object Covers {
         if (!current.isNullOrBlank()) return current
         return fetchOnce("t:$chatId:$messageId") {
             val url = Telegram.client.getAudioByMessage(chatId, messageId)?.coverUrl
+            com.music.bitchord.data.TrackLog.w(
+                "Covers",
+                "coverProbeT1[$chatId/$messageId] inline coverUrl=${url ?: "null"}"
+            )
             if (url.isNullOrBlank()) return@fetchOnce null
             TelegramDb.trackDao.setCoverIfEmpty(chatId, messageId, url)
             url
@@ -153,9 +157,28 @@ object Covers {
      * from the inline minithumbnail. A URL already on the row short-circuits
      * both before any RPC.
      */
-    suspend fun improveTrackCover(videoId: String?, current: String?): String? {
+    suspend fun improveTrackCover(
+        videoId: String?,
+        current: String?,
+        title: String? = null,
+        artist: String? = null,
+    ): String? {
         val hq = trackCoverHq(videoId, current)
-        return if (hq != current) hq else ensureTrackCover(videoId, current)
+        if (hq != current) return hq
+        val base = ensureTrackCover(videoId, current)
+        if (!base.isNullOrBlank()) return base
+        // Tier 3: the message carries no album cover at all (files uploaded
+        // without embedded art) — ask an external sleeve lookup (iTunes).
+        // fetchOnce keys per track, so a miss stays memoized and a hit lands
+        // on the row through setCoverIfEmpty like any other tier.
+        if (videoId == null) return current
+        val ids = tgIds(videoId) ?: return current
+        return fetchOnce("x:${ids.first}:${ids.second}") {
+            val url = Telegram.client.externalCoverUrl(ids.first, ids.second, title, artist)
+            if (url.isNullOrBlank()) return@fetchOnce null
+            TelegramDb.trackDao.setCoverIfEmpty(ids.first, ids.second, url)
+            url
+        } ?: current
     }
 
     /** [improveTrackCover] for a channel avatar. */
@@ -165,21 +188,30 @@ object Covers {
     }
 
     /**
-     * Warms covers for [videoIds] — pairs of (videoId, url the row already
-     * holds) — ahead of the viewport, called when scrolling settles. Rows that
-     * already carry full-size art are skipped outright; the rest join the same
-     * [gate] and dedupe as any row fetch, so a prefetch racing the row's own
-     * effect costs one RPC, not two. Skipped when unauthorized: the rows' own
-     * effects wait for Ready themselves, and queueing prefetches behind a login
-     * nobody has performed yet would only park coroutines.
+     * Warms covers for [rows] — id, the url the row already holds, and the
+     * title/performer a Tier 3 external lookup needs — ahead of the viewport,
+     * called when scrolling settles. Rows that already carry full-size art are
+     * skipped outright; the rest join the same [gate] and dedupe as any row
+     * fetch, so a prefetch racing the row's own effect costs one fetch, not
+     * two. Skipped when unauthorized: the rows' own effects wait for Ready
+     * themselves, and queueing prefetches behind a login nobody has performed
+     * yet would only park coroutines.
      */
-    fun prefetchTrackCovers(videoIds: List<Pair<String, String?>>) {
+    fun prefetchTrackCovers(rows: List<Row>) {
         if (Telegram.client.authState.value !is TelegramAuthState.Ready) return
-        for ((videoId, current) in videoIds) {
+        for ((videoId, current, title, artist) in rows) {
             if (!current.isNullOrBlank() && current.contains(HQ_PREFIX)) continue
-            prefetchScope.launch { improveTrackCover(videoId, current) }
+            prefetchScope.launch { improveTrackCover(videoId, current, title, artist) }
         }
     }
+
+    /** One prefetch row; title/artist feed the Tier 3 external sleeve lookup. */
+    data class Row(
+        val videoId: String,
+        val url: String?,
+        val title: String? = null,
+        val artist: String? = null,
+    )
 
     /**
      * Runs [block] once per key: a second caller for the same cover finds the

@@ -516,13 +516,45 @@ class AndroidMusicTelegramClient(
     override suspend fun downloadTrackCover(chatId: Long, messageId: Long): String? = runCatchingCancellable {
         awaitReady()
         val message = send(TdApi.GetMessage(chatId, messageId))
-        val audio = (message.content as? TdApi.MessageAudio)?.audio ?: return null
+        val content = message.content
+        val audio = (content as? TdApi.MessageAudio)?.audio
+        if (audio == null) {
+            TrackLog.w(TAG, "coverProbe[$chatId/$messageId] content=${content?.javaClass?.simpleName} — not MessageAudio")
+            return null
+        }
+        val thumb = audio.albumCoverThumbnail?.file
+        val mini = audio.albumCoverMinithumbnail?.data?.size ?: 0
+        TrackLog.w(
+            TAG,
+            "coverProbe[$chatId/$messageId] title=${audio.title} thumbFile=${thumb?.id ?: "null"} " +
+                "thumbExpected=${thumb?.expectedSize ?: 0} miniBytes=$mini"
+        )
         // albumCoverThumbnail is the real cover file — albumCoverMinithumbnail
         // (~90px) is what row-level covers already get inline from a scan.
-        persistCoverFile(audio.albumCoverThumbnail?.file)
+        val url = persistCoverFile(thumb)
+        TrackLog.w(TAG, "coverProbe[$chatId/$messageId] persistCoverFile -> $url")
+        url
     }.onFailure { e ->
         TrackLog.w(TAG, "downloadTrackCover($chatId, $messageId) failed: ${e::class.simpleName}: ${e.message}", e)
     }.getOrNull()
+
+    /**
+     * Tier 3: the message carried no album cover at all, so ask the iTunes
+     * Search API for a sleeve by title/performer. Runs inside Covers's
+     * fetchOnce gate on Dispatchers.IO; the file lands in covers/ it_<ids>.jpg.
+     */
+    override suspend fun externalCoverUrl(
+        chatId: Long,
+        messageId: Long,
+        title: String?,
+        artist: String?,
+    ): String? = ExternalCovers.lookup(
+        File(appContext.filesDir, "covers"),
+        chatId,
+        messageId,
+        title,
+        artist,
+    )
 
     /**
      * Fetches one artwork file, copies it into covers/ under a key that is

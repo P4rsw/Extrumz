@@ -493,7 +493,7 @@ private fun SongRowContent(
         // fetch, and their covers are usually already warmed by the list's
         // settle-prefetch by then.
         delay(250)
-        Covers.improveTrackCover(song.videoId, song.thumbnailUrl)
+        Covers.improveTrackCover(song.videoId, song.thumbnailUrl, song.title, song.artist)
     }
     val titleColor by animateColorAsState(
         targetValue = if (isCurrent) activeTint else MaterialTheme.colorScheme.onBackground,

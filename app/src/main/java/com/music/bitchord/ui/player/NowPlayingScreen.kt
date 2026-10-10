@@ -587,7 +587,7 @@ fun NowPlayingScreen(
     // fetch, and once the URL carries covers/hq_ no RPC is ever issued again.
     var upgradedArt by remember(song.videoId) { mutableStateOf<String?>(null) }
     LaunchedEffect(song.videoId, song.thumbnailUrl) {
-        upgradedArt = Covers.trackCoverHq(song.videoId, song.thumbnailUrl)
+        upgradedArt = Covers.improveTrackCover(song.videoId, song.thumbnailUrl, song.title, song.artist)
     }
     val remoteArt = upgradedArt ?: song.thumbnailUrl
     // This is produced by the palette's existing 128 px decode and cache. It
