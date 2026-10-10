@@ -31,6 +31,14 @@ interface ChatDao {
     @Query("SELECT * FROM chats WHERE isTracked = 1")
     suspend fun getTrackedOnce(): List<ChatSource>
 
+    /**
+     * F8 diagnosis: EVERY row, tracked or not. The untracked half is invisible
+     * to getTrackedOnce, yet it is exactly where a wrongly-untracked channel
+     * with history sits — counting orphans needs it.
+     */
+    @Query("SELECT * FROM chats")
+    suspend fun getAllOnce(): List<ChatSource>
+
     @Query(
         "UPDATE chats SET trackCount = (SELECT COUNT(*) FROM tracks WHERE sourceChatId = :chatId) " +
             "WHERE chatId = :chatId"
@@ -67,4 +75,14 @@ interface ChatDao {
     // noise in both the Library shelf and the picker (user report, 10-03).
     @Query("SELECT * FROM chats WHERE trackCount > 0 ORDER BY trackCount DESC")
     fun observeAllByTrackCount(): Flow<List<ChatSource>>
+
+    /**
+     * Every row, music or not — for the picker's zero-filter toggle (user
+     * report, 10-10). The rows with zero songs are KEPT here and hidden by
+     * the view instead: dropping them from the DB is what broke scans
+     * (the "Chat not found" → untrack cascade of 10-07/10-10), so a view
+     * preference must never delete data again.
+     */
+    @Query("SELECT * FROM chats ORDER BY trackCount DESC")
+    fun observeAllChats(): Flow<List<ChatSource>>
 }

@@ -561,6 +561,14 @@ object AppSettings {
     /** Hides short clips, recorder output and non-music formats from Local Music. */
     val filterNonMusicAudio = MutableStateFlow(true)
 
+    /**
+     * Picker hides the zero-song chats by default (user report, 10-03); the
+     * filter button in ChannelsScreen flips this to show them again (10-10).
+     * Rows are only ever hidden — never dropped — because dropping them
+     * broke scans.
+     */
+    val filterEmptyChats = MutableStateFlow(true)
+
     val localMusicSort = MutableStateFlow(LocalMusicSort.TITLE_ASC)
     val downloadedMusicSort = MutableStateFlow(LocalMusicSort.TITLE_ASC)
     val localMusicViewType = MutableStateFlow(LibraryViewType.LIST)
@@ -770,6 +778,7 @@ object AppSettings {
             .coerceIn(DEFAULT_CACHE_LIMIT_BYTES, MAX_CACHE_LIMIT_BYTES)
         spotifySpdcToken.value = prefs.getString(KEY_SPOTIFY_SPDC_TOKEN, "").orEmpty()
         filterNonMusicAudio.value = prefs.getBoolean(KEY_FILTER_NON_MUSIC_AUDIO, true)
+        filterEmptyChats.value = prefs.getBoolean(KEY_FILTER_EMPTY_CHATS, true)
         localMusicSort.value = readLocalMusicSort(KEY_LOCAL_MUSIC_SORT)
         downloadedMusicSort.value = readLocalMusicSort(KEY_DOWNLOADED_MUSIC_SORT)
         localMusicViewType.value = readLibraryViewType(KEY_LOCAL_MUSIC_VIEW_TYPE)
@@ -1300,6 +1309,11 @@ object AppSettings {
         prefs.edit().putBoolean(KEY_FILTER_NON_MUSIC_AUDIO, value).apply()
     }
 
+    fun setFilterEmptyChats(value: Boolean) {
+        filterEmptyChats.value = value
+        prefs.edit().putBoolean(KEY_FILTER_EMPTY_CHATS, value).apply()
+    }
+
     fun setLocalMusicSort(value: LocalMusicSort) {
         localMusicSort.value = value
         prefs.edit().putString(KEY_LOCAL_MUSIC_SORT, value.name).apply()
@@ -1541,6 +1555,7 @@ object AppSettings {
     private const val KEY_PRIORITIZE_SYLLABLE_SYNC = "prioritize_syllable_sync"
     private const val KEY_PAXSENIX_API_KEY = "paxsenix_api_key"
     private const val KEY_FILTER_NON_MUSIC_AUDIO = "filter_non_music_audio"
+    private const val KEY_FILTER_EMPTY_CHATS = "filter_empty_chats"
     private const val KEY_LOCAL_MUSIC_SORT = "local_music_sort"
     private const val KEY_DOWNLOADED_MUSIC_SORT = "downloaded_music_sort"
     private const val KEY_LIBRARY_SORT = "library_sort"

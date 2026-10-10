@@ -49,6 +49,16 @@ class AndroidMusicTelegramClient(
 
     private var client: Client? = null
 
+    /**
+     * Chat-folder ids from TDLib's own UpdateChatFolders — there is no
+     * GetChatFolders method, so the update is the only enumeration there
+     * is. Empty until the first update arrives; folder loading is
+     * insurance (tdlib/td#3673 shows the missing dialogs are not
+     * folder-related), so an early scan just skips it.
+     */
+    @Volatile
+    private var chatFolderIds: IntArray = intArrayOf()
+
     override suspend fun start(credentials: TelegramCredentials) {
         this.credentials = credentials
         if (client == null) {
@@ -80,6 +90,12 @@ class AndroidMusicTelegramClient(
                         TelegramConnectionState.UPDATING
                     else -> TelegramConnectionState.READY
                 }
+            }
+            is TdApi.UpdateChatFolders -> {
+                // TDLib has no way to ASK for the folder list; this update is
+                // the enumeration. Captured for ChatListFolder loading in
+                // listTrackedCandidateChats.
+                chatFolderIds = update.chatFolders.map { it.id }.toIntArray()
             }
             is TdApi.UpdateNewMessage -> {
                 val content = update.message.content
@@ -263,8 +279,63 @@ class AndroidMusicTelegramClient(
         return persistInlineCover(fileId, data)
     }
 
+    /**
+     * GetChat is an OFFLINE method ("This is an offline method if the
+     * current user is not a bot" — td_api.tl): a chat absent from TDLib's
+     * cache answers "Chat not found" while perfectly alive on Telegram.
+     * tdlib/td#3673 documents exactly that hole — live dialogs that never
+     * enter GetChats/LoadChats are invisible to every offline call, and the
+     * issue's working workaround is a network request. Create*Chat with
+     * force=false is that door: "Pass true to create the chat WITHOUT a
+     * network request" means the default DOES go to the server, pulling the
+     * chat into cache where every later GetChat/SearchChatMessages finds it.
+     */
+    private suspend fun fetchChat(chatId: Long): TdApi.Chat = try {
+        send(TdApi.GetChat(chatId))
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        if (!isChatMissing(e)) throw e
+        TrackLog.d(TAG, "chat $chatId missing from TDLib cache — forcing a server fetch")
+        forceFetchChat(chatId)
+    }
+
+    /** Network-backed chat load by id: positive ids are users (private chats), negative are supergroups/channels. */
+    private suspend fun forceFetchChat(chatId: Long): TdApi.Chat =
+        if (chatId > 0) {
+            send(TdApi.CreatePrivateChat(chatId, false))
+        } else {
+            send(TdApi.CreateSupergroupChat(-1_000_000_000_000L - chatId, false))
+        }
+
+    /**
+     * "This chat does not exist" versus any OTHER failure — only the former
+     * may ever decide a row is gone. A timeout or network blip reads as
+     * unknown, never as deleted: an unverifiable probe is not a death
+     * certificate.
+     */
+    private fun isChatMissing(e: Throwable): Boolean {
+        val msg = e.message.orEmpty()
+        return msg.contains("not found", ignoreCase = true) ||
+            msg.contains("USER_ID_INVALID") ||
+            msg.contains("USER_NOT_FOUND") ||
+            msg.contains("PEER_ID_INVALID") ||
+            msg.contains("CHANNEL_INVALID") ||
+            msg.contains("GROUPCHAT_INVALID")
+    }
+
+    override suspend fun chatAlive(chatId: Long): Boolean? = try {
+        fetchChat(chatId)
+        true
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        TrackLog.d(TAG, "chatAlive($chatId): ${e::class.simpleName}: ${e.message}")
+        if (isChatMissing(e)) false else null
+    }
+
     override suspend fun getChatInfo(chatId: Long): ChatInfo? = runCatchingCancellable {
-        val chat = send(TdApi.GetChat(chatId))
+        val chat = fetchChat(chatId)
         val type = chat.type
         // Usernames only ever build t.me links and nothing reads this field
         // (grep finds the write-only entity column); resolving them cost an
@@ -285,6 +356,23 @@ class AndroidMusicTelegramClient(
         TrackLog.w(TAG, "getChatInfo($chatId) failed: ${e::class.simpleName}: ${e.message}", e)
     }.getOrNull()
 
+    override suspend fun searchChatOnServer(query: String, limit: Int): List<Long> =
+        runCatchingCancellable<TdApi.Chats> { send(TdApi.SearchChatsOnServer(query, limit)) }
+            .map { it.chatIds.toList() }
+            .getOrElse {
+                TrackLog.w(TAG, "searchChatOnServer('$query') failed: ${it.message}", it)
+                emptyList()
+            }
+
+    override suspend fun probeFile(fileId: String): String? {
+        val id = fileId.toIntOrNull() ?: return "non-int fileId: $fileId"
+        var failure: String? = null
+        runCatchingCancellable { send(TdApi.GetFile(id)) }
+            .onSuccess { return null }
+            .onFailure { failure = it.message ?: it::class.simpleName }
+        return failure
+    }
+
     override suspend fun listTrackedCandidateChats(): List<ChatInfo> {
         awaitReady()
         // GetChats only answers with dialogs TDLib has already cached; LoadChats
@@ -298,35 +386,46 @@ class AndroidMusicTelegramClient(
         // fails with NOT_FOUND only once the whole list is in cache — that
         // failure is the natural stop signal. Any other error degrades to
         // exactly the old single-call behavior: proceed with what is cached.
-        var round = 0
-        while (round < TelegramConfig.CHAT_LOAD_ROUNDS) {
-            round++
-            val loaded = runCatchingCancellable {
-                send(TdApi.LoadChats(TdApi.ChatListMain(), TelegramConfig.MAX_TOP_CHATS))
-            }.isSuccess
-            if (!loaded) break
-        }
+        val mainStop = loadChatList(TdApi.ChatListMain())
         // ChatListArchive is a SEPARATE list: LoadChats(ChatListMain) never
         // touches it, so an archived dialog never enters TDLib's cache — and a
         // chat outside that cache answers GetChat / SearchChatMessages with
-        // "Chat not found", which scanOneChat reads as "gone from Telegram" and
-        // untracks (18 live channels lost that way on 2026-10-07) and which
+        // "Chat not found", which scanOneChat read as "gone from Telegram" and
+        // untracked (18 live channels lost that way on 2026-10-07) and which
         // downloadChatPhoto turns into a memoized "no such photo" (the 17 blank
-        // shelf avatars). Loading the archive list is the whole fix: its own
+        // shelf avatars). Loading the archive list is the whole fix; its own
         // NOT_FOUND-once-complete failure is the same natural stop signal as
-        // the main list's, so it gets the same bounded loop.
-        var archiveRound = 0
-        while (archiveRound < TelegramConfig.CHAT_LOAD_ROUNDS) {
-            archiveRound++
-            val loaded = runCatchingCancellable {
-                send(TdApi.LoadChats(TdApi.ChatListArchive(), TelegramConfig.MAX_TOP_CHATS))
-            }.isSuccess
-            if (!loaded) break
+        // the main list's, now through the same every-spelling match (the old
+        // NOT_FOUND-only check labeled every COMPLETE archive stop EARLY).
+        val archiveStop = loadChatList(TdApi.ChatListArchive())
+        // Folder lists are insurance, not the main road: tdlib/td#3673's
+        // maintainer confirms the missing dialogs are not folder-related, but
+        // loading each folder's list costs one bounded loop, can only ADD
+        // candidates (the merge below dedupes against main/archive), and
+        // covers any future folder semantics for free. UpdateChatFolders is
+        // TDLib's ONLY folder enumeration — before it arrives this stays
+        // empty and the whole step is skipped.
+        var folderStop = "none"
+        val folderListIds = chatFolderIds
+        if (folderListIds.isNotEmpty()) {
+            // A plain loop, not joinToString(transform): the transform
+            // lambda is not a suspend scope and loadChatList suspends.
+            val stops = mutableListOf<String>()
+            for (folderId in folderListIds) {
+                stops += "f$folderId=${loadChatList(TdApi.ChatListFolder(folderId))}"
+            }
+            folderStop = stops.joinToString(" ")
         }
+        TrackLog.d(TAG, "LoadChats main=$mainStop archive=$archiveStop folders=$folderStop")
         val mainIds = send(TdApi.GetChats(TdApi.ChatListMain(), TelegramConfig.MAX_TOP_CHATS)).chatIds
         val archiveIds = runCatchingCancellable<TdApi.Chats> {
             send(TdApi.GetChats(TdApi.ChatListArchive(), TelegramConfig.MAX_TOP_CHATS))
         }.getOrNull()?.chatIds ?: longArrayOf()
+        val folderIds = folderListIds.flatMap { folderId ->
+            runCatchingCancellable<TdApi.Chats> {
+                send(TdApi.GetChats(TdApi.ChatListFolder(folderId), TelegramConfig.MAX_TOP_CHATS))
+            }.getOrNull()?.chatIds?.toList() ?: emptyList()
+        }.toLongArray()
         // Main first: GetChats answers newest-dialogs-first, so the freshness
         // ranking fullScan launches in survives; archive appends behind it,
         // deduped because each list is read independently. The merged set is
@@ -336,8 +435,20 @@ class AndroidMusicTelegramClient(
         // dialog below stays parallel but bounded — unbounded it is up to
         // MAX_TOP_CHATS concurrent JNI calls, which spikes slow phones.
         // awaitAll preserves input order regardless of which permit each
-        // coroutine got, so main-then-archive is what fullScan receives.
-        val chatIds = mainIds + archiveIds.filter { it !in mainIds.toHashSet() }
+        // coroutine got, so main-then-archive(-then-folders) is what
+        // fullScan receives.
+        val seen = mainIds.toHashSet()
+        val chatIds = mainIds +
+            archiveIds.filter { seen.add(it) } +
+            folderIds.filter { seen.add(it) }
+        // The counts ARE the diagnosis: main 0 means the dialog sync hasn't
+        // finished (LibraryScanner awaits and retries); archive > 0 is the
+        // only way to see the fix above actually firing on a real account.
+        TrackLog.d(
+            TAG,
+            "candidates: main=${mainIds.size} archive=${archiveIds.size} " +
+                "folders=${folderIds.size} merged=${chatIds.size}",
+        )
         val infos = coroutineScope {
             val permits = Semaphore(TelegramConfig.GET_INFO_PARALLEL)
             chatIds
@@ -355,6 +466,34 @@ class AndroidMusicTelegramClient(
         // would truncate the archive half whenever the main list is full —
         // the very failure this function was fixed for.
         return infos.filterNotNull()
+    }
+
+    /**
+     * One chat list's LoadChats loop: keep paging until TDLib's NOT_FOUND
+     * says the whole list is in cache (its error once loaded is the STOP
+     * signal, not a failure — matched in every casing, which the archive's
+     * old NOT_FOUND-only check got wrong and labeled COMPLETE stops EARLY)
+     * or [TelegramConfig.CHAT_LOAD_ROUNDS] runs out. Any other error
+     * degrades to "proceed with what is cached", exactly like the old
+     * one-call behavior. Returns the stop label for the scan log.
+     */
+    private suspend fun loadChatList(chatList: TdApi.ChatList): String {
+        var round = 0
+        while (round < TelegramConfig.CHAT_LOAD_ROUNDS) {
+            round++
+            val err = runCatchingCancellable {
+                send(TdApi.LoadChats(chatList, TelegramConfig.MAX_TOP_CHATS))
+            }.exceptionOrNull()
+            if (err != null) {
+                val msg = err.message.orEmpty()
+                return if (msg.contains("not found", ignoreCase = true)) {
+                    "complete after $round"
+                } else {
+                    "EARLY (${msg.ifBlank { err::class.simpleName }}) after $round"
+                }
+            }
+        }
+        return "rounds exhausted"
     }
 
     override suspend fun getAudioByMessage(chatId: Long, messageId: Long): RemoteAudio? {
@@ -411,10 +550,15 @@ class AndroidMusicTelegramClient(
     /** Artwork bigger than this is not worth its bytes on a phone. */
     private val MAX_COVER_BYTES = 5_000_000L
 
-    override suspend fun getStreamPath(fileId: String, offset: Long): String {
+    override suspend fun getStreamPath(
+        fileId: String,
+        offset: Long,
+        expectedUniqueId: String?,
+    ): String {
         val id = fileId.toIntOrNull() ?: error("Invalid file id")
         awaitReady()
         val file = send(TdApi.GetFile(id))
+        verifyUniqueId(file, expectedUniqueId, fileId)
         val localPath = file.local?.path
         if (file.local?.isDownloadingCompleted == true && !localPath.isNullOrBlank()) {
             return localPath
@@ -422,6 +566,25 @@ class AndroidMusicTelegramClient(
         send(TdApi.DownloadFile(id, 1, offset, 0, true))
         return send(TdApi.GetFile(id)).local?.path?.takeIf { it.isNotBlank() }
             ?: error("File not available: $fileId")
+    }
+
+    /**
+     * TDLib file ids are session-local and get REISSUED to other files when
+     * its database is rebuilt; GetFile on such an id succeeds instead of
+     * failing, silently returning someone else's bytes — that is how track A
+     * played track B with no error anywhere. The remote unique id is the
+     * durable identity, so when the caller knows the id it recorded and the
+     * file disagrees, refuse rather than serve the wrong track. Blank on
+     * either side means there is nothing to compare and the old behavior
+     * stands (the caller's message fetch remains the fallback).
+     */
+    private fun verifyUniqueId(file: TdApi.File, expected: String?, fileId: String) {
+        if (expected.isNullOrBlank()) return
+        val actual = file.remote?.uniqueId
+        if (actual.isNullOrBlank()) return
+        if (actual != expected) {
+            throw StaleFileIdException(fileId, expected, actual)
+        }
     }
 
     override suspend fun downloadFile(fileId: String, synchronous: Boolean): String =

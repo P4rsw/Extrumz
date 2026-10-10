@@ -1,5 +1,6 @@
 package com.music.bitchord.ui.screens
 
+import android.content.Context
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -19,9 +20,13 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.FilterAlt
+import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -30,10 +35,15 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -41,14 +51,19 @@ import coil3.compose.AsyncImage
 import com.music.bitchord.R
 import com.music.bitchord.data.db.TelegramDb
 import com.music.bitchord.data.db.entity.ChatSource
+import com.music.bitchord.data.db.entity.ChatType
 import com.music.bitchord.data.model.ROW_ART_PX
 import com.music.bitchord.data.model.artworkAt
+import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.data.telegram.Covers
 import com.music.bitchord.data.telegram.Telegram
 import com.music.bitchord.data.telegram.TelegramAuthController
 import com.music.bitchord.data.telegram.TelegramAuthState
 import com.music.bitchord.data.telegram.TelegramUi
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import org.json.JSONArray
+import java.io.File
 
 /**
  * The scanned chats/channels, as a full-screen picker. Picking one narrows the
@@ -67,8 +82,28 @@ fun ChannelsScreen(
     val scan by Telegram.scanner.progress.collectAsState()
     val selected by TelegramUi.selectedChatId.collectAsState()
 
-    val chats by TelegramDb.chatDao.observeAllByTrackCount()
+    // ALL rows, zero-song ones included — they stay in the DB and are
+    // hidden by the toggle below instead (user report, 10-10): the earlier
+    // approach of dropping them from the list is what fed the
+    // "Chat not found" → untrack cascade that broke scans.
+    val chats by TelegramDb.chatDao.observeAllChats()
         .collectAsState(initial = emptyList())
+    val filterEmpty by AppSettings.filterEmptyChats.collectAsState()
+    val visibleChats = if (filterEmpty) {
+        chats.filter { it.trackCount > 0 }
+    } else {
+        chats
+    }
+    // Restore-from-list (tdlib/td#3673): chats TDLib refuses to list ever
+    // again are re-added BY ID from files/restore_chats.json. Only rows are
+    // ever added here; nothing is deleted, and known ids are skipped.
+    val context = LocalContext.current
+    val restoreScope = rememberCoroutineScope()
+    var restoring by remember { mutableStateOf(false) }
+    var restoreStatus by remember { mutableStateOf<String?>(null) }
+    val restoreFileExists = remember {
+        File(context.filesDir, "restore_chats.json").exists()
+    }
 
     // This screen starts at y=0, under the glass bars, so its topmost content
     // has to clear the system status bar itself — without this the scan button
@@ -151,6 +186,87 @@ fun ChannelsScreen(
             }
         }
 
+        // The filter button itself (user ask, 10-10): flipping it swaps the
+        // zero-song rows in and out of the list ABOVE — nothing is ever
+        // deleted from the DB, which is exactly why scans stay intact.
+        // Shown only when there is something to filter (Ready + rows exist),
+        // so a fresh login doesn't grow a dead toggle.
+        if (authState is TelegramAuthState.Ready && chats.isNotEmpty()) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 4.dp),
+            ) {
+                TextButton(onClick = { AppSettings.setFilterEmptyChats(!filterEmpty) }) {
+                    Icon(
+                        imageVector = Icons.Rounded.FilterAlt,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        stringResource(
+                            if (filterEmpty) R.string.tg_show_empty_chats
+                            else R.string.tg_hide_empty_chats,
+                        ),
+                        style = MaterialTheme.typography.labelLarge,
+                    )
+                }
+                Spacer(Modifier.weight(1f))
+                // The count is the button's proof: it changes with the
+                // toggle, so a filtered row is visibly still in the DB.
+                Text(
+                    "${visibleChats.size} چت",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+
+        // Restore button (user's missing-chats case, 10-10): TDLib stopped
+        // listing ~40 live dialogs after its cache eviction bug (tdlib/td#3673),
+        // so this re-adds them straight from the server, by id. Shown only
+        // when the list file exists — no dead buttons for users without one.
+        if (restoreFileExists && authState is TelegramAuthState.Ready) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 2.dp),
+            ) {
+                TextButton(
+                    enabled = !restoring,
+                    onClick = {
+                        restoreScope.launch {
+                            restoring = true
+                            val existing = chats.map { it.chatId }.toSet()
+                            restoreStatus = "در حال بازیابی…"
+                            val result = runCatching { importRestoreList(context, existing) }
+                                .getOrElse { "خطا در بازیابی: ${it.message}" }
+                            restoring = false
+                            restoreStatus = result
+                        }
+                    },
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.Refresh,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    Text(stringResource(R.string.tg_restore_missing))
+                }
+                restoreStatus?.let {
+                    Text(
+                        it,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+        }
+
         if (chats.isEmpty()) {
             Column(
                 modifier = Modifier
@@ -178,7 +294,7 @@ fun ChannelsScreen(
                     bottom = contentPadding.calculateBottomPadding() + 96.dp,
                 ),
             ) {
-                items(chats, key = { it.chatId }) { chat ->
+                items(visibleChats, key = { it.chatId }) { chat ->
                     ChatRow(
                         chat = chat,
                         isSelected = selected == chat.chatId,
@@ -283,4 +399,64 @@ private fun ChatRow(
             )
         }
     }
+}
+
+/**
+ * Re-add the chats TDLib's lists have permanently lost (tdlib/td#3673):
+ * every id in files/restore_chats.json is fetched straight from the SERVER
+ * by id (CreatePrivateChat/CreateSupergroupChat, which work even when the
+ * chat is in no local list) and inserted as a tracked row, so the next
+ * scan pulls its history back. Known ids are skipped and nothing is ever
+ * deleted — this is a pure restore path.
+ *
+ * Returns "restored X, still missing Y" text for the UI.
+ */
+private suspend fun importRestoreList(context: Context, existing: Set<Long>): String {
+    val file = File(context.filesDir, "restore_chats.json")
+    if (!file.exists()) return "فایل restore_chats.json در پوشه‌ی برنامه پیدا نشد"
+    val arr = JSONArray(file.readText())
+    var added = 0
+    var gone = 0
+    for (i in 0 until arr.length()) {
+        val entry = arr.optJSONObject(i) ?: continue
+        val id = entry.optLong("chatId", 0L)
+        if (id == 0L || id in existing) continue
+        var info = Telegram.client.getChatInfo(id)
+        if (info == null) {
+            // tdlib/td#3673: TDLib won't keep or re-load these chats itself,
+            // but the user's chat list still exists on the SERVER — search it
+            // by the backed-up title and match strictly by id, so a name
+            // collision with an unrelated chat can never be restored.
+            val title = entry.optString("title", "")
+            if (title.isNotEmpty() && Telegram.client.searchChatOnServer(title).contains(id)) {
+                // The server-side load just pulled the chat into TDLib's
+                // cache, so a plain GetChat resolves now.
+                info = Telegram.client.getChatInfo(id)
+            }
+        }
+        if (info == null) {
+            gone++
+            continue
+        }
+        TelegramDb.chatDao.upsert(
+            ChatSource(
+                chatId = id,
+                title = info.title,
+                username = info.username,
+                photoUrl = info.photoUrl,
+                type = when {
+                    info.isChannel -> ChatType.CHANNEL
+                    info.isGroup -> ChatType.GROUP
+                    else -> ChatType.PRIVATE
+                },
+                isTracked = true,
+            ),
+        )
+        added++
+    }
+    // Anything restored is an unknown-history chat again — kick a scan so
+    // its tracks come back without the user having to press twice.
+    if (added > 0) TelegramAuthController.startScan()
+    val suffix = if (gone > 0) "، $gone تا دیگر وجود ندارد" else ""
+    return "بازیابی: $added چت برگشت$suffix"
 }

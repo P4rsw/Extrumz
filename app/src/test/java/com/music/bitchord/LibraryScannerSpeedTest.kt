@@ -77,6 +77,7 @@ class LibraryScannerSpeedTest {
         }
 
         override suspend fun getTrackedOnce(): List<ChatSource> = rows.values.filter { it.isTracked }
+        override suspend fun getAllOnce(): List<ChatSource> = rows.values.toList()
         override suspend fun refreshTrackCount(chatId: Long) {}
         override suspend fun setTracked(chatId: Long, tracked: Boolean) {}
         // F8: cover fill, with the same guard as Room — fill when empty,
@@ -158,7 +159,7 @@ class LibraryScannerSpeedTest {
         override suspend fun setFavorite(id: String, favorite: Boolean) = TODO()
         override suspend fun recordPlay(id: String, playedAt: Long) = TODO()
         override fun observeAll(): Flow<List<Track>> = TODO()
-        override suspend fun observeAllOnce(): List<Track> = TODO()
+        override suspend fun observeAllOnce(): List<Track> = rows.values.toList()
         override fun observeRecent(limit: Int): Flow<List<Track>> = TODO()
         override fun observeFavorites(): Flow<List<Track>> = TODO()
         override fun search(query: String): Flow<List<Track>> = TODO()
@@ -291,7 +292,11 @@ class LibraryScannerSpeedTest {
         override suspend fun confirmLoginLink(link: String) = TODO()
         override suspend fun logout() = TODO()
         override suspend fun getAudioByMessage(chatId: Long, messageId: Long): RemoteAudio? = TODO()
-        override suspend fun getStreamPath(fileId: String, offset: Long): String = TODO()
+        override suspend fun getStreamPath(
+            fileId: String,
+            offset: Long,
+            expectedUniqueId: String?,
+        ): String = TODO()
         override suspend fun downloadFile(fileId: String, synchronous: Boolean): String = TODO()
         override suspend fun createPlaylistChannel(title: String, description: String): Long = TODO()
 

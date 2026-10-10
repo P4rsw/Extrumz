@@ -108,40 +108,56 @@ class TelegramSource(
             )
         }
 
-        // Tier 3: pull through TDLib (once) and serve the local file. A file
-        // id can go stale under TDLib ("Not Found" on GetFile/DownloadFile) —
-        // seen once as a transient read-ahead race — so a failed download gets
-        // one refresh from the message itself (fresh audio.id) and one retry,
-        // with both ids logged to make the next occurrence diagnosable.
-        val path = runCatching { Telegram.client.getStreamPath(track.fileId) }
-            .getOrElse { firstFailure ->
-                val freshId = runCatching {
-                    Telegram.client.getAudioByMessage(chatId, messageId)?.remoteFileId
-                }.getOrNull()
-                if (freshId == null || freshId == track.fileId) {
-                    TrackLog.w(
-                        TAG,
-                        "Telegram tier-3 download failed: ${firstFailure.message} " +
-                            "(fileId ${track.fileId}, no fresher id)",
-                    )
-                    return null
-                }
+        // Tier 3: pull through TDLib (once) and serve the local file. Two
+        // failures land here: a hard "Not Found" on GetFile/DownloadFile, and
+        // a STALE identity — the stored fileId resolving to a different file
+        // (StaleFileIdException), which would otherwise play the wrong track
+        // while the UI shows this one's title. Both get one refresh from the
+        // message itself (fresh audio.id AND the durable unique id) and one
+        // retry, with all ids logged to make the next occurrence diagnosable.
+        val path = runCatching {
+            Telegram.client.getStreamPath(track.fileId, expectedUniqueId = track.fileUniqueId)
+        }.getOrElse { firstFailure ->
+            val fresh = runCatching {
+                Telegram.client.getAudioByMessage(chatId, messageId)
+            }.getOrNull()
+            val freshId = fresh?.remoteFileId
+            val freshUnique = fresh?.uniqueFileId?.ifBlank { null }
+            val uniqueChanged = freshUnique != null && freshUnique != track.fileUniqueId
+            if (freshId == null || (freshId == track.fileId && !uniqueChanged)) {
                 TrackLog.w(
                     TAG,
-                    "Telegram tier-3 download failed: ${firstFailure.message}; " +
-                        "refreshing fileId ${track.fileId} -> $freshId and retrying",
+                    "Telegram tier-3 download failed: ${firstFailure.message} " +
+                        "(fileId ${track.fileId}, no fresher id)",
                 )
-                // Keep the fresh id so the next play doesn't repeat the dance.
-                runCatching { TelegramDb.trackDao.update(track.copy(fileId = freshId)) }
-                runCatching { Telegram.client.getStreamPath(freshId) }
-                    .getOrElse { retryFailure ->
-                        TrackLog.w(
-                            TAG,
-                            "Telegram tier-3 retry failed: ${retryFailure.message} (fileId $freshId)",
-                        )
-                        return null
-                    }
+                return null
             }
+            TrackLog.w(
+                TAG,
+                "Telegram tier-3 download failed: ${firstFailure.message}; " +
+                    "refreshing fileId ${track.fileId} -> $freshId " +
+                    "unique ${track.fileUniqueId} -> $freshUnique and retrying",
+            )
+            // Keep the fresh ids so the next play doesn't repeat the dance.
+            val refreshed = track.copy(
+                fileId = freshId,
+                fileUniqueId = freshUnique ?: track.fileUniqueId,
+            )
+            runCatching { TelegramDb.trackDao.update(refreshed) }
+            runCatching {
+                Telegram.client.getStreamPath(
+                    refreshed.fileId,
+                    expectedUniqueId = refreshed.fileUniqueId,
+                )
+            }.getOrElse { retryFailure ->
+                TrackLog.w(
+                    TAG,
+                    "Telegram tier-3 retry failed: ${retryFailure.message} " +
+                        "(fileId ${refreshed.fileId})",
+                )
+                return null
+            }
+        }
         val file = File(path)
         if (!file.isFile || file.length() == 0L) return null
         return SourceStream(
@@ -212,8 +228,8 @@ class TelegramSource(
         resolver.query(
             MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
             projection,
-            "${MediaStore.Audio.Media.DATA} LIKE ?",
-            arrayOf("%/Telegram/%"),
+            null,
+            null,
             null
         )?.use { cursor ->
             val dataIdx = cursor.getColumnIndex(MediaStore.Audio.Media.DATA)
@@ -221,7 +237,6 @@ class TelegramSource(
             val durationIdx = cursor.getColumnIndex(MediaStore.Audio.Media.DURATION)
             while (cursor.moveToNext()) {
                 val path = cursor.getString(dataIdx) ?: continue
-                if (!path.contains("/Telegram/", ignoreCase = true)) continue
                 val title = cursor.getString(titleIdx).orEmpty()
                 val durationMs = cursor.getLong(durationIdx)
                 val durationOk = track.duration == 0 ||

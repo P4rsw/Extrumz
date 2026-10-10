@@ -26,6 +26,14 @@ enum class TelegramConnectionState {
     WAITING_FOR_NETWORK, CONNECTING, UPDATING, READY
 }
 
+/**
+ * Raised when a stored TDLib file id resolves to a file whose unique id is
+ * NOT the one recorded for the track — the stale-id case that would
+ * otherwise play a different track while the UI shows the right title.
+ */
+class StaleFileIdException(fileId: String, expected: String, actual: String) :
+    Exception("stale fileId $fileId: resolves to unique $actual, track expects $expected")
+
 /** Audio message normalized without TDLib types crossing the boundary. */
 data class RemoteAudio(
     val chatId: Long,
@@ -117,6 +125,32 @@ interface MusicTelegramClient {
     suspend fun getChatInfo(chatId: Long): ChatInfo?
 
     /**
+     * Server-side search over the user's OWN chat list (searchChatsOnServer).
+     * The chat list lives on the server, so a chat TDLib refuses to keep
+     * locally (tdlib/td#3673) can still be found by name and matched back to
+     * its id. Best-effort: empty when nothing matched.
+     */
+    suspend fun searchChatOnServer(query: String, limit: Int = 10): List<Long> = emptyList()
+
+    /**
+     * Network-backed existence probe for a chat TDLib's offline calls can't
+     * see (tdlib/td#3673 — live dialogs that never enter GetChats answer
+     * "Chat not found" from the offline GetChat while alive on Telegram):
+     * true = reachable (and force-fetched into TDLib's cache on the way, so
+     * a scan can follow immediately), false = the server confirms it's gone,
+     * null = inconclusive (transient failure) — callers must treat null as
+     * "nothing decided" and keep every row.
+     */
+    suspend fun chatAlive(chatId: Long): Boolean? = getChatInfo(chatId) != null
+
+    /**
+     * Diagnostic probe: does TDLib still know this file id? Returns null when
+     * GetFile answers (the file stays addressable, so tier-3 can pull it) or
+     * the error text otherwise. GetFile reads metadata without downloading.
+     */
+    suspend fun probeFile(fileId: String): String? = "probeFile not implemented"
+
+    /**
      * Re-reads one message's audio — the way to refresh a [RemoteAudio] whose
      * file id TDLib has since invalidated ("Not Found" on download). Null when
      * the message is gone or is not an audio message.
@@ -148,8 +182,18 @@ interface MusicTelegramClient {
      */
     suspend fun listTrackedCandidateChats(): List<ChatInfo>
 
-    /** Local filesystem path of a file, downloading it when needed. */
-    suspend fun getStreamPath(fileId: String, offset: Long = 0L): String
+    /**
+     * Local filesystem path of a file, downloading it when needed.
+     *
+     * [expectedUniqueId] is the caller's durable identity for the bytes (the
+     * TDLib remote unique id). The numeric [fileId] is session-local: after a
+     * TDLib database rebuild the same number can belong to a DIFFERENT file,
+     * and GetFile answers with that file instead of failing — which is how
+     * track A played track B with no error anywhere. When both sides know the
+     * unique id and they disagree, [StaleFileIdException] is thrown rather
+     * than serving someone else's audio. Null means "no identity to check".
+     */
+    suspend fun getStreamPath(fileId: String, offset: Long = 0L, expectedUniqueId: String? = null): String
 
     /** Ensures the full file is downloaded and returns its local path. */
     suspend fun downloadFile(fileId: String, synchronous: Boolean = false): String

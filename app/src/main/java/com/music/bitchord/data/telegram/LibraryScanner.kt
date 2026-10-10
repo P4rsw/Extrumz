@@ -21,6 +21,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
+import java.io.File
 
 data class ScanProgress(
     val isRunning: Boolean = false,
@@ -51,6 +52,9 @@ class LibraryScanner(
     private val chatDao: ChatDao,
     private val timeSource: () -> Long = { System.currentTimeMillis() }
 ) {
+
+    /** Chats already file-probed this process — one GetFile verdict per chat. */
+    private val probedChats: MutableSet<Long> = java.util.concurrent.ConcurrentHashMap.newKeySet()
 
     private val _progress = MutableStateFlow(ScanProgress())
     val progress: StateFlow<ScanProgress> = _progress.asStateFlow()
@@ -319,18 +323,75 @@ class LibraryScanner(
                         "chat ${info.chatId} answered \"Chat not found\" while TDLib lists it — kept tracked",
                     )
                 } else {
-                    // Gone from Telegram entirely: absent from every chat list and
-                    // from TDLib's own database ("Failed to load chat … from
-                    // database: Not found") across passes and relaunches — 30 shelf
-                    // rows on 2026-10-06, while the one archived-but-intact chat
-                    // beside them scanned fine. Retrying forever would put the same
-                    // error on the banner every launch, so the row is untracked
-                    // here; re-adding the chat through the app re-tracks it.
-                    chatDao.getById(info.chatId)?.let { row ->
-                        chatDao.upsert(row.copy(isTracked = false))
+                    // "Chat not found" from the OFFLINE GetChat says nothing
+                    // about existence for a chat outside every list —
+                    // tdlib/td#3673: live dialogs that never enter GetChats
+                    // answer exactly this while alive on Telegram, and the
+                    // old unconditional untrack here read that cache miss as
+                    // a death certificate. Probe the server before deciding
+                    // anything:
+                    //  - true  → alive AND force-fetched into TDLib's cache
+                    //    by the probe itself: keep the row and retry the
+                    //    scan once right here, so this pass still indexes it;
+                    //  - false → the server itself confirmed it's gone — the
+                    //    untrack below, exactly as before (the 30 dead shelf
+                    //    rows of 2026-10-06 still qualify; re-adding the chat
+                    //    through the app re-tracks it);
+                    //  - null  → the probe was inconclusive (transient
+                    //    failure): nothing decided — keep the row and let the
+                    //    banner below carry the error.
+                    when (client.chatAlive(info.chatId)) {
+                        true -> {
+                            TrackLog.w(
+                                TAG,
+                                "chat ${info.chatId} is alive outside every list — " +
+                                    "force-fetched, rescanning",
+                            )
+                            try {
+                                scanChat(
+                                    chatId = info.chatId,
+                                    fromMessageId = 0L,
+                                    full = true,
+                                    // `existing` is scoped to the try above; re-read
+                                    // the row here for the resume boundary.
+                                    stopBefore = chatDao.getById(info.chatId)?.lastScannedMessageId
+                                        ?: 0L,
+                                )
+                                return
+                            } catch (retry: CancellationException) {
+                                throw retry
+                            } catch (retry: Exception) {
+                                // The chat is proven alive; a second failure
+                                // cannot untrack it — surface and keep.
+                                TrackLog.w(
+                                    TAG,
+                                    "chat ${info.chatId} still fails after the force fetch: " +
+                                        "${retry::class.simpleName}: ${retry.message}",
+                                    retry,
+                                )
+                                _progress.update {
+                                    it.copy(
+                                        lastError = "chat ${info.chatId}: " +
+                                            (retry.message ?: retry::class.simpleName),
+                                        lastErrorDetail = retry.message
+                                            ?: retry::class.simpleName,
+                                    )
+                                }
+                                return
+                            }
+                        }
+                        false -> {
+                            chatDao.getById(info.chatId)?.let { row ->
+                                chatDao.upsert(row.copy(isTracked = false))
+                            }
+                            TrackLog.w(TAG, "chat ${info.chatId} is gone from Telegram — untracked")
+                            return
+                        }
+                        null -> TrackLog.w(
+                            TAG,
+                            "chat ${info.chatId} not verified (probe inconclusive) — kept tracked",
+                        )
                     }
-                    TrackLog.w(TAG, "chat ${info.chatId} is gone from Telegram — untracked")
-                    return
                 }
             }
             // Full exception (with stack) to the log; the state keeps both the
@@ -399,6 +460,99 @@ class LibraryScanner(
     private suspend fun withShelfExtras(slice: List<ChatInfo>): List<ChatInfo> {
         val known = slice.mapTo(HashSet()) { it.chatId }
         listedChats = known
+        // F8: a row with history that TDLib never lists is out of reach of
+        // every repair path (the extras below only cover TRACKED rows) — no
+        // scan means no cover refill, no file-id refresh, and (after the
+        // stale-id guard landed) no playback refresh either. Probe each one:
+        // GetChat answers from TDLib's database for any chat it still knows,
+        // listed or not, so a reachable answer means the dialog was only
+        // deleted/hidden from the lists while the chat and its messages
+        // survived. Re-track those (and reset the scan cursor) so THIS pass
+        // rescans them: covers refill, file ids refresh, playback returns.
+        // A chat that fails GetChat logs its real error inside getChatInfo
+        // ("getChatInfo(<id>) failed: …") and stays untouched — retrying a
+        // genuinely gone chat forever would only re-log it on every launch.
+        val orphans = chatDao.getAllOnce()
+            .filter { it.trackCount > 0 && it.chatId !in known }
+        if (orphans.isNotEmpty()) {
+            var repaired = 0
+            val unreachable = mutableListOf<String>()
+            val unreachableIds = mutableListOf<Long>()
+            for (row in orphans) {
+                val info = client.getChatInfo(row.chatId)
+                if (info == null) {
+                    unreachable += "${row.chatId}(${row.trackCount})"
+                    unreachableIds += row.chatId
+                    continue
+                }
+                val needsRepair = !row.isTracked || row.lastScannedMessageId != 0L
+                if (needsRepair || row.photoUrl.isNullOrBlank() && !info.photoUrl.isNullOrBlank()) {
+                    chatDao.upsert(
+                        row.copy(
+                            isTracked = true,
+                            lastScannedMessageId = 0L,
+                            photoUrl = if (row.photoUrl.isNullOrBlank()) {
+                                info.photoUrl ?: row.photoUrl
+                            } else {
+                                row.photoUrl
+                            },
+                        ),
+                    )
+                    repaired++
+                }
+            }
+            TrackLog.w(
+                TAG,
+                "orphans: ${orphans.size} rows with history absent from every TDLib list: " +
+                    orphans.joinToString(",") { "${it.chatId}(${it.trackCount})" } +
+                    " — repaired=$repaired reachable, unreachable=${unreachable.size}" +
+                    if (unreachable.isEmpty()) "" else ": ${unreachable.joinToString(",")}",
+            )
+            // One GetFile per dead chat answers from TDLib's file table
+            // without downloading anything — the verdict says whether tier-3
+            // playback can still pull these rows although the chat itself is
+            // gone (covers still need the message, so they stay impossible).
+            if (unreachableIds.isNotEmpty()) {
+                val sample = trackDao.observeAllOnce()
+                    .filter { it.sourceChatId in unreachableIds }
+                    .groupBy { it.sourceChatId }
+                for ((cid, rows) in sample) {
+                    if (!probedChats.add(cid)) continue
+                    val verdict = client.probeFile(rows.first().fileId)
+                    TrackLog.w(
+                        TAG,
+                        "file probe chat=$cid -> " +
+                            (verdict ?: "file ALIVE - tier-3 can pull it"),
+                    )
+                    // Local-art rescue: with the chat gone nothing can fetch a
+                    // cover or an avatar, but an inline thumbnail already saved
+                    // under covers/<fileId>.jpg survives — point the empty rows
+                    // at it and give the shelf the first one as its avatar.
+                    runCatching {
+                        val covers = File(Telegram.context.filesDir, "covers")
+                        var shelf: String? = null
+                        for (track in rows) {
+                            if (track.coverUrl.isNotBlank()) {
+                                if (shelf == null) shelf = track.coverUrl
+                                continue
+                            }
+                            val cached = File(covers, "${track.fileId}.jpg")
+                            if (!cached.isFile) continue
+                            val url = "file://${cached.absolutePath}"
+                            trackDao.setCoverIfEmpty(
+                                track.sourceChatId,
+                                track.sourceMessageId,
+                                url,
+                            )
+                            if (shelf == null) shelf = url
+                        }
+                        if (shelf != null) chatDao.setPhotoUrlIfEmpty(cid, shelf)
+                    }.onFailure {
+                        TrackLog.w(TAG, "local art rescue failed for chat=$cid: ${it.message}")
+                    }
+                }
+            }
+        }
         val extras = chatDao.getTrackedOnce()
             .filter { it.lastScannedMessageId == 0L && it.chatId !in known }
         if (extras.isEmpty()) return slice
