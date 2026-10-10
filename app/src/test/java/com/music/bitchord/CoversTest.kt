@@ -1,6 +1,7 @@
 package com.music.bitchord
 
 import com.music.bitchord.data.telegram.Covers
+import java.io.File
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
@@ -35,6 +36,28 @@ class CoversTest {
         assertNull(Covers.tgIds("dQw4w9WgXcQ"))
         assertNull(Covers.tgIds("/storage/emulated/0/Music/a.mp3"))
         assertNull(Covers.tgIds("src:cfg-1::local-file-7"))
+    }
+
+    @Test
+    fun localCoverPathAcceptsOnlyExistingLocalFiles() {
+        val f = File.createTempFile("cover", ".jpg")
+        try {
+            f.writeBytes(byteArrayOf(1, 2, 3))
+            assertEquals(f.path, Covers.localCoverPath("file://${f.path}"))
+            assertNull(Covers.localCoverPath("file://${f.path}.missing"))
+        } finally {
+            f.delete()
+        }
+    }
+
+    @Test
+    fun localCoverPathRejectsRemoteAndSchemless() {
+        assertNull(Covers.localCoverPath(null))
+        assertNull(Covers.localCoverPath(""))
+        assertNull(Covers.localCoverPath("https://e-cdn.example/cover.jpg"))
+        assertNull(Covers.localCoverPath("http://e-cdn.example/cover.jpg"))
+        assertNull(Covers.localCoverPath("content://media/external/audio/media/9"))
+        assertNull(Covers.localCoverPath("/plain/path/no-scheme.jpg"))
     }
 
     @Test

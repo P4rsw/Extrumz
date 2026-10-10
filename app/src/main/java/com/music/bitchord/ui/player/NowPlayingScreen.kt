@@ -585,11 +585,28 @@ fun NowPlayingScreen(
     // at PLAYER_ART_PX, far past upscale territory. The upgrade is written
     // back to the track's row, so every other surface sharpens from that one
     // fetch, and once the URL carries covers/hq_ no RPC is ever issued again.
+    // Tier 4 on top: when what lands is STILL small — Telegram's own inline
+    // file can be 40px, and hq_ merely means "the largest file the message
+    // had" — upgradePlayerCover asks the external catalogues for their
+    // ~1000px sleeve instead. See Covers.PLAYER_MIN_PX.
     var upgradedArt by remember(song.videoId) { mutableStateOf<String?>(null) }
     LaunchedEffect(song.videoId, song.thumbnailUrl) {
-        upgradedArt = Covers.improveTrackCover(song.videoId, song.thumbnailUrl, song.title, song.artist)
+        upgradedArt = Covers.upgradePlayerCover(song.videoId, song.thumbnailUrl, song.title, song.artist)
     }
     val remoteArt = upgradedArt ?: song.thumbnailUrl
+
+    // Whether that cover is too small for this screen's artwork regions,
+    // measured off the local file (bounds-only — no pixels, no network).
+    // Null until the measurement answers: the hero waits for a definite
+    // "large" rather than flashing one stretched frame first, and a cover
+    // that cannot be measured (remote, gone) answers false right after and
+    // goes full-bleed exactly as it always did.
+    var sleeveTooSmall by remember(remoteArt) { mutableStateOf<Boolean?>(null) }
+    LaunchedEffect(remoteArt) {
+        sleeveTooSmall = Covers.localCoverSize(remoteArt)
+            ?.let { (w, h) -> minOf(w, h) < Covers.PLAYER_MIN_PX }
+            ?: false
+    }
     // This is produced by the palette's existing 128 px decode and cache. It
     // samples the upper band rather than the whole sleeve because that is what
     // lies beneath the status bar when the player expands to full bleed.
@@ -1639,7 +1656,14 @@ fun NowPlayingScreen(
             // behind it is still transparent at that point, so pulling the
             // banner straight out leaves a frame or two with no artwork anywhere
             // on screen before the card catches up.
-            if (heroMode && !(stillCovered && heroClip != null) &&
+            // A sleeve too small for this region (sleeveTooSmall) does not
+            // get the full-bleed treatment: stretched across it, its pixels
+            // WOULD be the blur this state exists to fix. The compact sleeve
+            // below takes over instead, drawing it at native size over the
+            // same backdrop — one sharp pixel per source pixel — and this
+            // layer simply stays unmounted until a cover big enough arrives
+            // (tier 4 rewrites remoteArt, which re-runs the measurement).
+            if (heroMode && sleeveTooSmall == false && !(stillCovered && heroClip != null) &&
                 (!collapsePastHalf || heroShowing)
             ) {
                 // Dropping this painter (once the canvas is opaque, or while a
@@ -2313,6 +2337,12 @@ fun NowPlayingScreen(
                     // [PlayerArtwork.loaded] alone is not enough: the sleeve and banner
                     // use separate painters, and the banner can still be empty
                     // for a frame after the sleeve reports Success.
+                    // A cover too small for the sleeve (sleeveTooSmall) sheds
+                    // the dark tile, clip and shadow entirely: the tiny
+                    // native-size sleeve floats straight on the backdrop —
+                    // the way a small artwork reads on Apple Music — instead
+                    // of the framed grey square becoming the artwork itself.
+                    val framedSleeve = sleeveTooSmall != true
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
@@ -2326,16 +2356,20 @@ fun NowPlayingScreen(
                                     1f
                                 }
                             }
-                            // A drop shadow grounds a photo; on the flat
-                            // placeholder tile it has nothing to sit behind, so
-                            // it just reads as a second, darker square ringing
-                            // the first. Only cast it once there's actually art.
-                            .shadow(
-                                if (art.loaded) 10.dp else 0.dp,
-                                RoundedCornerShape(8.dp),
-                            )
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(Color.Black.copy(alpha = 0.18f)),
+                            .then(
+                                if (framedSleeve) Modifier
+                                    // A drop shadow grounds a photo; on the flat
+                                    // placeholder tile it has nothing to sit behind, so
+                                    // it just reads as a second, darker square ringing
+                                    // the first. Only cast it once there's actually art.
+                                    .shadow(
+                                        if (art.loaded) 10.dp else 0.dp,
+                                        RoundedCornerShape(8.dp),
+                                    )
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(Color.Black.copy(alpha = 0.18f))
+                                else Modifier,
+                            ),
                         contentAlignment = Alignment.Center,
                     ) {
                         if (!art.loaded && !canvasRendered) {
@@ -2372,7 +2406,14 @@ fun NowPlayingScreen(
                             contentDescription = null,
                             // Video thumbnails are 16:9; letterboxing them inside
                             // the square sleeve looks like a broken frame.
-                            contentScale = ContentScale.Crop,
+                            //
+                            // A cover too small for the sleeve draws at its
+                            // native pixel size instead (None + the box's
+                            // Centre): one sharp pixel per source pixel over
+                            // the backdrop, rather than a 12× smear. The
+                            // full-bleed hero above defers to this layer
+                            // while the cover is small.
+                            contentScale = if (sleeveTooSmall == true) ContentScale.None else ContentScale.Crop,
                             onState = art::onState,
                             // TextureView-backed canvas frames can arrive
                             // before Coil has decoded the sleeve. Alpha alone

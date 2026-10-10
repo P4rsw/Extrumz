@@ -179,12 +179,16 @@ interface MusicTelegramClient {
      * cover at all, so the row would otherwise stay placeholder forever.
      * Null when nothing plausible matched. Default null: fakes and tests
      * without network simply keep today's behaviour.
+     *
+     * [large] is the player's ask: ~1000 px under covers/itl_ instead of the
+     * row's 400 px under it_, for a sleeve drawn across the whole hero.
      */
     suspend fun externalCoverUrl(
         chatId: Long,
         messageId: Long,
         title: String?,
         artist: String?,
+        large: Boolean = false,
     ): String? = null
 
     /**

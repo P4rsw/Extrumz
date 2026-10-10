@@ -1,7 +1,9 @@
 package com.music.bitchord.data.telegram
 
+import android.graphics.BitmapFactory
 import com.music.bitchord.data.db.TelegramDb
 import com.music.bitchord.data.sources.SourceRegistry
+import java.io.File
 import java.util.concurrent.ConcurrentHashMap
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -179,6 +181,83 @@ object Covers {
             TelegramDb.trackDao.setCoverIfEmpty(ids.first, ids.second, url)
             url
         } ?: current
+    }
+
+    /**
+     * Below this, the full-bleed player sleeve is upscale territory: the hero
+     * region is most of the screen (~1080 px on this phone) and a 90 px file
+     * stretched across it is a 12× blow-up — the blur the player was noticed
+     * for. 400 is deliberately the size tier-3 already lands, so those covers
+     * pass untouched and the threshold never spends a byte on artwork that is
+     * already good enough.
+     */
+    const val PLAYER_MIN_PX = 400
+
+    /**
+     * Path behind a LOCAL cover URL (`file:///…`), or null when the URL is
+     * remote or the file is gone — only a file on disk can be measured for
+     * free, which is what [localCoverSize] and [upgradePlayerCover] need.
+     */
+    fun localCoverPath(url: String?): String? {
+        val raw = url?.trim().orEmpty()
+        if (!raw.startsWith("file://")) return null
+        val file = File(raw.removePrefix("file://"))
+        return if (file.isFile) file.path else null
+    }
+
+    /**
+     * The cover's native pixel size: a bounds-only decode (header read — no
+     * pixels, no network), or null when it cannot be had: remote URL, missing
+     * file, unparseable image.
+     */
+    suspend fun localCoverSize(url: String?): Pair<Int, Int>? {
+        val path = localCoverPath(url) ?: return null
+        return withContext(Dispatchers.IO) {
+            val opts = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            // decodeFile answers null for a bounds-only read by design; the
+            // options it filled in are the answer.
+            runCatching { BitmapFactory.decodeFile(path, opts) }
+            if (opts.outWidth > 0 && opts.outHeight > 0) opts.outWidth to opts.outHeight else null
+        }
+    }
+
+    /**
+     * Tier 4 — the player's ask, and the only caller that spends it:
+     * [improveTrackCover] first, then — only when the cover that landed is
+     * still smaller than [PLAYER_MIN_PX], measured off the local file with no
+     * request at all — the same external catalogues at ~1000 px (≈80 KB, and
+     * only once per track ever: the file lands in covers/itl_). The row is
+     * OVERWRITTEN rather than filled-if-empty, because the whole point is to
+     * replace the small cover; every other surface sharpens from that one
+     * write. Covers already large, still on http, or with nothing to match
+     * return with zero extra requests.
+     */
+    suspend fun upgradePlayerCover(
+        videoId: String?,
+        current: String?,
+        title: String? = null,
+        artist: String? = null,
+    ): String? {
+        val base = improveTrackCover(videoId, current, title, artist)
+        val ids = tgIds(videoId) ?: return base
+        // An `it_*` file is tier-3's own product at the catalogue's SMALL
+        // size: it clears the pixel gate on purpose, but the large twin is
+        // exactly what this tier exists for — `itl_` already on disk answers
+        // in one bounds read with zero requests, and a first-ever large
+        // lookup is one memoised pass per track. Telegram's own covers must
+        // still clear the pixel gate, or every play would re-run the lookup
+        // tier-3 already answered.
+        val tier3Sleeve = localCoverPath(base ?: current)?.contains("/it_") == true
+        val size = localCoverSize(base ?: current) ?: return base
+        if (minOf(size.first, size.second) >= PLAYER_MIN_PX && !tier3Sleeve) return base
+        return fetchOnce("xl:${ids.first}:${ids.second}") {
+            val big = Telegram.client.externalCoverUrl(
+                ids.first, ids.second, title, artist, large = true,
+            )
+            if (big.isNullOrBlank()) return@fetchOnce null
+            TelegramDb.trackDao.setCover(ids.first, ids.second, big)
+            big
+        } ?: base
     }
 
     /** [improveTrackCover] for a channel avatar. */

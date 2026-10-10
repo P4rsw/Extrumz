@@ -548,12 +548,14 @@ class AndroidMusicTelegramClient(
         messageId: Long,
         title: String?,
         artist: String?,
+        large: Boolean,
     ): String? = ExternalCovers.lookup(
         File(appContext.filesDir, "covers"),
         chatId,
         messageId,
         title,
         artist,
+        large,
     )
 
     /**

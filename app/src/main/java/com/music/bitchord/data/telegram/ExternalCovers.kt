@@ -15,6 +15,11 @@ import org.json.JSONObject
  * public search — for the title/performer and stores the winning sleeve
  * under covers/it_<chat>_<msg>.jpg.
  *
+ * Two callers, two sizes: a row's tier-3 fills an EMPTY cell with the 400 px
+ * sleeve under it_, while the player's tier-4 ([Covers.upgradePlayerCover],
+ * large=true) asks for ~1000 px under itl_ — a separate file, so a row sleeve
+ * already on disk can never pass itself off as the full-size one.
+ *
  * Matching is fuzzy, not blind: every candidate is scored with a normalized
  * Levenshtein similarity against both the title and the artist and the best
  * one is kept only when it clears [MIN_SCORE] — that accepts real-world
@@ -43,28 +48,44 @@ internal object ExternalCovers {
 
     private const val BITCHORD_UA = "BitChord/1.0 (Android cover lookup)"
 
-    /** Deezer rejects anything that looks like a browser or Android app. */
+    /** Deezer's API rejects anything that looks like a browser or Android app. */
     private const val NO_UA = ""
 
-    /** [noUa]: Deezer's CDN answers HTTP 403 to any User-Agent — download without one. */
-    private data class Candidate(val track: String, val artist: String, val art: String, val noUa: Boolean = false)
+    /**
+     * dzcdn (Deezer's image CDN) is the OPPOSITE of its API: it answers
+     * HTTP 403 to empty, tool and app User-Agents — verified against
+     * cdn-images.dzcdn.net (empty → 403, browser → 200) — and downloads only
+     * with a full browser UA. The API keeps [NO_UA].
+     */
+    private const val BROWSER_UA =
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+
+    /** [deezerCdn]: the art URL lives on dzcdn and must download as a browser. */
+    private data class Candidate(val track: String, val artist: String, val art: String, val deezerCdn: Boolean = false)
 
     /**
      * Returns a `file://` sleeve URL for (chatId, messageId), or null when
      * nothing cleared the score floor. The file name is stable across
      * sessions, so a second lookup for the same track never re-downloads.
      */
-    fun lookup(coversDir: File, chatId: Long, messageId: Long, title: String?, artist: String?): String? {
+    fun lookup(
+        coversDir: File,
+        chatId: Long,
+        messageId: Long,
+        title: String?,
+        artist: String?,
+        large: Boolean = false,
+    ): String? {
         val t = title.orEmpty().trim()
         if (t.isEmpty()) return null
         val a = artist.orEmpty().trim()
 
         return runCatching {
-            val target = File(coversDir, "it_${chatId}_$messageId.jpg")
+            val target = targetFile(coversDir, chatId, messageId, large)
             if (target.exists() && target.length() > 0) return Uri.fromFile(target).toString()
 
             val query = if (a.isNotEmpty()) "$a $t" else t
-            val candidates = searchItunes(query) + searchDeezer(query)
+            val candidates = searchItunes(query, large) + searchDeezer(query, large)
             val best = candidates
                 .map { it to score(t, a, it) }
                 .maxByOrNull { it.second }
@@ -73,11 +94,18 @@ internal object ExternalCovers {
                     "score $MIN_SCORE (${candidates.size} seen) for '$query'")
                 return null
             }
-            val bytes = httpGetBytes(best.first.art, if (best.first.noUa) NO_UA else BITCHORD_UA) ?: return null
-            if (bytes.isEmpty()) return null
+            val ua = if (best.first.deezerCdn) BROWSER_UA else BITCHORD_UA
+            val bytes = httpGetBytes(best.first.art, ua)
+            if (bytes == null || bytes.isEmpty()) {
+                // Previously a bare `return null`, which hid every failed
+                // image fetch behind the D-level GET line — tier-4 then
+                // looked like it had never run.
+                TrackLog.w(TAG, "lookup${if (large) "[large]" else ""}($chatId/$messageId) art download failed: ${best.first.art}")
+                return null
+            }
             target.parentFile?.mkdirs()
             target.writeBytes(bytes)
-            TrackLog.w(TAG, "lookup($chatId/$messageId) -> ${best.first.artist} – " +
+            TrackLog.w(TAG, "lookup${if (large) "[large]" else ""}($chatId/$messageId) -> ${best.first.artist} – " +
                 "${best.first.track} (score ${"%.2f".format(best.second)})")
             Uri.fromFile(target).toString()
         }.onFailure { e ->
@@ -87,7 +115,15 @@ internal object ExternalCovers {
 
     // ---------------------------------------------------------------- providers
 
-    private fun searchItunes(term: String): List<Candidate> {
+    /** Where a lookup's sleeve lands; itl_/it_ keep the two sizes apart. */
+    internal fun targetFile(coversDir: File, chatId: Long, messageId: Long, large: Boolean): File =
+        File(coversDir, (if (large) "itl_" else "it_") + "${chatId}_$messageId.jpg")
+
+    /** iTunes serves every size off the same URL — swap the size token. */
+    internal fun itunesArt(artworkUrl100: String, large: Boolean): String =
+        artworkUrl100.replace("100x100bb.jpg", if (large) "1000x1000bb.jpg" else "400x400bb.jpg")
+
+    private fun searchItunes(term: String, large: Boolean): List<Candidate> {
         val body = try {
             httpGetString(ITUNES + Uri.encode(term), BITCHORD_UA)
         } catch (e: Exception) {
@@ -106,15 +142,14 @@ internal object ExternalCovers {
                     Candidate(
                         track = r.optString("trackName"),
                         artist = r.optString("artistName"),
-                        art = r.optString("artworkUrl100")
-                            .replace("100x100bb.jpg", "400x400bb.jpg"),
+                        art = itunesArt(r.optString("artworkUrl100"), large),
                     )
                 )
             }
         }
     }
 
-    private fun searchDeezer(term: String): List<Candidate> {
+    private fun searchDeezer(term: String, large: Boolean): List<Candidate> {
         val body = try {
             httpGetString(DEEZER + Uri.encode(term), NO_UA)
         } catch (e: Exception) {
@@ -130,15 +165,21 @@ internal object ExternalCovers {
             for (i in 0 until minOf(data.length(), 5)) {
                 val r = data.optJSONObject(i) ?: continue
                 val cover = r.optJSONObject("album") ?: continue
-                // cover_big (500px) when present, cover_medium (250px) otherwise.
-                val art = cover.optString("cover_big").ifEmpty { cover.optString("cover_medium") }
+                // large → cover_xl (1000px) through cover_big (500px); the row's
+                // ask takes cover_big (500px) through cover_medium (250px) —
+                // enough for a thumbnail, not for a full-screen hero.
+                val art = if (large) {
+                    cover.optString("cover_xl").ifEmpty { cover.optString("cover_big") }
+                } else {
+                    cover.optString("cover_big").ifEmpty { cover.optString("cover_medium") }
+                }
                 if (art.isEmpty()) continue
                 add(
                     Candidate(
                         track = r.optString("title"),
                         artist = r.optJSONObject("artist")?.optString("name").orEmpty(),
                         art = art,
-                        noUa = true,
+                        deezerCdn = true,
                     )
                 )
             }
@@ -192,10 +233,12 @@ internal object ExternalCovers {
             conn.connectTimeout = CONNECT_TIMEOUT_MS
             conn.readTimeout = READ_TIMEOUT_MS
             conn.instanceFollowRedirects = true
-            // Deezer silently returns an EMPTY result set for browser/app-like
-            // User-Agents (Dalvik, Mozilla, BitChord) and only honours requests
-            // with no UA or a tool-like one — verified with adb curl on device.
-            // An empty header value clears Android's default "Dalvik/..." UA.
+            // Deezer's API silently returns an EMPTY result set for
+            // browser/app-like User-Agents (Dalvik, Mozilla, BitChord) and
+            // only honours requests with no UA — verified with adb curl on
+            // device. Its image CDN wants the exact opposite (BROWSER_UA);
+            // the caller picks per host. An empty header value clears
+            // Android's default "Dalvik/..." UA.
             conn.setRequestProperty("User-Agent", userAgent.orEmpty())
             if (conn.responseCode != 200) {
                 TrackLog.d(TAG, "GET $url -> HTTP ${conn.responseCode}")
