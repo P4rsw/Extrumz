@@ -250,6 +250,48 @@ object Covers {
         val tier3Sleeve = localCoverPath(base ?: current)?.contains("/it_") == true
         val size = localCoverSize(base ?: current) ?: return base
         if (minOf(size.first, size.second) >= PLAYER_MIN_PX && !tier3Sleeve) return base
+        // Tier 0: the artwork carried inside the audio file itself — the
+        // sleeve the release shipped with, read off the very bytes being
+        // played, so no network and no catalogue guess can put the wrong
+        // picture on the row. This is what turns a title posted WITHOUT a
+        // cover (message thumb only, ~90 px) back into a full-size sleeve
+        // on the next play. Deliberately NOT miss-memoized: GetFile answers
+        // locally and the parse reads only the header, so a file still
+        // streaming simply fails THIS pass and the next play finds the
+        // finished bytes — a memo would freeze the row on a temporary state.
+        val ekey = "e:${ids.first}:${ids.second}"
+        val embedded = if (active.putIfAbsent(ekey, true) != null) {
+            null // another upgrade of this track is already mid-flight
+        } else {
+            try {
+                withContext(Dispatchers.IO) {
+                    val track = TelegramDb.trackDao.getByChatAndMessage(ids.first, ids.second)
+                        ?: return@withContext null
+                    val art = Telegram.client.embeddedTrackCoverUrl(track.fileId, track.fileUniqueId)
+                    if (art != null) {
+                        // The row keeps it for lists and every future
+                        // session: the cover belongs to the release, not
+                        // to this player instance.
+                        TelegramDb.trackDao.setCover(ids.first, ids.second, art)
+                    }
+                    art
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Throwable) {
+                null
+            } finally {
+                active.remove(ekey)
+            }
+        }
+        if (embedded != null) {
+            val embeddedSize = localCoverSize(embedded)
+            // Below the player gate it is no better than what is already
+            // there — carry on to the external catalogues instead.
+            if (embeddedSize != null && minOf(embeddedSize.first, embeddedSize.second) >= PLAYER_MIN_PX) {
+                return embedded
+            }
+        }
         return fetchOnce("xl:${ids.first}:${ids.second}") {
             val big = Telegram.client.externalCoverUrl(
                 ids.first, ids.second, title, artist, large = true,

@@ -558,6 +558,45 @@ class AndroidMusicTelegramClient(
         large,
     )
 
+    override suspend fun embeddedTrackCoverUrl(fileId: String?, expectedUniqueId: String?): String? {
+        val id = fileId?.toIntOrNull() ?: return null
+        awaitReady()
+        // GetFile answers from TDLib's local state and does NOT pull the
+        // file: this runs even when only the first streamed chunks exist,
+        // and costs no network when the file is already complete.
+        val file = runCatchingCancellable { send(TdApi.GetFile(id)) }
+            .getOrElse { return null }
+        // The stale-id guard: an id that now resolves to a different file
+        // must not lend its artwork to this track — same rule as playback.
+        val unique = file.remote?.uniqueId
+        if (!expectedUniqueId.isNullOrBlank() && !unique.isNullOrBlank() && unique != expectedUniqueId) {
+            TrackLog.w(TAG, "Embedded art: stale fileId $fileId (unique $unique, expected $expectedUniqueId)")
+            return null
+        }
+        val path = file.local?.path
+        if (path.isNullOrBlank()) return null
+        val art = runCatchingCancellable { EmbeddedArt.largest(File(path)) }
+            .getOrElse {
+                TrackLog.w(TAG, "Embedded art read failed for fileId $fileId: ${it.message}")
+                return null
+            } ?: return null
+        // Keyed by the remote unique id (session-stable, like hq_ covers),
+        // so one play writes it and every later session finds it already
+        // on disk — the parse never repeats.
+        val key = unique?.takeIf { it.isNotBlank() } ?: fileId
+        val ext = if (art.mimeType == "image/png") "png" else if (art.mimeType == "image/webp") "webp" else "jpg"
+        val target = File(File(appContext.filesDir, "covers").apply { mkdirs() }, "emb_$key.$ext")
+        if (!target.exists()) {
+            runCatchingCancellable { target.writeBytes(art.bytes) }
+                .getOrElse {
+                    TrackLog.w(TAG, "Embedded art write failed for $fileId: ${it.message}")
+                    return null
+                }
+        }
+        TrackLog.d(TAG, "Embedded art for fileId $fileId -> ${target.name} (${art.bytes.size} bytes, ${art.mimeType})")
+        return Uri.fromFile(target).toString()
+    }
+
     /**
      * Fetches one artwork file, copies it into covers/ under a key that is
      * stable across sessions (the remote's unique id, not this session's file

@@ -192,6 +192,22 @@ interface MusicTelegramClient {
     ): String? = null
 
     /**
+     * Tier 0 artwork: the cover the release itself carries, embedded in
+     * the audio file's own header (ID3v2 APIC / FLAC PICTURE). It reads
+     * the local copy TDLib already has on disk — no network, no catalogue
+     * guess — and persists the picture into covers/ under emb_<unique>,
+     * returning a file:// URL. Null when the file is not downloaded yet,
+     * carries no picture, or the picture is unreadable; the caller then
+     * falls through to the external catalogues exactly as before. Default
+     * null: fakes and tests keep today's behaviour.
+     *
+     * [expectedUniqueId] guards the same stale-id trap as getStreamPath:
+     * a stored fileId that now resolves to a different file must not
+     * contribute THAT file's art to this track's row.
+     */
+    suspend fun embeddedTrackCoverUrl(fileId: String?, expectedUniqueId: String?): String? = null
+
+    /**
      * Candidate chats worth scanning (channels/supergroups): every dialog in
      * the main list plus the archive list, each capped at
      * [TelegramConfig.MAX_TOP_CHATS] — an archived channel must appear here,
