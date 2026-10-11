@@ -121,7 +121,6 @@ import com.music.bitchord.data.settings.OutputPcmMode
 import com.music.bitchord.playback.AudioOutputStatus
 import com.music.bitchord.data.settings.AutomixPerformanceMode
 import com.music.bitchord.R
-import com.music.bitchord.data.settings.AudioQuality
 import com.music.bitchord.data.settings.ThemeMode
 import com.music.bitchord.data.stats.Backup
 import com.music.bitchord.playback.AudioCache
@@ -153,7 +152,6 @@ fun SettingsScreen(
 ) {
     val context = LocalContext.current
 
-    val audioQuality by AppSettings.audioQuality.collectAsStateWithLifecycle()
     val metered by AppSettings.meteredConnection.collectAsStateWithLifecycle()
     val crossfade by AppSettings.crossfadeSeconds.collectAsStateWithLifecycle()
     val smartFade by AppSettings.smartFadeEnabled.collectAsStateWithLifecycle()
@@ -208,7 +206,6 @@ fun SettingsScreen(
     // Filters the rows below — see [SettingsSearch]. Blank shows everything,
     // exactly as if the field weren't there.
     var searchQuery by remember { mutableStateOf("") }
-    var pickingQuality by remember { mutableStateOf(false) }
     var pickingAutomixPerformance by remember { mutableStateOf(false) }
     // What the last export or import did, shown on the row that did it rather
     // than as a toast: a backup is the one action here whose outcome nobody can
@@ -329,24 +326,6 @@ fun SettingsScreen(
             placeholder = stringResource(R.string.settings_search_hint),
             modifier = Modifier.padding(start = 20.dp, end = 20.dp, bottom = 4.dp),
         )
-
-        // One ceiling, one row: the Wi-Fi/mobile split answered a question the
-        // phone's data plan had already answered, and with one source in the
-        // ring it never changed what was fetched either. A ceiling rather than
-        // a target — a source that cannot produce audio at or under the rung
-        // is not offered at all, see
-        // [SourceRegistry.activeForPlayback][com.music.bitchord.data.sources.SourceRegistry.activeForPlayback].
-        SearchableSettingsGroup(search, header = stringResource(R.string.audio_quality)) {
-            val streamQualityTitle = stringResource(R.string.stream_quality)
-            row(streamQualityTitle, "wi-fi", "cellular", "streaming quality", "کیفیت", "کیفیت پخش", "استریم", "پخش آنلاین", "وای فای") {
-                SettingsRow(
-                    icon = Icons.Rounded.Wifi,
-                    title = streamQualityTitle,
-                    value = audioQuality.localizedLabel(),
-                    onClick = { pickingQuality = true },
-                )
-            }
-        }
 
         // Its own group rather than rows bolted onto the two above, because a
         // download is not a third kind of connection. The ceilings answer "what
@@ -1116,21 +1095,6 @@ fun SettingsScreen(
         }
     }
 
-    if (pickingQuality) {
-        ModalBottomSheet(
-            onDismissRequest = { pickingQuality = false },
-            containerColor = MaterialTheme.colorScheme.background,
-        ) {
-            QualitySheet(
-                selected = audioQuality,
-                onSelect = { quality ->
-                    AppSettings.setAudioQuality(quality)
-                    pickingQuality = false
-                },
-            )
-        }
-    }
-
     if (pickingAutomixPerformance) {
         ModalBottomSheet(
             onDismissRequest = { pickingAutomixPerformance = false },
@@ -1234,16 +1198,6 @@ private fun Context.countOfMonths(months: Int): String = if (months == 0) {
 }
 
 @Composable
-private fun AudioQuality.localizedLabel(): String = stringResource(
-    when (this) {
-        AudioQuality.LOW -> R.string.low
-        AudioQuality.MEDIUM -> R.string.medium
-        AudioQuality.HIGH -> R.string.high
-        AudioQuality.LOSSLESS -> R.string.lossless
-    },
-)
-
-@Composable
 private fun ThemeMode.localizedLabel(): String = stringResource(
     when (this) {
         ThemeMode.SYSTEM -> R.string.system
@@ -1278,32 +1232,6 @@ internal fun openEqualizer(context: Context, sessionId: Int) {
     }
 }
 
-/**
- * What one rung costs per hour, and what it asks a source for. Kept out of the
- * enums for the same reason [localizedLabel] is: a description written in the
- * app's own language belongs to the UI, and Kotlin has no business holding the
- * English copy of a sentence a Persian reader is about to see.
- */
-@Composable
-private fun AudioQuality.localizedHourly(): String = stringResource(
-    when (this) {
-        AudioQuality.LOW -> R.string.quality_hourly_low
-        AudioQuality.MEDIUM -> R.string.quality_hourly_medium
-        AudioQuality.HIGH -> R.string.quality_hourly_high
-        AudioQuality.LOSSLESS -> R.string.quality_hourly_lossless
-    },
-)
-
-@Composable
-private fun AudioQuality.localizedDetail(): String = stringResource(
-    when (this) {
-        AudioQuality.LOW -> R.string.quality_detail_low
-        AudioQuality.MEDIUM -> R.string.quality_detail_medium
-        AudioQuality.HIGH -> R.string.quality_detail_high
-        AudioQuality.LOSSLESS -> R.string.quality_detail_lossless
-    },
-)
-
 /** Above this, the cache limit slider's subtitle warns rather than reassures. */
 private const val CACHE_WARNING_MB = 2048
 
@@ -1312,76 +1240,6 @@ private fun formatCacheSize(mb: Int): String {
     if (mb < 1024) return "$mb MB"
     val gb = mb / 1024f
     return if (gb == gb.toInt().toFloat()) "${gb.toInt()} GB" else "%.1f GB".format(Locale.ROOT, gb)
-}
-
-/** The quality options, with what each costs in data. */
-@Composable
-private fun QualitySheet(
-    selected: AudioQuality,
-    onSelect: (AudioQuality) -> Unit,
-) {
-    val haptics = LocalHapticFeedback.current
-    Column(Modifier.fillMaxWidth().padding(bottom = 24.dp)) {
-        Row(
-            modifier = Modifier.padding(start = 22.dp, end = 22.dp, bottom = 14.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Icon(
-                imageVector = Icons.Rounded.Wifi,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onBackground,
-                modifier = Modifier.size(22.dp),
-            )
-            Spacer(Modifier.width(14.dp))
-            Text(
-                text = stringResource(R.string.audio_quality),
-                style = MaterialTheme.typography.titleLarge,
-                color = MaterialTheme.colorScheme.onBackground,
-            )
-        }
-        HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outline)
-
-        // Best first — the option most people want shouldn't be last.
-        AudioQuality.entries.reversed().forEach { quality ->
-            val chosen = quality == selected
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable {
-                        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                        onSelect(quality)
-                    }
-                    .padding(horizontal = 22.dp, vertical = 14.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Column(Modifier.weight(1f)) {
-                    Text(
-                        text = quality.localizedLabel(),
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onBackground,
-                    )
-                    Text(
-                        text = stringResource(
-                            R.string.quality_hourly,
-                            quality.localizedDetail(),
-                            quality.localizedHourly(),
-                        ),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                if (chosen) {
-                    Spacer(Modifier.width(12.dp))
-                    Icon(
-                        Icons.Rounded.Check,
-                        contentDescription = stringResource(R.string.selected),
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(22.dp),
-                    )
-                }
-            }
-        }
-    }
 }
 
 /** CPU budget picker for the background models that prepare Automix. */

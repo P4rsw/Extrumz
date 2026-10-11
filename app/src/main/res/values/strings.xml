@@ -210,8 +210,6 @@
     
     <string name="switch_to_grid_view">Switch to grid view</string>
     <string name="switch_to_list_view">Switch to list view</string>
-    <string name="audio_quality">Audio quality</string>
-    <string name="stream_quality">Stream quality</string>
     <string name="playback">Playback</string>
     <string name="appearance">Appearance</string>
     <string name="storage">Storage</string>
@@ -308,9 +306,6 @@
     <string name="hide_song_status">Hide Song Status</string>
     <string name="hide_song_status_subtitle">Hides the “Playing from” or “Played by” text in the main player</string>
     <string name="off">Off</string>
-    <string name="low">Low</string>
-    <string name="medium">Medium</string>
-    <string name="high">High</string>
     <string name="standard">Standard</string>
     <string name="lossless">Lossless</string>
     <string name="system">System</string>
@@ -579,7 +574,6 @@
     
     <string name="prioritize_syllable_lyrics">Prioritize syllable lyrics</string>
     <string name="prioritize_syllable_lyrics_subtitle">Keep searching past a line-synced match for word-by-word lyrics</string>
-    <string name="quality_hourly">%1$s · %2$s</string>
     <string name="queued">Queued</string>
     <string name="remove">Remove</string>
     <string name="remove_from_liked">Remove from Liked Music</string>
@@ -1134,4 +1128,4 @@
     <string name="tg_retry">Try again</string>
     <string name="tg_close">Close</string>
 
-    <string name="quality_detail_low">~64 kbps · smallest download</string>    <string name="quality_detail_medium">Best available · ~171 kbps Opus</string>    <string name="quality_detail_high">Best rendition on offer</string>    <string name="quality_detail_lossless">Bit-exact where available</string>    <string name="quality_hourly_low">29 MB/hr</string>    <string name="quality_hourly_medium">77 MB/hr</string>    <string name="quality_hourly_high">144 MB/hr</string>    <string name="quality_hourly_lossless">300+ MB/hr</string></resources>
+</resources>

@@ -130,8 +130,6 @@
     <string name="show_all">نمایش همه</string>
     <string name="switch_to_grid_view">تغییر به نمای شبکه‌ای</string>
     <string name="switch_to_list_view">تغییر به نمای فهرستی</string>
-    <string name="audio_quality">کیفیت صدا</string>
-    <string name="stream_quality">کیفیت پخش آنلاین</string>
     <string name="playback">پخش</string>
     <string name="appearance">ظاهر</string>
     <string name="storage">فضای ذخیرهسازی</string>
@@ -227,9 +225,6 @@
     <string name="hide_song_status">مخفی کردن وضعیت آهنگ</string>
     <string name="hide_song_status_subtitle">متن «در حال پخش از» یا «پخش‌شده توسط» را در پخش‌کننده اصلی مخفی می‌کند</string>
     <string name="off">خاموش</string>
-    <string name="low">پایین</string>
-    <string name="medium">متوسط</string>
-    <string name="high">بالا</string>
     <string name="standard">استاندارد</string>
     <string name="lossless">بدون افت کیفیت</string>
     <string name="system">سیستم</string>
@@ -410,7 +405,6 @@
     <string name="pause_countdown">%1$s تا توقف موقت پخش</string>
     <string name="prioritize_syllable_lyrics">اولویت دادن به متن آهنگ هجابه‌هجا</string>
     <string name="prioritize_syllable_lyrics_subtitle">ادامه جستجو فرا‌تر از همگام‌سازی سطری برای متن‌های کلمه‌به‌کلمه</string>
-    <string name="quality_hourly">%1$s · %2$s</string>
     <string name="queued">به صف پخش اضافه شد</string>
     <string name="remove">حذف</string>
     <string name="remove_from_liked">حذف از آهنگ‌های پسندیده‌شده</string>
@@ -660,4 +654,4 @@
     <string name="tg_scan_failed">اتصال به تلگرام برقرار نشد — چت‌ها بالا نیامدند؛ دوباره امتحان کن.</string>
     <string name="tg_retry">تلاش دوباره</string>
     <string name="tg_close">بستن</string>
-    <string name="quality_detail_low">حدود 64 kbps · کمترین حجم دانلود</string>    <string name="quality_detail_medium">بهترین کیفیت موجود · حدود 171 kbps با Opus</string>    <string name="quality_detail_high">بهترین نسخه‌ای که منبع دارد</string>    <string name="quality_detail_lossless">بیت‌به‌بیت، جایی که موجود باشد</string>    <string name="quality_hourly_low">29 MB در ساعت</string>    <string name="quality_hourly_medium">77 MB در ساعت</string>    <string name="quality_hourly_high">144 MB در ساعت</string>    <string name="quality_hourly_lossless">300+ MB در ساعت</string></resources>
+</resources>
