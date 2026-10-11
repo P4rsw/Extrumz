@@ -316,24 +316,11 @@ object SourceResolver {
      * @param target the recording to look for, off the row being downloaded. A
      *   blank title can only produce a wrong match; a null runtime is allowed
      *   and costs the length check rather than the search.
-     * @param request what the download is for, pinned by the caller for the
-     *   duration of one file — see [requestForDownload].
      */
     suspend fun forDownload(
         target: TrackMatcher.Target,
-        request: StreamRequest = requestForDownload(),
     ): SourceStream? = coroutineScope {
         if (target.title.isBlank()) return@coroutineScope null
-        val wantsLossless = when (request) {
-            is StreamRequest.Lossless -> true
-            is StreamRequest.Best -> false
-            // Standard, and the one rung the sources are no use for: it is a
-            // ceiling of 128kbps chosen to fit more on the device, and a source
-            // has no way to be asked for *that* rung rather than for the best it
-            // has. A 320 is not a better answer to it, it is the wrong answer to
-            // it.
-            is StreamRequest.Capped -> return@coroutineScope null
-        }
         // [SourceRegistry.active] rather than the playback list: a download is
         // not budgeted by the connection's streaming ceiling. What it keeps is
         // decided by what a source holds, and what it may spend is
@@ -343,12 +330,7 @@ object SourceResolver {
         val strictLength = target.durationSec != null
 
         // Who is in the bit-exact walk, and who is left to the race below it.
-        //
-        // On the High rung nobody is: there is no lossless answer to look for,
-        // so every source goes into the race and competes on rendition
-        // alone. That is what puts a 320 in front of a thinner rendition for
-        // a setting whose own description is "best AAC on offer".
-        val bitExact = if (wantsLossless) ranked.filter { it.kind.canServeLossless } else emptyList()
+        val bitExact = ranked.filter { it.kind.canServeLossless }
         val elsewhere = ranked - bitExact.toSet()
 
         // Asked now, read at the end — and raced rather than walked, because
@@ -362,30 +344,13 @@ object SourceResolver {
             bestAcross(
                 elsewhere,
                 target,
-                // Their best lossy rendition, whichever rung is being served.
-                // Putting the lossless request to a source that cannot meet it
-                // would only come back marked [SourceStream.belowRequest] to
-                // say so.
+                // Their best lossy rendition. Putting the lossless request to
+                // a source that cannot meet it would only come back marked
+                // [SourceStream.belowRequest] to say so.
                 StreamRequest.Best,
                 waitForAll = true,
                 strictLength = strictLength,
-            ) { source, stream ->
-                // Bit-exact audio is *over* budget on the High rung, not a
-                // bonus on it. Someone who picked High over Lossless picked the
-                // ~8MB file, and a FLAC filed under this setting would also be
-                // missed by the already-on-disk check in `Downloads.prepare`,
-                // which only looks for lossless extensions when the setting
-                // keeps lossless — so it would be re-downloaded every time.
-                val ok = wantsLossless || stream.format.isLossless != true
-                if (!ok) {
-                    TrackLog.d(
-                        TAG,
-                        "${source.displayName} offered ${stream.format.summary}; " +
-                            "more than this download asked for",
-                    )
-                }
-                ok
-            }
+            )
         }
 
         // The best lossy copy seen so far and who offered it — carried together
@@ -396,9 +361,10 @@ object SourceResolver {
             val stream = matchAndStream(
                 source,
                 target,
-                // The request the guard above already narrowed, rather than a
-                // second statement of it that could drift from the first.
-                request,
+                // Bit-exact is what put this source in the walk, so bit-exact is
+                // what is asked for. [requestForDownload] rather than a literal,
+                // so the policy stays stated in one place.
+                requestForDownload(),
                 waitForAll = true,
                 strictLength = strictLength,
             ) ?: continue

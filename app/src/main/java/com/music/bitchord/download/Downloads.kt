@@ -953,9 +953,16 @@ object Downloads {
                 // download it was only meant to decorate.
                 // HLS has no tag container, but its private offline package has
                 // sidecars for exactly the same lyrics and full-resolution cover.
+                // Artwork for every format, not only the taggable ones. It is
+                // embedded where there is a container to embed it in, and saved
+                // as a sidecar either way — and the Downloads page reads the
+                // sidecar when the file is offline. Gating this on carriesTags
+                // meant an mp3 or an Ogg download came back from a tunnel with
+                // no cover at all, because those two are the ones the taggers
+                // do not know.
+                artwork = async { MediaTagger.artworkFor(context, track) }
                 if (route.taggable && (route.offlineHls != null || MediaTagger.carriesTags(route.extension))) {
                     lyrics = async { LyricsTag.forTrack(track) }
-                    artwork = async { MediaTagger.artworkFor(context, track) }
                 }
 
                 val name = DownloadStore.fileNameFor(track, route.extension)
@@ -1151,10 +1158,7 @@ object Downloads {
         var timedOut = true
         val stream = withTimeoutOrNull(SOURCE_LOOKUP_MS) {
             try {
-                SourceResolver.forDownload(
-                    TrackMatcher.targetOf(track),
-                    SourceResolver.requestForDownload(),
-                )
+                SourceResolver.forDownload(TrackMatcher.targetOf(track))
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {

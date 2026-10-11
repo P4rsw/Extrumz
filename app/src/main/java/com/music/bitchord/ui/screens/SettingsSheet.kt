@@ -354,8 +354,6 @@ fun SettingsScreen(
         // it be fetched" — and those two questions only make sense read
         // together, which is what puts them side by side here.
         SearchableSettingsGroup(search, header = stringResource(R.string.downloads)) {
-            // of its own — same treatment as Play animated cover over
-            // cellular gets under Animated cover art.
             val downloadWifiOnlyTitle = stringResource(R.string.download_wifi_only)
             row(downloadWifiOnlyTitle, "wi-fi", "cellular", "دانلود", "وای فای", "فقط وای فای", "اینترنت همراه", divided = false) {
                 SettingsSubRow(
