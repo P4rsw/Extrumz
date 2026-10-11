@@ -1138,4 +1138,4 @@
     <string name="tg_retry">Try again</string>
     <string name="tg_close">Close</string>
 
-</resources>
+    <string name="quality_detail_low">~64 kbps · smallest download</string>    <string name="quality_detail_medium">Best available · ~171 kbps Opus</string>    <string name="quality_detail_high">Best rendition on offer</string>    <string name="quality_detail_lossless">Bit-exact where available</string>    <string name="quality_hourly_low">29 MB/hr</string>    <string name="quality_hourly_medium">77 MB/hr</string>    <string name="quality_hourly_high">144 MB/hr</string>    <string name="quality_hourly_lossless">300+ MB/hr</string>    <string name="download_detail_standard">~128 kbps Opus · fits more on the device</string>    <string name="download_detail_high">Best audio on offer, source quality first</string>    <string name="download_detail_lossless">Bit-exact if a source has it, best Opus if not</string>    <string name="download_per_track_standard">~4 MB</string>    <string name="download_per_track_high">~8 MB</string>    <string name="download_per_track_lossless">~35 MB</string></resources>

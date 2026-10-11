@@ -49,6 +49,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
@@ -233,11 +234,23 @@ fun GlassNavBar(
                             style = MaterialTheme.typography.labelSmall,
                             color = tint,
                             maxLines = 1,
+                            // softWrap=false is the actual fix, and it is not a
+                            // layout preference. The letter was never "too
+                            // wide" for the box: a loose constraint closes the
+                            // line at the text's intrinsic width, shaped Persian
+                            // is wider than that measurement, so Compose sent the
+                            // final letter to a second line that nothing showed
+                            // («کتابخان» for «کتابخانه»). Refusing to wrap removes
+                            // the second line the letter was escaping to.
+                            softWrap = false,
+                            textAlign = TextAlign.Center,
                             overflow = TextOverflow.Ellipsis,
-                            // The library's Tab stacks the glyph and the label
-                            // with nothing between them; the plain bar spaces
-                            // them, and this is where that gap goes.
-                            modifier = Modifier.padding(top = TAB_ICON_LABEL_GAP),
+                            // fillMaxWidth then pins the constraint so the
+                            // shaping engine gets the real box, not an
+                            // intrinsic guess. The gap stays on top.
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = TAB_ICON_LABEL_GAP),
                         )
                     },
                     onClick = onClick,

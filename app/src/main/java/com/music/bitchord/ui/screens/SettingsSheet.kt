@@ -312,11 +312,18 @@ fun SettingsScreen(
             .verticalScroll(scrollState)
             .padding(contentPadding),
     ) {
+        // fillMaxWidth before the padding, per the fix that landed for the
+        // channel shelf (see the letter-break entry in MASTER_LIST). Without a
+        // fixed width Compose closes the line at the text's intrinsic width,
+        // shaped Persian is wider than that, and the last letter is sent to a
+        // second line that draws as nothing — «تنظیما» over «ت».
         Text(
             text = stringResource(R.string.settings),
             style = MaterialTheme.typography.displayLarge,
             color = MaterialTheme.colorScheme.onBackground,
-            modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 14.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 14.dp),
         )
         SearchField(
             query = searchQuery,
@@ -355,7 +362,10 @@ fun SettingsScreen(
                 SettingsRow(
                     icon = Icons.Rounded.Download,
                     title = downloadQualityTitle,
-                    subtitle = stringResource(R.string.download_quality_subtitle, downloadQuality.perTrack),
+                    subtitle = stringResource(
+                        R.string.download_quality_subtitle,
+                        downloadQuality.localizedPerTrack(),
+                    ),
                     value = downloadQuality.localizedLabel(),
                     onClick = { pickingDownloadQuality = true },
                 )
@@ -1312,6 +1322,50 @@ internal fun openEqualizer(context: Context, sessionId: Int) {
     }
 }
 
+/**
+ * What one rung costs per hour, and what it asks a source for. Kept out of the
+ * enums for the same reason [localizedLabel] is: a description written in the
+ * app's own language belongs to the UI, and Kotlin has no business holding the
+ * English copy of a sentence a Persian reader is about to see.
+ */
+@Composable
+private fun AudioQuality.localizedHourly(): String = stringResource(
+    when (this) {
+        AudioQuality.LOW -> R.string.quality_hourly_low
+        AudioQuality.MEDIUM -> R.string.quality_hourly_medium
+        AudioQuality.HIGH -> R.string.quality_hourly_high
+        AudioQuality.LOSSLESS -> R.string.quality_hourly_lossless
+    },
+)
+
+@Composable
+private fun AudioQuality.localizedDetail(): String = stringResource(
+    when (this) {
+        AudioQuality.LOW -> R.string.quality_detail_low
+        AudioQuality.MEDIUM -> R.string.quality_detail_medium
+        AudioQuality.HIGH -> R.string.quality_detail_high
+        AudioQuality.LOSSLESS -> R.string.quality_detail_lossless
+    },
+)
+
+@Composable
+private fun DownloadQuality.localizedDetail(): String = stringResource(
+    when (this) {
+        DownloadQuality.STANDARD -> R.string.download_detail_standard
+        DownloadQuality.HIGH -> R.string.download_detail_high
+        DownloadQuality.LOSSLESS -> R.string.download_detail_lossless
+    },
+)
+
+@Composable
+private fun DownloadQuality.localizedPerTrack(): String = stringResource(
+    when (this) {
+        DownloadQuality.STANDARD -> R.string.download_per_track_standard
+        DownloadQuality.HIGH -> R.string.download_per_track_high
+        DownloadQuality.LOSSLESS -> R.string.download_per_track_lossless
+    },
+)
+
 /** Above this, the cache limit slider's subtitle warns rather than reassures. */
 private const val CACHE_WARNING_MB = 2048
 
@@ -1369,7 +1423,11 @@ private fun QualitySheet(
                         color = MaterialTheme.colorScheme.onBackground,
                     )
                     Text(
-                        text = stringResource(R.string.quality_hourly, quality.detail, quality.hourly),
+                        text = stringResource(
+                            R.string.quality_hourly,
+                            quality.localizedDetail(),
+                            quality.localizedHourly(),
+                        ),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -1528,7 +1586,11 @@ private fun DownloadQualitySheet(
                         color = MaterialTheme.colorScheme.onBackground,
                     )
                     Text(
-                        text = stringResource(R.string.quality_per_track, quality.detail, quality.perTrack),
+                        text = stringResource(
+                            R.string.quality_per_track,
+                            quality.localizedDetail(),
+                            quality.localizedPerTrack(),
+                        ),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -1659,16 +1721,28 @@ internal fun SettingsGroup(
     content: @Composable () -> Unit,
 ) {
     if (header != null) {
+        // softWrap=false is the fix, and it is not a layout preference. The
+        // letter was never too wide for the box: a loose constraint closes the
+        // line at the text's intrinsic width, shaped Persian is wider than
+        // that measurement, and Compose sent the final letter to a second line
+        // nothing drew («تنظیما» for «تنظیمات»). Refusing to wrap removes the
+        // second line the letter was escaping to. fillMaxWidth then pins the
+        // constraint so shaping gets the real box, not an intrinsic guess.
         Text(
             text = header.uppercase(Locale.ROOT),
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(
-                start = GROUP_INSET + 4.dp,
-                end = GROUP_INSET,
-                top = 26.dp,
-                bottom = 8.dp,
-            ),
+            maxLines = 1,
+            softWrap = false,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(
+                    start = GROUP_INSET + 4.dp,
+                    end = GROUP_INSET,
+                    top = 26.dp,
+                    bottom = 8.dp,
+                ),
         )
     } else {
         Spacer(Modifier.height(topSpacing))

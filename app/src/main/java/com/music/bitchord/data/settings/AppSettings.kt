@@ -28,14 +28,19 @@ import kotlinx.coroutines.flow.MutableStateFlow
  */
 enum class AudioQuality(
     val maxKbps: Int,
+    /**
+     * The rung's English name, and deliberately not localised: it is the tag
+     * a log line carries when a download or a source lookup needs naming, and
+     * a tag that changes language under a reader grepping for it is a tag
+     * nobody can find. What the *picker* reads comes from
+     * `localizedLabel()` in the UI, which owns the copy a person sees.
+     */
     val label: String,
-    val detail: String,
-    val hourly: String,
 ) {
-    LOW(64, "Low", "~64 kbps · smallest download", "29 MB/hr"),
-    MEDIUM(Int.MAX_VALUE, "Medium", "Best available · ~171 kbps Opus", "77 MB/hr"),
-    HIGH(Int.MAX_VALUE, "High", "Best rendition on offer", "144 MB/hr"),
-    LOSSLESS(Int.MAX_VALUE, "Lossless", "Bit-exact where available", "300+ MB/hr"),
+    LOW(64, "Low"),
+    MEDIUM(Int.MAX_VALUE, "Medium"),
+    HIGH(Int.MAX_VALUE, "High"),
+    LOSSLESS(Int.MAX_VALUE, "Lossless"),
     ;
 
     /**
@@ -95,22 +100,18 @@ enum class OutputPcmMode(val label: String) {
 enum class DownloadQuality(
     /** Ceiling for a lossy fallback download. [Int.MAX_VALUE] means "whichever rung is best". */
     val maxKbps: Int,
+    /**
+     * The rung's English name — kept out of translation on purpose, for the
+     * same reason [AudioQuality.label] is: a log tag that swaps language
+     * between builds is a tag a grep will not find.
+     */
     val label: String,
-    val detail: String,
-    /** Roughly what one four-minute track costs at this rung, sans unit context. */
-    val perTrack: String,
     /** Whether a source's bit-exact file is worth keeping, or a transcode will do. */
     val keepsLossless: Boolean,
 ) {
-    STANDARD(128, "Standard", "~128 kbps Opus · fits more on the device", "~4 MB", false),
-    HIGH(Int.MAX_VALUE, "High", "Best audio on offer; source quality first", "~8 MB", false),
-    LOSSLESS(
-        Int.MAX_VALUE,
-        "Lossless",
-        "Bit-exact if a source has it, best Opus if not",
-        "~35 MB",
-        true,
-    ),
+    STANDARD(128, "Standard", false),
+    HIGH(Int.MAX_VALUE, "High", false),
+    LOSSLESS(Int.MAX_VALUE, "Lossless", true),
 }
 
 enum class ThemeMode(val label: String) {

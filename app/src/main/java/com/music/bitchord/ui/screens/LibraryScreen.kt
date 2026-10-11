@@ -121,11 +121,17 @@ fun LibraryScreen(
         contentPadding = contentPadding,
     ) {
         item {
+            // fillMaxWidth before the padding, same as the channel-shelf fix:
+            // without a fixed width Compose closes the line at the intrinsic
+            // width, shaped Persian is wider than that, and the last letter is
+            // sent to a second line that never draws — «کتابخان» over «ه».
             Text(
                 text = stringResource(R.string.library),
                 style = MaterialTheme.typography.displayLarge,
                 color = MaterialTheme.colorScheme.onBackground,
-                modifier = Modifier.padding(horizontal = PAGE_GUTTER, vertical = 8.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = PAGE_GUTTER, vertical = 8.dp),
             )
         }
         // Drawn whether or not anything has been played: with nothing behind

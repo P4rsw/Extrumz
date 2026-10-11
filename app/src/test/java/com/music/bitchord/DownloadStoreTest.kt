@@ -15,6 +15,8 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
+import java.io.File
+import javax.xml.parsers.DocumentBuilderFactory
 import org.junit.Test
 
 /**
@@ -169,13 +171,34 @@ class DownloadStoreTest {
         assertTrue(SourceResolver.requestForDownload(DownloadQuality.HIGH) !is StreamRequest.Capped)
     }
 
-    /** Every rung has to say what it costs, or the picker shows a blank line. */
+    /**
+     * Every rung has to say what it costs, or the picker shows a blank line.
+     *
+     * The copy moved out of the enum into string resources, so this reads the
+     * XML rather than the field — a blank there is the same bug wearing a
+     * different coat. The keys are the ones [DownloadQuality] maps to.
+     */
     @Test
     fun `every download rung is describable`() {
-        DownloadQuality.entries.forEach { quality ->
-            assertTrue(quality.label.isNotBlank())
-            assertTrue(quality.detail.isNotBlank())
-            assertTrue(quality.perTrack.isNotBlank())
+        val values = File("src/main/res/values/strings.xml")
+        val present = mutableMapOf<String, String>()
+        DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(values)
+            .getElementsByTagName("string").let { nodes ->
+                for (i in 0 until nodes.length) {
+                    val el = nodes.item(i) as org.w3c.dom.Element
+                    present[el.getAttribute("name")] = el.textContent.orEmpty()
+                }
+            }
+        listOf(
+            "download_detail_standard", "download_detail_high", "download_detail_lossless",
+            "download_per_track_standard", "download_per_track_high", "download_per_track_lossless",
+            "quality_detail_low", "quality_detail_medium", "quality_detail_high",
+            "quality_detail_lossless", "quality_hourly_low", "quality_hourly_medium",
+            "quality_hourly_high", "quality_hourly_lossless",
+            "low", "medium", "high", "lossless", "standard",
+        ).forEach { key ->
+            assertTrue("$key is missing from values/strings.xml", present.containsKey(key))
+            assertTrue("$key is blank", present.getValue(key).isNotBlank())
         }
     }
 

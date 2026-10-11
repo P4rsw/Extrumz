@@ -44,6 +44,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
@@ -360,12 +361,21 @@ private fun BottomBarItem(
                 },
         )
         Spacer(Modifier.height(TAB_ICON_LABEL_GAP))
+        // softWrap=false is the fix, not a layout preference: the letter was
+        // never too wide for the box. A loose constraint closes the line at the
+        // text's intrinsic width, shaped Persian is wider than that, so the
+        // final letter was sent to a second line nothing showed
+        // («کتابخان» for «کتابخانه»). No wrap, no lost letter. fillMaxWidth
+        // pins the constraint so shaping gets the real box.
         Text(
             text = tab.label,
             style = MaterialTheme.typography.labelSmall,
             color = tint,
             maxLines = 1,
+            softWrap = false,
+            textAlign = TextAlign.Center,
             overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.fillMaxWidth(),
         )
     }
 }
