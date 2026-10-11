@@ -37,16 +37,13 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.State
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.semantics.contentDescription
@@ -59,9 +56,10 @@ import coil3.compose.AsyncImagePainter
 import coil3.request.ImageRequest
 import com.music.bitchord.ui.haptics.Haptic
 import com.music.bitchord.ui.icons.BitChordIcons
-import com.music.bitchord.data.canvas.CanvasArtwork
 import com.music.bitchord.data.model.LikeStatus
 import com.music.bitchord.data.model.Song
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 
 /**
  * The widest the two columns are allowed to get between them, centred in
@@ -265,10 +263,7 @@ internal fun LandscapeArtwork(
     artRequest: ImageRequest,
     artLoaded: Boolean,
     onArtState: (AsyncImagePainter.State) -> Unit,
-    canvas: CanvasArtwork?,
-    canvasRendered: Boolean,
     isPlaying: Boolean,
-    onCanvasRenderedChange: (Boolean) -> Unit,
     /**
      * A cover under [com.music.bitchord.data.telegram.Covers.PLAYER_MIN_PX]
      * stops filling this region and becomes a centred card of this side
@@ -296,12 +291,12 @@ internal fun LandscapeArtwork(
                 )
                 // Only cast once there is a picture: on the flat placeholder
                 // tile a shadow reads as a second, darker square.
-                .shadow(if (artLoaded || canvasRendered) 14.dp else 0.dp, RoundedCornerShape(10.dp))
+                .shadow(if (artLoaded) 14.dp else 0.dp, RoundedCornerShape(10.dp))
                 .clip(RoundedCornerShape(10.dp))
                 .background(Color.Black.copy(alpha = 0.18f)),
             contentAlignment = Alignment.Center,
         ) {
-            if (!artLoaded && !canvasRendered) {
+            if (!artLoaded) {
                 Icon(
                     imageVector = BitChordIcons.MusicNote,
                     contentDescription = null,
@@ -318,17 +313,8 @@ internal fun LandscapeArtwork(
                 // portrait sleeve's note on TextureView stacking order.
                 modifier = Modifier
                     .fillMaxSize()
-                    .sharpenUpscale(sharpen)
-                    .drawWithContent { if (artLoaded || !canvasRendered) drawContent() },
+                    .sharpenUpscale(sharpen),
             )
-            canvas?.let { clip ->
-                CanvasArtworkPlayer(
-                    canvas = clip,
-                    isPlaying = isPlaying,
-                    onRenderedChanged = onCanvasRenderedChange,
-                    modifier = Modifier.fillMaxSize(),
-                )
-            }
         }
         overlay()
     }

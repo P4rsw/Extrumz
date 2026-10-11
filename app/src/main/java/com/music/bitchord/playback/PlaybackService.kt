@@ -137,6 +137,7 @@ import kotlin.math.sin
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.TimeoutCancellationException
 import java.util.Locale
+import androidx.compose.runtime.getValue
 
 /** Past this point in a track, back restarts it instead of skipping to the previous one. */
 const val BACK_RESTARTS_AFTER_MS = 10_000L
@@ -4641,14 +4642,6 @@ class PlaybackService : MediaLibraryService() {
     private fun observeSettings() {
         scope.launch {
             AppSettings.skipSilence.collect { on -> eachPlayer { it.skipSilenceEnabled = on } }
-        }
-        scope.launch {
-            // Re-evaluate the already queued next track immediately when this
-            // preference changes, instead of waiting for another timeline event.
-            AppSettings.preferMusicOnly.drop(1).collect {
-                cancelPrefetch()
-                player?.takeIf { it.isPlaying }?.let(::prefetchAround)
-            }
         }
         scope.launch {
             AppSettings.preferUsbDac.drop(1).collect { requestOutputReconfiguration() }

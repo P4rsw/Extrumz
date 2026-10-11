@@ -201,13 +201,12 @@ object AppSettings {
     private lateinit var prefs: SharedPreferences
 
     /**
-     * Quality ceilings, one per kind of connection — the point of the split is
-     * that Wi-Fi can stay on Lossless while mobile data is capped. Both
-     * default to Lossless; the mobile plan is the user's to budget, not ours
-     * to assume.
+     * Stream quality — a ceiling rather than a target: if a source cannot
+     * produce audio at or under the rung chosen, activeForPlayback() does not
+     * offer it. One rung for every network: the Wi-Fi/mobile split was
+     * answering a question the phone's data plan had already answered.
      */
-    val audioQualityWifi = MutableStateFlow(AudioQuality.LOSSLESS)
-    val audioQualityCellular = MutableStateFlow(AudioQuality.LOSSLESS)
+    val audioQuality = MutableStateFlow(AudioQuality.LOSSLESS)
 
     /** Allowed duration difference when replacing a playing stream with one from a source. */
     val upgradeLengthSlackSeconds = MutableStateFlow(DEFAULT_UPGRADE_LENGTH_SLACK_SECONDS)
@@ -234,8 +233,8 @@ object AppSettings {
     /**
      * Refuse to start a download while the connection charges for data.
      *
-     * Metered rather than literally-Wi-Fi, the same test [effectiveAudioQuality]
-     * makes, because the thing worth protecting is the bill and not the radio: a
+     * Metered rather than literally-Wi-Fi, because the thing worth protecting is
+     * the bill and not the radio: a
      * tethered hotspot is Wi-Fi that costs money, and an unmetered home
      * connection is worth using whether or not it arrives over Wi-Fi.
      *
@@ -264,7 +263,7 @@ object AppSettings {
     // own terms, so the switch's only real effect was to ask a source for a
     // worse file than it was holding. See
     // [SourceResolver.requestForNow][com.music.bitchord.data.sources.SourceResolver.requestForNow],
-    // which now reads [effectiveAudioQuality] and nothing else.
+    // which now reads [AppSettings.audioQuality] and nothing else.
 
     val crossfadeSeconds = MutableStateFlow(0)
 
@@ -311,29 +310,6 @@ object AppSettings {
      * chasing an untouched signal would do.
      */
     val loudnessNormalization = MutableStateFlow(true)
-
-    /**
-     * Whether a source offering a Dolby Atmos rendition is allowed to serve it.
-     *
-     * On by default: where the device can decode it, Atmos is the premium
-     * rendition the catalogue holds and the one most people are paying a
-     * subscription for.
-     *
-     * Off is a real preference and not just a safety valve. Atmos is E-AC-3,
-     * which is *lossy* — a track with an Atmos master is frequently also held
-     * as a FLAC, and someone listening on wired headphones may well prefer the
-     * bit-exact stereo copy to a spatial mix their output can't render. Turning
-     * this off is how they say so; a rendition refused on arrival never
-     * reaches the player.
-     *
-     * Independent of whether the device *can* decode it — that question is
-     * [DeviceCodecs.playsDolbyAtmos][com.music.bitchord.data.sources.DeviceCodecs],
-     * and the two are deliberately not folded together: this one is the
-     * listener's answer, is persisted, and must survive being read on a phone
-     * that cannot honour it (a restored backup, a swapped device) without
-     * quietly rewriting itself.
-     */
-    val dolbyAtmos = MutableStateFlow(true)
 
     /**
      * Widens stereo output via [com.music.bitchord.playback.SpatialAudioProcessor],
@@ -420,13 +396,6 @@ object AppSettings {
     /** Once a song has been suggested or played this session, AutoPlay won't offer it again. */
     val dontRepeatSuggestions = MutableStateFlow(false)
 
-    /**
-     * Prefer the catalogue audio release when the selected result is a music
-     * video. The video itself is still handed to the player first so its
-     * metadata appears immediately while the catalogue match is resolved.
-     */
-    val preferMusicOnly = MutableStateFlow(false)
-
     /** Analyzes audio waveform/envelope to align matching playback moment between versions. */
     val smartVersionAlignment = MutableStateFlow(true)
 
@@ -453,38 +422,9 @@ object AppSettings {
      */
     val translationLanguage = MutableStateFlow("")
 
-    /**
-     * Plays a looping video behind the cover art on the player when one is
-     * published for the track — Spotify's Canvas, Apple's motion artwork.
-     *
-     * Costs a video stream on top of the audio one and reaches three
-     * services that have nothing to do with playback, so it stays a switch —
-     * but it is the better default, and most tracks resolve to no canvas at
-     * all. See [CanvasRepository][com.music.bitchord.data.canvas.CanvasRepository].
-     */
-    val animatedCanvas = MutableStateFlow(true)
-
-    /**
-     * Whether [animatedCanvas] is allowed to actually stream on a metered
-     * connection, as distinct from the switch that turns the feature off
-     * altogether.
-     *
-     * Off by default. A canvas clip loops for as long as its track plays,
-     * and every loop past the first re-fetches the same few seconds of video
-     * — see [CanvasCache][com.music.bitchord.data.canvas.CanvasCache] for why
-     * that costs network at all rather than being answered from a buffer —
-     * so a few-second clip behind a four-minute track on cellular is not a
-     * flat video cost, it is that cost repeated dozens of times per song.
-     * That is the shape of the reported 8GB day: still art costs nothing
-     * here and stays up regardless of this setting.
-     */
-    val canvasOverCellular = MutableStateFlow(false)
-
     /** Automatically collapses the lower controls after Spotify Canvas settles. */
-    val spotifyCanvasAutoHide = MutableStateFlow(true)
 
     /** Tries Spotify before Apple Music and the other animated-art providers. */
-    val prioritizeSpotifyCanvas = MutableStateFlow(false)
 
     /**
      * Blows the player's cover art out to a full-bleed banner running off the
@@ -497,23 +437,6 @@ object AppSettings {
      * [NowPlayingScreen][com.music.bitchord.ui.player.NowPlayingScreen].
      */
     val fullBleedArtwork = MutableStateFlow(true)
-
-    /**
-     * Puts v1.5's backdrop back on the player: four quantised blobs drifting
-     * behind the whole screen, rather than the artwork's own colours hung off
-     * the sleeve's bottom edge.
-     *
-     * Off by default, because the current backdrop replaced it for two reasons
-     * that have not gone away — see [ArtworkMesh][com.music.bitchord.ui.player.ArtworkMesh]
-     * for the colour one (a cover that is nine-tenths black with a red stripe
-     * comes back from the quantiser as a red screen) and
-     * [ArtworkMeshBackdrop][com.music.bitchord.ui.player.ArtworkMeshBackdrop]
-     * for the cost one (blobs that drift are a full-screen blur redrawn while
-     * they move, where a mesh is drawn once per track and then composited).
-     * Kept as a switch because people asked for the old look back, and neither
-     * reason is one a listener has to agree with.
-     */
-    val legacyMeshGradient = MutableStateFlow(false)
 
     /** Restores the expanded player to the surface the listener left open. */
     val lastPlayerScreen = MutableStateFlow(LastPlayerScreen.MAIN)
@@ -551,7 +474,6 @@ object AppSettings {
     val prioritizeSyllableSync = MutableStateFlow(false)
 
     /** User-issued credential required by api.paxsenix.org. */
-    val paxSenixApiKey = MutableStateFlow("")
 
     /** Disk budget for cached audio. [AudioCache][com.music.bitchord.playback.AudioCache] evicts past it. */
     val audioCacheLimitBytes = MutableStateFlow(DEFAULT_CACHE_LIMIT_BYTES)
@@ -601,8 +523,6 @@ object AppSettings {
     /** How many playlists [pinnedPlaylists] can hold at once. */
     const val MAX_PINNED_PLAYLISTS = 5
 
-    val spotifySpdcToken = MutableStateFlow("")
-
     /** Published by PlaybackService so the UI can open the system equalizer. */
     val audioSessionId = MutableStateFlow(0)
 
@@ -647,12 +567,6 @@ object AppSettings {
     val smartTransitionWindow = MutableStateFlow<TransitionWindow?>(null)
 
     /** The ceiling that applies to a stream started right now. */
-    val effectiveAudioQuality: AudioQuality
-        get() = if (meteredConnection.value == true) {
-            audioQualityCellular.value
-        } else {
-            audioQualityWifi.value
-        }
 
     /**
      * Whether a download may start on the connection in hand.
@@ -688,9 +602,7 @@ object AppSettings {
     }
 
     private fun readAll() {
-        migrateSingleQuality()
-        audioQualityWifi.value = readQuality(KEY_QUALITY_WIFI)
-        audioQualityCellular.value = readQuality(KEY_QUALITY_CELLULAR)
+        audioQuality.value = readQuality()
         upgradeLengthSlackSeconds.value = prefs.getInt(
             KEY_UPGRADE_LENGTH_SLACK_SECONDS,
             DEFAULT_UPGRADE_LENGTH_SLACK_SECONDS,
@@ -715,7 +627,6 @@ object AppSettings {
         }.getOrDefault(OutputPcmMode.PCM_16)
         preferUsbDac.value = prefs.getBoolean(KEY_PREFER_USB_DAC, false)
         loudnessNormalization.value = prefs.getBoolean(KEY_LOUDNESS_NORMALIZATION, true)
-        dolbyAtmos.value = prefs.getBoolean(KEY_DOLBY_ATMOS, true)
         spatialAudio.value = prefs.getBoolean(KEY_SPATIAL_AUDIO, false)
         equalizerEnabled.value = prefs.getBoolean(KEY_EQ_ENABLED, false)
         equalizerMode.value = runCatching {
@@ -745,7 +656,6 @@ object AppSettings {
         hideSongStatus.value = prefs.getBoolean(KEY_HIDE_SONG_STATUS, false)
         swipeToPlayNext.value = prefs.getBoolean(KEY_SWIPE_TO_PLAY_NEXT, false)
         dontRepeatSuggestions.value = prefs.getBoolean(KEY_DONT_REPEAT_SUGGESTIONS, false)
-        preferMusicOnly.value = prefs.getBoolean(KEY_PREFER_MUSIC_ONLY, false)
         smartVersionAlignment.value = prefs.getBoolean(KEY_SMART_VERSION_ALIGNMENT, true)
         reduceDynamicBlur.value = prefs.getBoolean(KEY_REDUCE_BLUR, false)
         liquidGlass.value = prefs.getBoolean(KEY_LIQUID_GLASS, false)
@@ -757,12 +667,7 @@ object AppSettings {
             reduceAnimation.value = false
             reduceDynamicBlur.value = false
         }
-        animatedCanvas.value = prefs.getBoolean(KEY_ANIMATED_CANVAS, true)
-        canvasOverCellular.value = prefs.getBoolean(KEY_CANVAS_OVER_CELLULAR, false)
-        spotifyCanvasAutoHide.value = prefs.getBoolean(KEY_SPOTIFY_CANVAS_AUTO_HIDE, true)
-        prioritizeSpotifyCanvas.value = prefs.getBoolean(KEY_PRIORITIZE_SPOTIFY_CANVAS, false)
         fullBleedArtwork.value = prefs.getBoolean(KEY_FULL_BLEED_ARTWORK, true)
-        legacyMeshGradient.value = prefs.getBoolean(KEY_LEGACY_MESH_GRADIENT, false)
         lastPlayerScreen.value = runCatching {
             LastPlayerScreen.valueOf(
                 prefs.getString(KEY_LAST_PLAYER_SCREEN, null) ?: LastPlayerScreen.MAIN.name,
@@ -772,11 +677,8 @@ object AppSettings {
         lyricsSources.value = readLyricsSources()
         lyricsSourceOrder.value = readLyricsSourceOrder()
         prioritizeSyllableSync.value = prefs.getBoolean(KEY_PRIORITIZE_SYLLABLE_SYNC, false)
-        paxSenixApiKey.value = prefs.getString(KEY_PAXSENIX_API_KEY, "").orEmpty()
-        com.music.bitchord.data.lyrics.PaxSenix.setApiKey(paxSenixApiKey.value)
         audioCacheLimitBytes.value = prefs.getLong(KEY_CACHE_LIMIT, DEFAULT_CACHE_LIMIT_BYTES)
             .coerceIn(DEFAULT_CACHE_LIMIT_BYTES, MAX_CACHE_LIMIT_BYTES)
-        spotifySpdcToken.value = prefs.getString(KEY_SPOTIFY_SPDC_TOKEN, "").orEmpty()
         filterNonMusicAudio.value = prefs.getBoolean(KEY_FILTER_NON_MUSIC_AUDIO, true)
         filterEmptyChats.value = prefs.getBoolean(KEY_FILTER_EMPTY_CHATS, true)
         localMusicSort.value = readLocalMusicSort(KEY_LOCAL_MUSIC_SORT)
@@ -813,21 +715,14 @@ object AppSettings {
     }
 
     /**
-     * A ceiling saved when there was only one applies to both connections.
-     * Someone who picked Low to protect a data plan would not thank us for
-     * quietly putting Wi-Fi *and* mobile back on High.
+     * Stream quality, from the key this has always stored under: the original
+     * single value first, then whichever network's rung was written while
+     * quality was split per connection, then the default.
      */
-    private fun migrateSingleQuality() {
-        val legacy = prefs.getString(KEY_QUALITY_LEGACY, null) ?: return
-        prefs.edit()
-            .putString(KEY_QUALITY_WIFI, legacy)
-            .putString(KEY_QUALITY_CELLULAR, legacy)
-            .remove(KEY_QUALITY_LEGACY)
-            .apply()
-    }
-
-    private fun readQuality(key: String): AudioQuality {
-        val stored = prefs.getString(key, null) ?: return AudioQuality.LOSSLESS
+    private fun readQuality(): AudioQuality {
+        val stored = prefs.getString(KEY_QUALITY, null)
+            ?: prefs.getString(KEY_QUALITY_WIFI, null)
+            ?: return AudioQuality.LOSSLESS
         return runCatching { AudioQuality.valueOf(stored) }.getOrDefault(AudioQuality.LOSSLESS)
     }
 
@@ -860,10 +755,10 @@ object AppSettings {
     }
 
     /**
-     * Track the active network so [effectiveAudioQuality] can answer without
-     * touching ConnectivityManager. Stream resolution happens off the main
-     * thread mid-playback; a callback keeps that lookup off the hot path and
-     * lets the settings page show which ceiling is currently in force.
+     * Track the active network so [downloadsAllowedNow] and [exportsAllowedNow]
+     * can answer without touching ConnectivityManager. Resolution happens off
+     * the main thread mid-use; a callback keeps that lookup off the hot path and
+     * lets the settings page show which connection is currently in force.
      */
     private fun watchConnection(context: Context) {
         val manager = context.getSystemService(ConnectivityManager::class.java) ?: return
@@ -902,14 +797,9 @@ object AppSettings {
         prefs.edit().putInt(KEY_REPEAT_MODE, value).apply()
     }
 
-    fun setAudioQualityWifi(value: AudioQuality) {
-        audioQualityWifi.value = value
-        prefs.edit().putString(KEY_QUALITY_WIFI, value.name).apply()
-    }
-
-    fun setAudioQualityCellular(value: AudioQuality) {
-        audioQualityCellular.value = value
-        prefs.edit().putString(KEY_QUALITY_CELLULAR, value.name).apply()
+    fun setAudioQuality(value: AudioQuality) {
+        audioQuality.value = value
+        prefs.edit().putString(KEY_QUALITY, value.name).apply()
     }
 
     fun setUpgradeLengthSlackSeconds(value: Int) {
@@ -949,11 +839,6 @@ object AppSettings {
     fun setSkipSilence(value: Boolean) {
         skipSilence.value = value
         prefs.edit().putBoolean(KEY_SKIP_SILENCE, value).apply()
-    }
-
-    fun setDolbyAtmos(value: Boolean) {
-        dolbyAtmos.value = value
-        prefs.edit().putBoolean(KEY_DOLBY_ATMOS, value).apply()
     }
 
     fun setSpatialAudio(value: Boolean) {
@@ -1071,11 +956,6 @@ object AppSettings {
     fun setDontRepeatSuggestions(value: Boolean) {
         dontRepeatSuggestions.value = value
         prefs.edit().putBoolean(KEY_DONT_REPEAT_SUGGESTIONS, value).apply()
-    }
-
-    fun setPreferMusicOnly(value: Boolean) {
-        preferMusicOnly.value = value
-        prefs.edit().putBoolean(KEY_PREFER_MUSIC_ONLY, value).apply()
     }
 
     fun setSmartVersionAlignment(value: Boolean) {
@@ -1218,13 +1098,6 @@ object AppSettings {
         prefs.edit().putBoolean(KEY_PRIORITIZE_SYLLABLE_SYNC, value).apply()
     }
 
-    fun setPaxSenixApiKey(value: String) {
-        val normalized = com.music.bitchord.data.lyrics.normalizePaxSenixApiKey(value)
-        paxSenixApiKey.value = normalized
-        prefs.edit().putString(KEY_PAXSENIX_API_KEY, normalized).apply()
-        com.music.bitchord.data.lyrics.PaxSenix.setApiKey(normalized)
-    }
-
     /**
      * Puts the source list, its order and [prioritizeSyllableSync] back the
      * way a fresh install finds them. [syncedLyrics] itself is left alone —
@@ -1236,34 +1109,9 @@ object AppSettings {
         setPrioritizeSyllableSync(false)
     }
 
-    fun setAnimatedCanvas(value: Boolean) {
-        animatedCanvas.value = value
-        prefs.edit().putBoolean(KEY_ANIMATED_CANVAS, value).apply()
-    }
-
-    fun setCanvasOverCellular(value: Boolean) {
-        canvasOverCellular.value = value
-        prefs.edit().putBoolean(KEY_CANVAS_OVER_CELLULAR, value).apply()
-    }
-
-    fun setSpotifyCanvasAutoHide(value: Boolean) {
-        spotifyCanvasAutoHide.value = value
-        prefs.edit().putBoolean(KEY_SPOTIFY_CANVAS_AUTO_HIDE, value).apply()
-    }
-
-    fun setPrioritizeSpotifyCanvas(value: Boolean) {
-        prioritizeSpotifyCanvas.value = value
-        prefs.edit().putBoolean(KEY_PRIORITIZE_SPOTIFY_CANVAS, value).apply()
-    }
-
     fun setFullBleedArtwork(value: Boolean) {
         fullBleedArtwork.value = value
         prefs.edit().putBoolean(KEY_FULL_BLEED_ARTWORK, value).apply()
-    }
-
-    fun setLegacyMeshGradient(value: Boolean) {
-        legacyMeshGradient.value = value
-        prefs.edit().putBoolean(KEY_LEGACY_MESH_GRADIENT, value).apply()
     }
 
     fun setLastPlayerScreen(value: LastPlayerScreen) {
@@ -1277,11 +1125,6 @@ object AppSettings {
         val clamped = value.coerceIn(DEFAULT_CACHE_LIMIT_BYTES, MAX_CACHE_LIMIT_BYTES)
         audioCacheLimitBytes.value = clamped
         prefs.edit().putLong(KEY_CACHE_LIMIT, clamped).apply()
-    }
-
-    fun setSpotifySpdcToken(value: String) {
-        spotifySpdcToken.value = value
-        prefs.edit().putString(KEY_SPOTIFY_SPDC_TOKEN, value).apply()
     }
 
     fun setOutputPcmMode(value: OutputPcmMode) {
@@ -1411,15 +1254,12 @@ object AppSettings {
      * Read off the preference file wholesale rather than assembled from the
      * flows above, so a setting added in a later build is in the backup the day
      * it is added instead of the day somebody remembers to list it here. What is
-     * *left out* is therefore the part worth stating explicitly, and it is
-     * [SECRETS]: an export is a file the user is about to put in Drive or a
-     * chat, and an API secret in it is a credential that has left the device in
-     * plain text. Signing back in after a restore is a minute; a leaked session
-     * key is not recoverable at all.
+     * *left out* is therefore the part worth stating explicitly: [DEVICE_LOCAL],
+     * described below.
      *     */
     fun exportPrefs(): Map<String, Any?> {
         if (!this::prefs.isInitialized) return emptyMap()
-        return prefs.all.filterKeys { it !in SECRETS && it !in DEVICE_LOCAL }
+        return prefs.all.filterKeys { it !in DEVICE_LOCAL }
     }
 
     /**
@@ -1427,16 +1267,14 @@ object AppSettings {
      *
      * A replace, not a merge: a partial restore leaves a device holding half of
      * one configuration and half of another, which is the one outcome nobody
-     * asked for. Keys in [SECRETS] survive untouched — they were never in the
-     * file being restored from, and clearing them would sign the user out of
-     * services the backup has nothing to say about.
+     * asked for.
      */
     fun importPrefs(values: Map<String, Any?>) {
         if (!this::prefs.isInitialized) return
-        val kept = prefs.all.filterKeys { it in SECRETS || it in DEVICE_LOCAL }
+        val kept = prefs.all.filterKeys { it in DEVICE_LOCAL }
         prefs.edit().apply {
             clear()
-            val incoming = values.filterKeys { it !in SECRETS && it !in DEVICE_LOCAL }
+            val incoming = values.filterKeys { it !in DEVICE_LOCAL }
             (kept + incoming).forEach { (key, value) ->
                 when (value) {
                     is Boolean -> putBoolean(key, value)
@@ -1451,15 +1289,6 @@ object AppSettings {
         }.apply()
         reload()
     }
-
-    /**
-     * Preferences an export must not carry — credentials, not configuration.
-     * See [exportPrefs].
-     */
-    private val SECRETS = setOf(
-        KEY_SPOTIFY_SPDC_TOKEN,
-        KEY_PAXSENIX_API_KEY,
-    )
 
     /**
      * Preferences that describe *this device* rather than this configuration,
@@ -1495,9 +1324,8 @@ object AppSettings {
     private fun normalizePerformanceRefreshRate(value: Int): Int =
         value.takeIf { it in 50..240 } ?: DEFAULT_PERFORMANCE_REFRESH_RATE
 
-    private const val KEY_QUALITY_LEGACY = "audio_quality"
+    private const val KEY_QUALITY = "audio_quality"
     private const val KEY_QUALITY_WIFI = "audio_quality_wifi"
-    private const val KEY_QUALITY_CELLULAR = "audio_quality_cellular"
     private const val KEY_UPGRADE_LENGTH_SLACK_SECONDS = "upgrade_length_slack_seconds"
     private const val KEY_QUALITY_DOWNLOAD = "audio_quality_download"
     private const val KEY_WIFI_ONLY_DOWNLOADS = "wifi_only_downloads"
@@ -1510,7 +1338,6 @@ object AppSettings {
     private const val KEY_OUTPUT_PCM_MODE = "output_pcm_mode"
     private const val KEY_PREFER_USB_DAC = "prefer_usb_dac"
     private const val KEY_LOUDNESS_NORMALIZATION = "loudness_normalization"
-    private const val KEY_DOLBY_ATMOS = "dolby_atmos"
     private const val KEY_SPATIAL_AUDIO = "spatial_audio"
     private const val KEY_EQ_ENABLED = "equalizer_enabled"
     private const val KEY_EQ_MODE = "equalizer_mode"
@@ -1534,26 +1361,19 @@ object AppSettings {
     private const val KEY_HIDE_SONG_STATUS = "hide_song_status"
     private const val KEY_SWIPE_TO_PLAY_NEXT = "swipe_to_play_next"
     private const val KEY_DONT_REPEAT_SUGGESTIONS = "dont_repeat_suggestions"
-    private const val KEY_PREFER_MUSIC_ONLY = "prefer_music_only"
     private const val KEY_SMART_VERSION_ALIGNMENT = "smart_version_alignment"
     private const val KEY_REDUCE_BLUR = "reduce_dynamic_blur"
     private const val KEY_LIQUID_GLASS = "liquid_glass"
     private const val KEY_LYRICS_BLUR = "lyrics_blur"
     private const val KEY_LYRICS_OFFSET_MS = "lyrics_offset_ms"
     private const val KEY_TRANSLATION_LANGUAGE = "translation_language"
-    private const val KEY_ANIMATED_CANVAS = "animated_canvas"
-    private const val KEY_CANVAS_OVER_CELLULAR = "canvas_over_cellular"
-    private const val KEY_SPOTIFY_CANVAS_AUTO_HIDE = "spotify_canvas_auto_hide"
-    private const val KEY_PRIORITIZE_SPOTIFY_CANVAS = "prioritize_spotify_canvas"
     private const val KEY_FULL_BLEED_ARTWORK = "full_bleed_artwork"
-    private const val KEY_LEGACY_MESH_GRADIENT = "legacy_mesh_gradient"
     private const val KEY_LAST_PLAYER_SCREEN = "last_player_screen"
     private const val KEY_SYNCED_LYRICS = "synced_lyrics"
     private const val KEY_LYRICS_SOURCES = "lyrics_sources"
     private const val KEY_LYRICS_SOURCES_SEEN = "lyrics_sources_seen"
     private const val KEY_LYRICS_SOURCE_ORDER = "lyrics_source_order"
     private const val KEY_PRIORITIZE_SYLLABLE_SYNC = "prioritize_syllable_sync"
-    private const val KEY_PAXSENIX_API_KEY = "paxsenix_api_key"
     private const val KEY_FILTER_NON_MUSIC_AUDIO = "filter_non_music_audio"
     private const val KEY_FILTER_EMPTY_CHATS = "filter_empty_chats"
     private const val KEY_LOCAL_MUSIC_SORT = "local_music_sort"
@@ -1565,8 +1385,6 @@ object AppSettings {
     private const val KEY_HOME_RECENTS_VIEW_TYPE = "home_recents_view_type"
     private const val KEY_LOCAL_MUSIC_FOLDER_URI = "local_music_folder_uri"
     private const val KEY_PINNED_PLAYLISTS = "pinned_playlists"
-
-    private const val KEY_SPOTIFY_SPDC_TOKEN = "spotify_spdc_token"
 
     private const val KEY_LAST_VERSION_CODE = "last_version_code"
 }

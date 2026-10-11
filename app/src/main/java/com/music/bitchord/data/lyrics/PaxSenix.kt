@@ -17,20 +17,12 @@ import kotlin.math.abs
 
 /** Public Apple lyrics plus optional authenticated Spotify and Musixmatch routes. */
 object PaxSenix {
-    private const val API = "https://api.paxsenix.org"
     private const val PUBLIC_PROXY = "https://lyrics.paxsenix.org"
     private const val APPLE_SEARCH = "https://amp-api.music.apple.com/v1/catalog/us/search"
     private const val MINIMUM_MATCH_SCORE = 10
 
     private val tokenMutex = Mutex()
     private val cachedAppleToken = AtomicReference<String?>(null)
-
-    @Volatile
-    private var apiKey: String = ""
-
-    fun setApiKey(value: String) {
-        apiKey = normalizePaxSenixApiKey(value)
-    }
 
     /** The original keyless Apple Music provider used by the existing source id. */
     suspend fun lyrics(
@@ -47,33 +39,6 @@ object PaxSenix {
             .build()
         lyricsGet(url.toString())
             ?.let(::parseResponse)
-    }
-
-    suspend fun spotifyLyrics(
-        title: String,
-        artist: String,
-        durationMs: Long,
-    ): List<LyricLine>? = withContext(Dispatchers.IO) {
-        val id = searchTrackId("spotify/search", title, artist, durationMs)
-        id?.let {
-            apiBody(apiUrl("lyrics/spotify").addQueryParameter("id", it).build())
-                ?.let(::parseResponse)
-        } ?: genericAuthenticatedLyrics(title, artist, durationMs)
-    }
-
-    suspend fun musixmatchLyrics(
-        title: String,
-        artist: String,
-        durationMs: Long,
-    ): List<LyricLine>? = withContext(Dispatchers.IO) {
-        val query: HttpUrl.Builder.() -> Unit = {
-            addQueryParameter("t", title)
-            addQueryParameter("a", artist)
-            addQueryParameter("d", (durationMs / 1000).toString())
-        }
-        apiBody(apiUrl("lyrics/musixmatch").apply(query).build())
-            ?.let(::parseResponse)
-            ?: genericAuthenticatedLyrics(title, artist, durationMs)
     }
 
     private suspend fun searchPublicAppleTrackId(
@@ -103,63 +68,6 @@ object PaxSenix {
         val scriptPath = APPLE_INDEX_SCRIPT.find(page)?.value ?: return null
         val script = lyricsGet("https://music.apple.com$scriptPath") ?: return null
         return APPLE_TOKEN.find(script)?.value
-    }
-
-    private fun searchTrackId(
-        path: String,
-        title: String,
-        artist: String,
-        durationMs: Long,
-    ): String? {
-        val query: HttpUrl.Builder.() -> Unit = {
-            addQueryParameter("q", "$title $artist")
-        }
-        val root = apiBody(apiUrl(path).apply(query).build())
-            ?.let { runCatching { lyricsJson.parseToJsonElement(it) }.getOrNull() }
-            ?: return null
-        return bestCandidate(root, title, artist, durationMs)?.id
-    }
-
-    private fun genericAuthenticatedLyrics(
-        title: String,
-        artist: String,
-        durationMs: Long,
-    ): List<LyricLine>? {
-        val url = apiUrl("lyrics/lrcget")
-            .addQueryParameter("q", "$title $artist")
-            .build()
-        return apiBody(url)?.let { parseLrcGet(it, title, artist, durationMs) }
-    }
-
-    /**
-     * The general endpoint returns search candidates, not lyric lines. Parsing
-     * its array as one document concatenates every candidate and makes each
-     * song's timestamps restart at zero, which appears as repeated lines that
-     * cannot stay in sync. Select one recording before parsing its lyrics.
-     */
-    internal fun parseLrcGet(
-        raw: String,
-        title: String,
-        artist: String,
-        durationMs: Long,
-    ): List<LyricLine>? {
-        val root = runCatching { lyricsJson.parseToJsonElement(raw) }.getOrNull()
-            ?: return null
-        val payload = (root as? JsonObject)?.get("lyrics")
-        val documents = (payload as? JsonArray).orEmpty()
-        if (documents.isEmpty()) return parseResponse(raw)
-
-        return documents.mapNotNull { document ->
-            val lines = parseResponse(document.toString()) ?: return@mapNotNull null
-            val metadataScore = (document as? JsonObject)
-                ?.lyricCandidateScore(title, artist, durationMs) ?: 0
-            ParsedDocument(lines, metadataScore, durationDistance(lines, durationMs))
-        }.maxWithOrNull(
-            compareBy<ParsedDocument> { it.metadataScore }
-                .thenBy { -it.durationDistanceMs }
-                .thenBy { document -> document.lines.count { it.timeMs > 0L } }
-                .thenBy { document -> document.lines.count { it.isWordSynced } },
-        )?.lines
     }
 
     private fun durationDistance(lines: List<LyricLine>, durationMs: Long): Long {
@@ -312,13 +220,7 @@ object PaxSenix {
         else -> 0
     }
 
-    private fun apiUrl(path: String) = "$API/$path".toHttpUrl().newBuilder()
-
     private fun publicUrl(path: String) = "$PUBLIC_PROXY/$path".toHttpUrl().newBuilder()
-
-    private fun apiBody(url: HttpUrl): String? = apiKey.takeIf(String::isNotBlank)?.let { key ->
-        lyricsGetBearer(url.toString(), key)
-    }
 
     private data class Candidate(val id: String, val title: String, val artist: String, val durationMs: Long)
     private data class ParsedDocument(
@@ -336,11 +238,3 @@ object PaxSenix {
     private val APPLE_TOKEN = Regex("""eyJ[A-Za-z0-9_-]+\.eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+""")
 }
 
-internal fun normalizePaxSenixApiKey(value: String): String {
-    val trimmed = value.trim()
-    return if (trimmed.startsWith("Bearer ", ignoreCase = true)) {
-        trimmed.substringAfter(' ').trim()
-    } else {
-        trimmed
-    }
-}

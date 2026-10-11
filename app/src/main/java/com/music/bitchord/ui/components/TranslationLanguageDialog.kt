@@ -59,7 +59,7 @@ private val LIST_MAX_HEIGHT = 340.dp
 /**
  * Which language the lyrics translate button translates into.
  *
- * The same frosted alert as [AppLanguageDialog], with two differences that a
+ * The same frosted alert as the app's other pickers, with two differences that a
  * hundred and thirty rows force. It scrolls, because the app's alerts are laid
  * out as a plain Column and this list is longer than any phone; and it has a
  * filter field, because scrolling to Vietnamese is not a reasonable way to pick

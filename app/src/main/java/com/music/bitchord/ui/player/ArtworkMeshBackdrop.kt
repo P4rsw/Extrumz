@@ -16,7 +16,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.graphics.Brush
@@ -49,6 +48,7 @@ import kotlinx.coroutines.withContext
 import kotlin.math.floor
 import kotlin.math.roundToInt
 import kotlin.random.Random
+import androidx.compose.runtime.setValue
 
 /**
  * The artwork's own colours, upside down and reduced to a mesh, for the player
@@ -176,16 +176,10 @@ fun FullArtworkBlurBackdrop(
 /**
  * The mesh for the artwork at [imageUrl], or null until one has been read.
  *
- * [canvasFrame] — a frame grabbed off a playing motion cover — takes over when
- * one arrives, for the reason [rememberArtworkColors] describes: a clip is
- * frequently graded nothing like the still sleeve it replaces. A caller that
- * keeps sending fresh ones gets a backdrop that follows the clip; see
- * [CanvasArtworkPlayer]'s `frameCapturePx` for what one of them costs.
  */
 @Composable
 fun rememberArtworkMesh(
     imageUrl: String?,
-    canvasFrame: Bitmap? = null,
     /**
      * The artwork size to read, which should be the one the caller already has
      * on screen. Nothing here survives being averaged into thirty-six cells, so
@@ -249,16 +243,6 @@ fun rememberArtworkMesh(
         }
     }
 
-    LaunchedEffect(canvasFrame) {
-        val frame = canvasFrame ?: return@LaunchedEffect
-        // Reject frames that are too dark or uniform — they are almost always
-        // the first read after a surface recreation, before ExoPlayer has
-        // decoded real content.  A frame whose mean luminance is below this
-        // threshold is discarded; the last valid mesh is kept instead.
-        if (isLikelyBlackFrame(frame)) return@LaunchedEffect
-        mesh = withContext(Dispatchers.Default) { meshOf(frame, imageUrl?.hashCode() ?: 0) } ?: mesh
-        meshUrl = imageUrl
-    }
     return mesh
 }
 

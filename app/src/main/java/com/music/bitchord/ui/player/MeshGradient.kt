@@ -17,7 +17,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clipToBounds
@@ -38,14 +37,13 @@ import coil3.request.SuccessResult
 import coil3.request.allowHardware
 import coil3.toBitmap
 import com.music.bitchord.data.settings.AppSettings
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.isActive
-import kotlinx.coroutines.withContext
 import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.min
 import kotlin.math.sin
+import androidx.compose.runtime.setValue
 
 private val FallbackColors = listOf(
     Color(0xFF3A1C71),
@@ -210,13 +208,9 @@ fun MeshGradientBackground(
  * Loads the artwork with Coil (software bitmap, thumbnail-sized) and pulls a
  * 4-colour palette out of it. Recomputes when [imageUrl] changes.
  *
- * A track's motion artwork is frequently lit nothing like its still sleeve —
- * a different shot, a different grade. [canvasFrame], a frame captured off
- * the playing clip once one is available, is quantised the same way and
- * takes over from there, crossfading in exactly like a track skip.
  */
 @Composable
-fun rememberArtworkColors(imageUrl: String?, canvasFrame: Bitmap? = null): MeshPalette {
+fun rememberArtworkColors(imageUrl: String?): MeshPalette {
     val context = LocalContext.current
     var palette by remember(imageUrl) { mutableStateOf(MeshPalette(FallbackColors)) }
 
@@ -232,15 +226,6 @@ fun rememberArtworkColors(imageUrl: String?, canvasFrame: Bitmap? = null): MeshP
         palette = MeshPalette(paletteOf(bitmap))
     }
 
-    LaunchedEffect(canvasFrame) {
-        val frame = canvasFrame ?: return@LaunchedEffect
-        // Reject near-black frames (first read after surface recreation, before
-        // ExoPlayer decodes real content).  A dark sleeve will still exceed the
-        // threshold because compression noise pushes mean luminance above ~12.
-        if (isLikelyBlackFrame(frame)) return@LaunchedEffect
-        val colors = withContext(Dispatchers.Default) { paletteOf(frame) }
-        palette = MeshPalette(colors)
-    }
     return palette
 }
 

@@ -222,18 +222,18 @@ class DownloadStoreTest {
      */
     @Test
     fun `a capped streaming ceiling no longer decides what a download keeps`() {
-        val cellular = AppSettings.audioQualityCellular.value
+        val quality = AppSettings.audioQuality.value
         val metered = AppSettings.meteredConnection.value
         try {
-            AppSettings.audioQualityCellular.value = AudioQuality.LOW
+            AppSettings.audioQuality.value = AudioQuality.LOW
             AppSettings.meteredConnection.value = true
-            assertEquals(AudioQuality.LOW, AppSettings.effectiveAudioQuality)
+            assertEquals(AudioQuality.LOW, AppSettings.audioQuality.value)
             assertEquals(
                 StreamRequest.Lossless,
                 SourceResolver.requestForDownload(DownloadQuality.LOSSLESS),
             )
         } finally {
-            AppSettings.audioQualityCellular.value = cellular
+            AppSettings.audioQuality.value = quality
             AppSettings.meteredConnection.value = metered
         }
     }

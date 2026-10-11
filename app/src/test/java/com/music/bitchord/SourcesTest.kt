@@ -653,7 +653,6 @@ class SourcesTest {
     @Test
     fun `prefers the immersive row over a lossless one when Atmos is wanted`() {
         DeviceCodecs.forced = true
-        AppSettings.dolbyAtmos.value = true
         try {
             val target = TrackMatcher.Target("Gehra Hua", "Shashwat Sachdev", durationSec = 362)
             val stereo = song("Gehra Hua", "Shashwat Sachdev", duration = "6:02")
@@ -670,11 +669,10 @@ class SourcesTest {
         }
     }
 
-    /** Switched off, the immersive row is just a row and lossless decides again. */
+    /** With no decoder to use it, the immersive row is just a row and lossless decides again. */
     @Test
-    fun `ignores the immersive row when the Atmos setting is off`() {
-        DeviceCodecs.forced = true
-        AppSettings.dolbyAtmos.value = false
+    fun `ignores the immersive row when the device cannot decode it`() {
+        DeviceCodecs.forced = false
         try {
             val target = TrackMatcher.Target("Gehra Hua", "Shashwat Sachdev", durationSec = 362)
             val stereo = song("Gehra Hua", "Shashwat Sachdev", duration = "6:02")
@@ -688,7 +686,6 @@ class SourcesTest {
             )
         } finally {
             DeviceCodecs.forced = null
-            AppSettings.dolbyAtmos.value = true
         }
     }
 

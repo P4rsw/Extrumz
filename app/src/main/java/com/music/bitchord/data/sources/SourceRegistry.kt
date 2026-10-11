@@ -140,19 +140,18 @@ object SourceRegistry {
         configs.filter { it.enabled && it.isComplete && it.kind == SourceKind.TELEGRAM }
 
     /**
-     * [active], minus the sources the ceiling on the connection in hand does
-     * not pay for — see [AudioQuality.permits].
+     * [active], minus the sources the rung chosen in settings does not pay
+     * for — see [AudioQuality.permits].
      *
      * Every path that starts or plans a *stream* asks this rather than
-     * [active], so the Wi-Fi and mobile-data rungs stay two independent
-     * answers to "what does this minute cost" and switching networks switches
-     * between them. Downloads deliberately keep asking [active]: what a saved
-     * file is worth is [DownloadQuality][com.music.bitchord.data.settings.DownloadQuality]'s
+     * [active], so the single rung in settings stays the answer to "what does
+     * this minute cost". Downloads deliberately keep asking [active]: what a
+     * saved file is worth is [DownloadQuality][com.music.bitchord.data.settings.DownloadQuality]'s
      * question, and when it may be fetched is
      * [AppSettings.wifiOnlyDownloads][com.music.bitchord.data.settings.AppSettings.wifiOnlyDownloads]'s.
      */
     fun activeForPlayback(): List<MusicSource> {
-        val ceiling = AppSettings.effectiveAudioQuality
+        val ceiling = AppSettings.audioQuality.value
         return active().filter { ceiling.permits(it.kind) }
     }
 

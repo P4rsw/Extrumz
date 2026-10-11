@@ -52,7 +52,7 @@ object SourceResolver {
      * the one being undone is the one attached to a bill.
      */
     fun requestForNow(): StreamRequest {
-        val ceiling = AppSettings.effectiveAudioQuality
+        val ceiling = AppSettings.audioQuality.value
         // Always the best the sources can do, bounded only by the connection's
         // own ceiling. There used to be a "Prefer lossless" switch in front of
         // this and it earned its removal: every source already degrades on its
@@ -741,8 +741,7 @@ object SourceResolver {
     ): List<Song> {
         val sameLength = matches.filter { TrackMatcher.withinSeconds(it, target, SAME_RECORDING_SEC) }
         val eligible = sameLength.ifEmpty { matches }
-        // The immersive mix goes first when the listener asked for immersive
-        // audio and the device can decode it. This is not a quality rung and
+        // The immersive mix goes first when the device can decode it. This is not a quality rung and
         // is not competing with one: a catalogue may publish the Atmos mix as
         // its own row rather than as an alternate rendition of the stereo one,
         // in which case no `?atmos=` hint on the stereo row can ever reach it
@@ -761,12 +760,11 @@ object SourceResolver {
     }
 
     /**
-     * Whether an immersive mix is worth preferring right now — the same two
-     * gates the playback side enforces on an incoming stream, asked in the one
-     * place that chooses between rows.
+     * Whether an immersive mix is worth preferring right now — the device gate
+     * the playback side enforces on an incoming stream, asked in the one place
+     * that chooses between rows.
      */
-    private fun atmosWanted(): Boolean =
-        DeviceCodecs.playsDolbyAtmos && AppSettings.dolbyAtmos.value
+    private fun atmosWanted(): Boolean = DeviceCodecs.playsDolbyAtmos
 
     private suspend fun streamBest(
         source: MusicSource,
