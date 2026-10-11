@@ -107,6 +107,7 @@ import com.music.bitchord.playback.AudioOutputStatus
 import java.util.Locale
 import java.util.concurrent.TimeUnit
 import kotlin.math.roundToInt
+import com.music.bitchord.ui.components.forLanguage
 
 /**
  * How long the shuffle glyph ignores further taps after one lands.
@@ -210,12 +211,16 @@ internal fun PlayerScrubber(
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {
                 Text(
-                    text = formatTime((shown * durationMs).toLong()),
+                    text = formatTime((shown * durationMs).toLong()).forLanguage(),
                     style = MaterialTheme.typography.labelMedium,
                     color = Color.White.copy(alpha = 0.55f),
                 )
                 Text(
-                    text = "-" + formatTime(durationMs - (shown * durationMs).toLong()),
+                    // The minus is pinned with an LTR mark. Left as a bare hyphen in a
+            // Persian sentence it is bidi-neutral, so the digits claim the run
+            // and the sign ends up on the wrong side of them — which is how the
+            // remaining time read as `۰:۰۰-`.
+            text = "\u200e-" + formatTime(durationMs - (shown * durationMs).toLong()).forLanguage(),
                     style = MaterialTheme.typography.labelMedium,
                     color = Color.White.copy(alpha = 0.55f),
                 )

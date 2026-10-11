@@ -65,6 +65,8 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.core.graphics.ColorUtils
 import coil3.compose.AsyncImage
 import com.music.bitchord.R
@@ -282,11 +284,16 @@ private fun Stage(
     artwork: String?,
     page: ReplayStoryPage,
 ) {
+    // Which half of the screen is "forward" follows the pager, not the pixels.
+    // HorizontalPager mirrors in RTL, so the next card sits toward the left —
+    // a zone measured off the raw x put "next" on the wrong side of a Persian
+    // story and made every right-hand tap go backwards.
+    val forwardIsRight = LocalLayoutDirection.current == LayoutDirection.Ltr
     Box(
         Modifier
             .fillMaxSize()
             .background(Color(0xFF17171A))
-            .pointerInput(Unit) {
+            .pointerInput(forwardIsRight) {
                 detectTapGestures(
                     onPress = {
                         onHold(true)
@@ -303,7 +310,10 @@ private fun Stage(
                     onLongPress = {},
                     // Every tap is a step; where it lands is worked out in
                     // [ReplayStories.step], which owns the pager.
-                    onTap = { offset -> onStep(offset.x >= size.width * BACK_ZONE) },
+                    onTap = { offset ->
+                        val right = offset.x >= size.width * BACK_ZONE
+                        onStep(if (forwardIsRight) right else !right)
+                    },
                 )
             },
     ) {
@@ -604,8 +614,11 @@ private fun ColumnScope.Leaderboard(
                 lineHeight = 30.sp,
                 fontWeight = FontWeight.W800,
                 color = Color.White,
+                // A song title is the user's own text and may be Persian, so
+                // the width has to be pinned or the last letter drops away.
                 maxLines = 3,
                 overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.fillMaxWidth(),
             )
             lead.subtitle?.let {
                 Text(
@@ -669,8 +682,11 @@ private fun ColumnScope.Genres(summary: ReplaySummary, headline: List<HeadlineRu
         lineHeight = 62.sp,
         fontWeight = FontWeight.W800,
         color = Color.White,
+        // 60sp is where the intrinsic-vs-shaped gap is widest, so this one
+        // loses its last letter the most readily of anything on the screen.
         maxLines = 2,
         overflow = TextOverflow.Ellipsis,
+        modifier = Modifier.fillMaxWidth(),
     )
     Text(
         text = formatListening(context, lead.ms),

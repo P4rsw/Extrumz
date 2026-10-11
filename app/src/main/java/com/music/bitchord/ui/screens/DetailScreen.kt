@@ -549,10 +549,16 @@ private fun ReleaseHeader(
                 text = page.title,
                 style = MaterialTheme.typography.headlineMedium,
                 color = palette.onBackground,
+                // Centring needs a width to centre inside: without one the
+                // line is measured to its intrinsic width and a Persian title
+                // loses its last letter to a line that never draws.
                 textAlign = TextAlign.Center,
                 maxLines = 2,
+                softWrap = false,
                 overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.padding(horizontal = HEADER_GUTTER),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = HEADER_GUTTER),
             )
             // Artist / credit line
             if (credit.isNotBlank()) {

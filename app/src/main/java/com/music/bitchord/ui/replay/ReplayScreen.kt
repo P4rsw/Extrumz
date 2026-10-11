@@ -237,11 +237,19 @@ private fun Heading(state: ReplayState, onPeriodChange: (ReplayPeriod) -> Unit, 
     val textColor = if (dark) Color.White else Color.Black
     Column(Modifier.padding(horizontal = PAGE_GUTTER + 10.dp)) {
         Spacer(Modifier.height(48.dp))
+        // softWrap=false and fillMaxWidth, the same pair the channel shelf
+        // needed: a loose constraint closes the line at the text's intrinsic
+        // width, shaped Persian is wider than that, and the final letter goes
+        // to a second line nothing draws («ریپلی» over «ی»).
         Text(
             text = stringResource(R.string.replay),
             style = MaterialTheme.typography.displayLarge,
             fontWeight = FontWeight.W800,
             color = textColor,
+            maxLines = 1,
+            softWrap = false,
+            textAlign = TextAlign.Start,
+            modifier = Modifier.fillMaxWidth(),
         )
         Text(
             text = state.summary?.localizedLabel(context) ?: state.period.localizedChip(context),
@@ -414,17 +422,24 @@ private fun LazyListScope.chart(
 @Composable
 private fun SectionTitle(text: String, dark: Boolean) {
     val textColor = if (dark) Color.White else Color.Black
+    // fillMaxWidth before the padding, and softWrap off: a loose constraint
+    // closes the line at the text's intrinsic width and shaped Persian is
+    // wider than that, so the last letter wraps to a line nothing draws.
     Text(
         text = text,
         style = MaterialTheme.typography.headlineMedium,
         fontWeight = FontWeight.W800,
         color = textColor,
-        modifier = Modifier.padding(
-            start = PAGE_GUTTER + 10.dp,
-            end = PAGE_GUTTER + 10.dp,
-            top = 8.dp,
-            bottom = 10.dp,
-        ),
+        maxLines = 1,
+        softWrap = false,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(
+                start = PAGE_GUTTER + 10.dp,
+                end = PAGE_GUTTER + 10.dp,
+                top = 8.dp,
+                bottom = 10.dp,
+            ),
     )
 }
 
@@ -514,12 +529,18 @@ private fun Habits(summary: ReplaySummary, dark: Boolean) {
 @Composable
 private fun SectionTitleInline(text: String, dark: Boolean) {
     val textColor = if (dark) Color.White else Color.Black
+    // Same pair as the heading above: no fixed width means the shaped form
+    // overruns the measured one and the final letter drops to a hidden line.
     Text(
         text = text,
         style = MaterialTheme.typography.headlineMedium,
         fontWeight = FontWeight.W800,
         color = textColor,
-        modifier = Modifier.padding(top = 8.dp, bottom = 10.dp),
+        maxLines = 1,
+        softWrap = false,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 8.dp, bottom = 10.dp),
     )
 }
 
@@ -578,7 +599,11 @@ private fun EmptyReplay(period: ReplayPeriod, dark: Boolean) {
             text = stringResource(R.string.not_enough_listening),
             style = MaterialTheme.typography.titleLarge,
             color = emptyColor,
+            softWrap = false,
             textAlign = TextAlign.Center,
+            // Centre needs a width to centre inside; without one the line is
+            // sized to its intrinsic width and the last letter wraps away.
+            modifier = Modifier.fillMaxWidth(),
         )
         Spacer(Modifier.height(8.dp))
         Text(

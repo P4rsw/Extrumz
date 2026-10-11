@@ -584,7 +584,7 @@ private fun SongRowContent(
         song.durationText?.let {
             Spacer(Modifier.width(8.dp))
             Text(
-                text = it,
+                text = it.forLanguage(),
                 style = MaterialTheme.typography.labelMedium,
                 color = subtitleColor,
             )

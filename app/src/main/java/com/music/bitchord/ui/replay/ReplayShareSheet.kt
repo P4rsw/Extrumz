@@ -106,7 +106,11 @@ fun ReplayShareSheet(
             style = MaterialTheme.typography.headlineMedium,
             fontWeight = FontWeight.W800,
             color = MaterialTheme.colorScheme.onBackground,
-            modifier = Modifier.padding(bottom = 4.dp),
+            maxLines = 1,
+            softWrap = false,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 4.dp),
         )
         Text(
             text = if (page == null) {
