@@ -1,5 +1,8 @@
 <resources>
     <string name="app_name">TeleMusic</string>
+    <string name="app_language">App language</string>
+    <string name="english">English</string>
+    <string name="persian">فارسی</string>
     <string name="playback_channel_name">Now playing</string>
     
     
@@ -1103,36 +1106,36 @@
     <string name="card_songs_format">%1$s songs</string>
 
     <!-- Telegram (TeleMusic) -->
-    <string name="tab_songs">آهنگ‌ها</string>
-    <string name="tab_channels">کانال‌ها</string>
-    <string name="tab_search">جستجو</string>
-    <string name="tab_library">کتابخانه</string>
-    <string name="tg_login">ورود به تلگرام</string>
-    <string name="tg_login_subtitle">برای جمع‌آوری آهنگ‌های کانال‌ها و گروه‌هایت وارد شو</string>
-    <string name="tg_phone">شماره تلفن (با کد کشور)</string>
-    <string name="tg_send_code">ارسال کد</string>
-    <string name="tg_code">کد تأیید</string>
-    <string name="tg_verify">تأیید</string>
-    <string name="tg_password">رمز دو مرحله‌ای</string>
-    <string name="tg_password_hint">رمز دو مرحله‌ای — راهنمایی: %1$s</string>
-    <string name="tg_unlock">باز کردن</string>
-    <string name="tg_qr">ورود با کد QR</string>
-    <string name="tg_qr_hint">این لینک را در تلگرام دستگاه دیگر باز کن: تنظیمات ← دستگاه‌ها ← اتصال دستگاه</string>
-    <string name="tg_qr_link">لینک ورود:</string>
-    <string name="tg_scanning">دارم آهنگ‌هاتو جمع می‌کنم…</string>
-    <string name="tg_scan_attempt">تلاش %1$d</string>
-    <string name="tg_empty_hint">هنوز آهنگی پیدا نشده. وارد تلگرام شو تا کانال‌هات را اسکن کنم.</string>
-    <string name="tg_search_hint">جستجو در آهنگ‌های تلگرام</string>
-    <string name="tg_all_chats">همه کانال‌ها</string>
-    <string name="tg_chats_empty">هنوز کانالی اسکن نشده است.</string>
-    <string name="tg_connected">متصل به تلگرام</string>
-    <string name="tg_start_scan">شروع اسکن</string>
-    <string name="tg_hide_empty_chats">فیلتر: چت‌های بدون آهنگ</string>
-    <string name="tg_show_empty_chats">نمایش چت‌های بدون آهنگ</string>
-    <string name="tg_restore_missing">بازیابی چت‌های گم‌شده</string>
-    <string name="tg_manage_channels">مدیریت کانال‌ها</string>
-    <string name="tg_scan_failed">اتصال تلگرام برقرار نشد — چت‌ها بارگذاری نشدند؛ دوباره تلاش کن.</string>
-    <string name="tg_retry">تلاش دوباره</string>
-    <string name="tg_close">بستن</string>
+    <string name="tab_songs">Songs</string>
+    <string name="tab_channels">Channels</string>
+    <string name="tab_search">Search</string>
+    <string name="tab_library">Library</string>
+    <string name="tg_login">Sign in to Telegram</string>
+    <string name="tg_login_subtitle">Sign in so I can gather the music from your channels and groups</string>
+    <string name="tg_phone">Phone number (with country code)</string>
+    <string name="tg_send_code">Send code</string>
+    <string name="tg_code">Confirmation code</string>
+    <string name="tg_verify">Verify</string>
+    <string name="tg_password">Two-step password</string>
+    <string name="tg_password_hint">Two-step password — hint: %1$s</string>
+    <string name="tg_unlock">Unlock</string>
+    <string name="tg_qr">Sign in with a QR code</string>
+    <string name="tg_qr_hint">Open this link in Telegram on another device: Settings ← Devices ← Link</string>
+    <string name="tg_qr_link">Sign-in link:</string>
+    <string name="tg_scanning">Gathering your music…</string>
+    <string name="tg_scan_attempt">Attempt %1$d</string>
+    <string name="tg_empty_hint">No music found yet. Sign in to Telegram so I can scan your channels.</string>
+    <string name="tg_search_hint">Search Telegram music</string>
+    <string name="tg_all_chats">All channels</string>
+    <string name="tg_chats_empty">No channel has been scanned yet.</string>
+    <string name="tg_connected">Connected to Telegram</string>
+    <string name="tg_start_scan">Start scan</string>
+    <string name="tg_hide_empty_chats">Filter: chats with no music</string>
+    <string name="tg_show_empty_chats">Show chats with no music</string>
+    <string name="tg_restore_missing">Restore missing chats</string>
+    <string name="tg_manage_channels">Manage channels</string>
+    <string name="tg_scan_failed">Couldn\'t reach Telegram — the chats didn\'t load; try again.</string>
+    <string name="tg_retry">Try again</string>
+    <string name="tg_close">Close</string>
 
 </resources>

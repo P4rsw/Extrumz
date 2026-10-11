@@ -189,6 +189,7 @@ import com.music.bitchord.ui.components.TopBarDownloadButton
 import com.music.bitchord.ui.components.optimizedHazeEffect
 import com.music.bitchord.ui.components.topBarContentPadding
 import com.music.bitchord.ui.components.TranslationLanguageDialog
+import com.music.bitchord.ui.components.AppLanguageDialog
 import com.music.bitchord.ui.components.LyricsSourcesDialog
 import com.music.bitchord.ui.icons.BitChordIcons
 import androidx.media3.common.Player
@@ -419,6 +420,7 @@ private fun BitChordApp(
     var detailActiveShelf by remember { mutableStateOf<HomeShelf?>(null) }
     var librarySortMenuOpen by remember { mutableStateOf(false) }
     var showLyricsSources by remember { mutableStateOf(false) }
+    var showAppLanguage by remember { mutableStateOf(false) }
     var showTranslationLanguage by remember { mutableStateOf(false) }
     /**
      * Whether the download manager is open.
@@ -1720,6 +1722,7 @@ private fun BitChordApp(
                             },
                             onLyricsSources = { showLyricsSources = true },
                             onTranslationLanguage = { showTranslationLanguage = true },
+                            onAppLanguage = { showAppLanguage = true },
                             contentPadding = listPadding,
                         )
                     } else if (page != null && page.browseId.isDeviceFolder()) {
@@ -2662,6 +2665,14 @@ private fun BitChordApp(
                     }
                 },
                 onDismiss = { songSortMenuOpen = false },
+            )
+        }
+
+        if (showAppLanguage) {
+            BackHandler { showAppLanguage = false }
+            AppLanguageDialog(
+                hazeState = hazeState,
+                onDismiss = { showAppLanguage = false },
             )
         }
 

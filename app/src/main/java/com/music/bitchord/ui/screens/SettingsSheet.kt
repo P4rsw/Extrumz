@@ -108,6 +108,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.SingletonImageLoader
 import com.music.bitchord.ui.components.isGlassSupported
+import com.music.bitchord.ui.components.languageDisplayNameRes
 import com.music.bitchord.ui.components.MessageState
 import com.music.bitchord.ui.components.SearchField
 import com.music.bitchord.ui.icons.BitChordIcons
@@ -147,6 +148,7 @@ fun SettingsScreen(
     onOpenReplay: () -> Unit,
     onLyricsSources: () -> Unit,
     onTranslationLanguage: () -> Unit,
+    onAppLanguage: () -> Unit,
     contentPadding: PaddingValues,
     modifier: Modifier = Modifier,
 ) {
@@ -737,6 +739,20 @@ fun SettingsScreen(
             }
         }
 
+        SearchableSettingsGroup(search, header = stringResource(R.string.language)) {
+            val appLanguageTitle = stringResource(R.string.app_language)
+            row(appLanguageTitle, "locale", "translate", "persian", "english", "فارسی") {
+                val selectedLanguage = AppCompatDelegate.getApplicationLocales().get(0)?.language
+                    ?: java.util.Locale.getDefault().language
+                SettingsRow(
+                    icon = Icons.Rounded.Language,
+                    title = appLanguageTitle,
+                    subtitle = stringResource(languageDisplayNameRes(selectedLanguage)),
+                    onClick = onAppLanguage,
+                )
+            }
+        }
+
         SearchableSettingsGroup(search, header = stringResource(R.string.performance)) {
             val highPerformanceModeTitle = stringResource(R.string.high_performance_mode)
             row(highPerformanceModeTitle, "frame rate", "refresh rate", "hz", "battery", "smooth") {
@@ -807,16 +823,19 @@ fun SettingsScreen(
                     onClick = { localMusicFolderPicker.launch(null) },
                 )
             }
-            if (localMusicFolderUri.isNotBlank()) {
-                val useAllAudioFoldersTitle = stringResource(R.string.use_all_audio_folders)
-                row(useAllAudioFoldersTitle, "folder") {
-                    SettingsRow(
-                        icon = Icons.Rounded.LibraryMusic,
-                        title = useAllAudioFoldersTitle,
-                        subtitle = stringResource(R.string.use_all_audio_folders_subtitle),
-                        onClick = { AppSettings.setLocalMusicFolderUri("") },
-                    )
-                }
+            // Always drawn, never gated on a folder already being picked: behind
+            // that gate the row was invisible on a fresh install, which read as
+            // the app having no such option at all. It is greyed instead — there
+            // is nothing to go back from when every folder is already in use.
+            val useAllAudioFoldersTitle = stringResource(R.string.use_all_audio_folders)
+            row(useAllAudioFoldersTitle, "folder") {
+                SettingsRow(
+                    icon = Icons.Rounded.LibraryMusic,
+                    title = useAllAudioFoldersTitle,
+                    subtitle = stringResource(R.string.use_all_audio_folders_subtitle),
+                    enabled = localMusicFolderUri.isNotBlank(),
+                    onClick = { AppSettings.setLocalMusicFolderUri("") },
+                )
             }
             val filterNonMusicAudioTitle = stringResource(R.string.filter_non_music_audio)
             row(filterNonMusicAudioTitle, "podcast", "recording") {

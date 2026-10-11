@@ -2,7 +2,9 @@ package com.music.bitchord
 
 import android.app.Application
 import androidx.annotation.OptIn
+import androidx.appcompat.app.AppCompatDelegate
 import androidx.media3.common.util.UnstableApi
+import androidx.core.os.LocaleListCompat
 import coil3.ImageLoader
 import coil3.PlatformContext
 import coil3.SingletonImageLoader
@@ -23,11 +25,24 @@ import com.music.bitchord.data.stats.ListeningStats
 import com.music.bitchord.download.Downloads
 import kotlin.concurrent.thread
 
+/** The language the app ships in, before anyone opens settings. */
+private const val DEFAULT_LANGUAGE_TAG = "fa"
+
 class BitChordApplication : Application(), SingletonImageLoader.Factory {
 
     @OptIn(UnstableApi::class)
     override fun onCreate() {
         super.onCreate()
+        // Persian unless the listener has said otherwise. Asked once, before
+        // anything draws: an empty list means no per-app language has been
+        // stored yet, so this is the first launch (or a fresh install), and
+        // writing it makes the choice sticky — the picker can still move it
+        // afterwards, and moving it back to empty is not offered.
+        if (AppCompatDelegate.getApplicationLocales().isEmpty) {
+            AppCompatDelegate.setApplicationLocales(
+                LocaleListCompat.forLanguageTags(DEFAULT_LANGUAGE_TAG),
+            )
+        }
         // Opened off the main thread, alongside everything below: none of these
         // reads a setting, and between them they are the slowest opens at
         // startup — SourceRegistry's encrypted store most of all. Joined before
