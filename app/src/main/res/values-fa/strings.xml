@@ -106,7 +106,6 @@
     <string name="widget_pill_label">در حال پخش 4×1</string>
     <string name="widget_pill_description">آهنگ همراه با پسندیدن، پخش تصادفی و دکمه‌های کنترل پخش، در یک ردیف.</string>
     <string name="widget_preview_pill">عنوان آهنگ - هنرمند</string>
-    <string name="download_quality">کیفیت دانلود</string>
     <string name="download_wifi_only">دانلود فقط از طریق وای‌فای</string>
     <string name="convert_to_audio">تبدیل به صوت</string>
     <string name="convert_to_video">تبدیل به ویدیو</string>
@@ -238,7 +237,6 @@
     <string name="dark">تیره</string>
     <string name="full_screen_cover_art_subtitle">کاور را به جای یک مربع، تا لبه‌های پخش‌کننده امتداد می‌دهد</string>
     <string name="dont_repeat_songs_subtitle">قابلیت پخش خودکار آهنگی را که در این نشست پخش یا پیشنهاد شده، دوباره پیشنهاد نمی‌دهد</string>
-    <string name="download_quality_subtitle">%1$s برای هر آهنگ، با هر نوع اتصالی</string>
     <string name="filter_non_music_audio">فیلتر کردن فایل‌های صوتی غیرموسیقی</string>
     <string name="filter_non_music_audio_subtitle">کلیپ‌های زیر 30 ثانیه، فایل‌های WAV، پیام‌های صوتی، ضبط‌ها و صدا‌های سیستم را پنهان می‌کند</string>
     <string name="performance">عملکرد</string>
@@ -279,7 +277,6 @@
     <string name="dislike">نپسندیدن</string>
     <string name="done">انجام شد</string>
     <string name="download">دانلود</string>
-    <string name="download_quality_dialog_subtitle">برای فایل‌های ذخیرهشده در این دستگاه</string>
     <string name="downloaded">دانلود‌شده</string>
     <string name="drag_to_reorder">برای تغییر ترتیب بکشید</string>
     <string name="enabled">فعال</string>
@@ -414,7 +411,6 @@
     <string name="prioritize_syllable_lyrics">اولویت دادن به متن آهنگ هجابه‌هجا</string>
     <string name="prioritize_syllable_lyrics_subtitle">ادامه جستجو فرا‌تر از همگام‌سازی سطری برای متن‌های کلمه‌به‌کلمه</string>
     <string name="quality_hourly">%1$s · %2$s</string>
-    <string name="quality_per_track">%1$s · %2$s برای هر آهنگ</string>
     <string name="queued">به صف پخش اضافه شد</string>
     <string name="remove">حذف</string>
     <string name="remove_from_liked">حذف از آهنگ‌های پسندیده‌شده</string>
@@ -664,4 +660,4 @@
     <string name="tg_scan_failed">اتصال به تلگرام برقرار نشد — چت‌ها بالا نیامدند؛ دوباره امتحان کن.</string>
     <string name="tg_retry">تلاش دوباره</string>
     <string name="tg_close">بستن</string>
-    <string name="quality_detail_low">حدود 64 kbps · کمترین حجم دانلود</string>    <string name="quality_detail_medium">بهترین کیفیت موجود · حدود 171 kbps با Opus</string>    <string name="quality_detail_high">بهترین نسخه‌ای که منبع دارد</string>    <string name="quality_detail_lossless">بیت‌به‌بیت، جایی که موجود باشد</string>    <string name="quality_hourly_low">29 MB در ساعت</string>    <string name="quality_hourly_medium">77 MB در ساعت</string>    <string name="quality_hourly_high">144 MB در ساعت</string>    <string name="quality_hourly_lossless">300+ MB در ساعت</string>    <string name="download_detail_standard">حدود 128 kbps Opus · فضای بیشتری روی گوشی می‌گذارد</string>    <string name="download_detail_high">بهترین صدای موجود، با اولویت کیفیت منبع</string>    <string name="download_detail_lossless">بیت‌به‌بیت اگر منبع داشته باشد، وگرنه بهترین Opus</string>    <string name="download_per_track_standard">~4 MB</string>    <string name="download_per_track_high">~8 MB</string>    <string name="download_per_track_lossless">~35 MB</string></resources>
+    <string name="quality_detail_low">حدود 64 kbps · کمترین حجم دانلود</string>    <string name="quality_detail_medium">بهترین کیفیت موجود · حدود 171 kbps با Opus</string>    <string name="quality_detail_high">بهترین نسخه‌ای که منبع دارد</string>    <string name="quality_detail_lossless">بیت‌به‌بیت، جایی که موجود باشد</string>    <string name="quality_hourly_low">29 MB در ساعت</string>    <string name="quality_hourly_medium">77 MB در ساعت</string>    <string name="quality_hourly_high">144 MB در ساعت</string>    <string name="quality_hourly_lossless">300+ MB در ساعت</string></resources>

@@ -181,7 +181,6 @@
     <string name="widget_pill_label">Now playing 4×1</string>
     <string name="widget_pill_description">The track with Like, Shuffle and playback controls, in a single row.</string>
     <string name="widget_preview_pill">Song title - Artist</string>
-    <string name="download_quality">Download quality</string>
     <string name="download_wifi_only">Download over Wi-Fi only</string>
     <string name="convert_to_audio">Convert to audio</string>
     <string name="convert_to_video">Convert to video</string>
@@ -319,7 +318,6 @@
     <string name="dark">Dark</string>
     <string name="full_screen_cover_art_subtitle">Runs the cover to the edges of the player instead of a square sleeve</string>
     <string name="dont_repeat_songs_subtitle">AutoPlay won’t suggest a song already played or suggested this session</string>
-    <string name="download_quality_subtitle">%1$s per track, whatever the connection</string>
     <string name="filter_non_music_audio">Filter non-music audio</string>
     <string name="filter_non_music_audio_subtitle">Hides clips under 30 seconds, WAV files, voice notes, recordings and system sounds</string>
     <string name="performance">Performance</string>
@@ -395,7 +393,6 @@
     <string name="dislike">Dislike</string>
     <string name="done">Done</string>
     <string name="download">Download</string>
-    <string name="download_quality_dialog_subtitle">For files kept on this device</string>
     <string name="downloaded">Downloaded</string>
     <string name="drag_to_reorder">Drag to reorder</string>
     <string name="enabled">Enabled</string>
@@ -583,7 +580,6 @@
     <string name="prioritize_syllable_lyrics">Prioritize syllable lyrics</string>
     <string name="prioritize_syllable_lyrics_subtitle">Keep searching past a line-synced match for word-by-word lyrics</string>
     <string name="quality_hourly">%1$s · %2$s</string>
-    <string name="quality_per_track">%1$s · %2$s per track</string>
     <string name="queued">Queued</string>
     <string name="remove">Remove</string>
     <string name="remove_from_liked">Remove from Liked Music</string>
@@ -1138,4 +1134,4 @@
     <string name="tg_retry">Try again</string>
     <string name="tg_close">Close</string>
 
-    <string name="quality_detail_low">~64 kbps · smallest download</string>    <string name="quality_detail_medium">Best available · ~171 kbps Opus</string>    <string name="quality_detail_high">Best rendition on offer</string>    <string name="quality_detail_lossless">Bit-exact where available</string>    <string name="quality_hourly_low">29 MB/hr</string>    <string name="quality_hourly_medium">77 MB/hr</string>    <string name="quality_hourly_high">144 MB/hr</string>    <string name="quality_hourly_lossless">300+ MB/hr</string>    <string name="download_detail_standard">~128 kbps Opus · fits more on the device</string>    <string name="download_detail_high">Best audio on offer, source quality first</string>    <string name="download_detail_lossless">Bit-exact if a source has it, best Opus if not</string>    <string name="download_per_track_standard">~4 MB</string>    <string name="download_per_track_high">~8 MB</string>    <string name="download_per_track_lossless">~35 MB</string></resources>
+    <string name="quality_detail_low">~64 kbps · smallest download</string>    <string name="quality_detail_medium">Best available · ~171 kbps Opus</string>    <string name="quality_detail_high">Best rendition on offer</string>    <string name="quality_detail_lossless">Bit-exact where available</string>    <string name="quality_hourly_low">29 MB/hr</string>    <string name="quality_hourly_medium">77 MB/hr</string>    <string name="quality_hourly_high">144 MB/hr</string>    <string name="quality_hourly_lossless">300+ MB/hr</string></resources>

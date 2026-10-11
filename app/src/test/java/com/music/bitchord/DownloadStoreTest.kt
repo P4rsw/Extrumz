@@ -3,7 +3,6 @@ package com.music.bitchord
 import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.data.settings.AudioQuality
-import com.music.bitchord.data.settings.DownloadQuality
 import com.music.bitchord.data.sources.SourceResolver
 import com.music.bitchord.data.sources.StreamRequest
 import com.music.bitchord.download.DownloadStore
@@ -160,68 +159,16 @@ class DownloadStoreTest {
         assertEquals("xyz789.m4a", DownloadStore.fileNameFor(song("", "", "xyz789"), "m4a"))
     }
 
-    // ---- What quality is kept ----------------------------------------------
+    // ---- What a download asks for -------------------------------------------
 
     /**
-     * Only the top rung is worth a source's own file. The rungs below it are AAC
-     * rungs, and YouTube's AAC ladder is the more reliable fetch for those — so
-     * asking a source for a transcode it would have to make is worse on both
-     * counts.
+     * A download asks for the source's own file, and there is no rung below it
+     * any more. The quality setting this used to branch on asked a single-source
+     * ring for a choice it never had, so the answer was always the same byte.
      */
     @Test
-    fun `only lossless asks a source for the file it holds`() {
-        assertEquals(
-            StreamRequest.Lossless,
-            SourceResolver.requestForDownload(DownloadQuality.LOSSLESS),
-        )
-        assertEquals(StreamRequest.Best, SourceResolver.requestForDownload(DownloadQuality.HIGH))
-        assertEquals(
-            StreamRequest.Capped(128),
-            SourceResolver.requestForDownload(DownloadQuality.STANDARD),
-        )
-    }
-
-    /**
-     * High means "the best rung there is", and the sentinel that says so must
-     * not survive into a request as a literal 2-billion-kbps cap — the
-     * difference between a ceiling nothing exceeds and no ceiling at all is
-     * invisible until something starts formatting the number.
-     */
-    @Test
-    fun `high is uncapped rather than capped very high`() {
-        assertEquals(Int.MAX_VALUE, DownloadQuality.HIGH.maxKbps)
-        assertTrue(SourceResolver.requestForDownload(DownloadQuality.HIGH) !is StreamRequest.Capped)
-    }
-
-    /**
-     * Every rung has to say what it costs, or the picker shows a blank line.
-     *
-     * The copy moved out of the enum into string resources, so this reads the
-     * XML rather than the field — a blank there is the same bug wearing a
-     * different coat. The keys are the ones [DownloadQuality] maps to.
-     */
-    @Test
-    fun `every download rung is describable`() {
-        val values = File("src/main/res/values/strings.xml")
-        val present = mutableMapOf<String, String>()
-        DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(values)
-            .getElementsByTagName("string").let { nodes ->
-                for (i in 0 until nodes.length) {
-                    val el = nodes.item(i) as org.w3c.dom.Element
-                    present[el.getAttribute("name")] = el.textContent.orEmpty()
-                }
-            }
-        listOf(
-            "download_detail_standard", "download_detail_high", "download_detail_lossless",
-            "download_per_track_standard", "download_per_track_high", "download_per_track_lossless",
-            "quality_detail_low", "quality_detail_medium", "quality_detail_high",
-            "quality_detail_lossless", "quality_hourly_low", "quality_hourly_medium",
-            "quality_hourly_high", "quality_hourly_lossless",
-            "low", "medium", "high", "lossless", "standard",
-        ).forEach { key ->
-            assertTrue("$key is missing from values/strings.xml", present.containsKey(key))
-            assertTrue("$key is blank", present.getValue(key).isNotBlank())
-        }
+    fun `a download asks a source for the file it holds`() {
+        assertEquals(StreamRequest.Lossless, SourceResolver.requestForDownload())
     }
 
     // ---- When a download may start -----------------------------------------
@@ -275,7 +222,7 @@ class DownloadStoreTest {
             assertEquals(AudioQuality.LOW, AppSettings.audioQuality.value)
             assertEquals(
                 StreamRequest.Lossless,
-                SourceResolver.requestForDownload(DownloadQuality.LOSSLESS),
+                SourceResolver.requestForDownload(),
             )
         } finally {
             AppSettings.audioQuality.value = quality

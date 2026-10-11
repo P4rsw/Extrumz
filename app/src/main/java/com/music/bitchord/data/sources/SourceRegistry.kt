@@ -146,8 +146,8 @@ object SourceRegistry {
      * Every path that starts or plans a *stream* asks this rather than
      * [active], so the single rung in settings stays the answer to "what does
      * this minute cost". Downloads deliberately keep asking [active]: what a
-     * saved file is worth is [DownloadQuality][com.music.bitchord.data.settings.DownloadQuality]'s
-     * question, and when it may be fetched is
+     * saved file is worth is about
+     * how a saved file is kept, and when it may be fetched is
      * [AppSettings.wifiOnlyDownloads][com.music.bitchord.data.settings.AppSettings.wifiOnlyDownloads]'s.
      */
     fun activeForPlayback(): List<MusicSource> {

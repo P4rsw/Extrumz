@@ -6,7 +6,6 @@ import com.music.bitchord.data.TrackLog
 import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.data.settings.AudioQuality
-import com.music.bitchord.data.settings.DownloadQuality
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.async
@@ -69,35 +68,19 @@ object SourceResolver {
     }
 
     /**
-     * What to ask a source for on behalf of a file being kept.
+     * What a *download* asks for, and the answer is no longer a choice.
      *
-     * Reads [AppSettings.downloadQuality] and nothing else — not the ceilings,
-     * not the lossless switch. Both of those are about what a *stream* costs on
-     * the connection in hand, and this is the one request whose answer outlives
-     * the connection: it becomes a file.
+     * It used to read a quality setting whose rungs only meant anything to a
+     * source holding several renditions of one recording. The ring holds one,
+     * and it hands over whatever the uploader put there — so the ceiling had
+     * nothing to cap, and the setting it came from was a row in Settings that
+     * changed no byte of any file. Removed rather than left looking useful.
      *
-     * That independence is the point. The ceilings used to decide this by
-     * proxy, so downloading on capped mobile data returned a transcode even
-     * for someone whose own FLAC server was ranked above it — a
-     * setting about data spend silently deciding what a permanent file was made
-     * of. Data spend on a download is now [AppSettings.wifiOnlyDownloads]'
-     * question, asked once at the point of queueing rather than mixed into
-     * this one.
-     *
-     * @param quality defaults to the setting as it stands, which is what a
-     *   caller with no download in flight wants. A caller that is already
-     *   fetching one passes the value it started with — a lossless search can
-     *   run for twenty seconds (`Downloads.SOURCE_LOOKUP_MS`), which is long
-     *   enough for someone to open Settings and change the answer underneath a
-     *   file that is half written.
+     * Lossless, not Best, because a download is asked for once and kept: if a
+     * source does gain a bit-exact rendition later, a saved file is the one
+     * place where asking for it still costs nothing.
      */
-    fun requestForDownload(
-        quality: DownloadQuality = AppSettings.downloadQuality.value,
-    ): StreamRequest = when {
-        quality.keepsLossless -> StreamRequest.Lossless
-        quality.maxKbps == Int.MAX_VALUE -> StreamRequest.Best
-        else -> StreamRequest.Capped(quality.maxKbps)
-    }
+    fun requestForDownload(): StreamRequest = StreamRequest.Lossless
 
     /**
      * @param uri a `bitchord://source?...` URI as built by [SourceRegistry.trackUri].
@@ -323,29 +306,12 @@ object SourceResolver {
      * sat unused. Same reasoning as [bestAcross], for the same
      * measured reason.
      *
-     * On the **High** rung step 1 is empty and every ranked source goes into
-     * step 2's race, asked for [StreamRequest.Best]. A bit-exact answer to that
-     * is refused rather than kept: someone who chose High over Lossless chose
-     * the smaller file, and a FLAC filed under this setting would additionally
-     * be missed by the already-on-disk check in `Downloads.prepare` — which only
-     * looks for lossless extensions when the setting keeps lossless — and so be
-     * re-downloaded on every pass through the queue.
-     *
-     * ### Which settings get this far
-     *
-     * [DownloadQuality.LOSSLESS][com.music.bitchord.data.settings.DownloadQuality.LOSSLESS]
-     * and [DownloadQuality.HIGH][com.music.bitchord.data.settings.DownloadQuality.HIGH];
-     * not [DownloadQuality.STANDARD][com.music.bitchord.data.settings.DownloadQuality.STANDARD].
-     * Standard is a 128kbps ceiling chosen to fit more on the device, and a
-     * source cannot be asked for *that* rung — only for the best it has, which
-     * is a bigger file than the setting exists to avoid.
-     *
-     * Note which setting decides this, since it used to be the wrong one: the
-     * connection's ceiling ended this here instead, which meant a download on
-     * mobile data took a transcode of a recording the user owns losslessly. That
-     * was a data-plan setting deciding what a permanent file was made of, and
-     * [AppSettings.wifiOnlyDownloads] does the data-plan job properly now —
-     * before a byte is fetched rather than by quietly downgrading the result.
+     * Only one rung reaches here now. There used to be a quality setting whose
+     * Standard rung refused a bit-exact answer; it went with the setting itself,
+     * which asked a single-source ring for a choice it never had. What a download
+     * is made of is decided by what a source holds, and what it may spend is
+     * [AppSettings.wifiOnlyDownloads]'s — a data-plan question answered before a
+     * byte is fetched rather than by quietly downgrading the file afterwards.
      *
      * @param target the recording to look for, off the row being downloaded. A
      *   blank title can only produce a wrong match; a null runtime is allowed
@@ -370,9 +336,8 @@ object SourceResolver {
         }
         // [SourceRegistry.active] rather than the playback list: a download is
         // not budgeted by the connection's streaming ceiling. What it keeps is
-        // [DownloadQuality]'s answer and what it may spend is
-        // [AppSettings.wifiOnlyDownloads]'s, and a mobile-data rung of Medium
-        // has no business deciding what a file saved over Wi-Fi later is made of.
+        // decided by what a source holds, and what it may spend is
+        // [AppSettings.wifiOnlyDownloads]'s.
         val active = SourceRegistry.active()
         val ranked = active
         val strictLength = target.durationSec != null

@@ -9,7 +9,6 @@ import com.music.bitchord.data.DebugLog as Log
 import androidx.core.content.ContextCompat
 import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.settings.AppSettings
-import com.music.bitchord.data.settings.DownloadQuality
 import com.music.bitchord.data.sources.SourceResolver
 import com.music.bitchord.data.sources.SourceStream
 import com.music.bitchord.data.sources.StreamFormat
@@ -873,7 +872,6 @@ object Downloads {
         // Read once, here, for the whole of this track. Re-reading the
         // setting per call would let a change made mid-download apply to one
         // half of a queue and not the other.
-        val quality = AppSettings.downloadQuality.value
 
         // Asked before the lookup rather than after it, unlike the check on the
         // route's own filename below. A file already sitting in Music under a
@@ -884,17 +882,15 @@ object Downloads {
         // be lossless are worth guessing at: an `.m4a` may be this app's ALAC
         // or its AAC, and adopting the wrong one would quietly answer a request
         // for lossless with a transcode.
-        if (quality.keepsLossless) {
-            LOSSLESS_EXTENSIONS.firstNotNullOfOrNull { extension ->
-                DownloadStore.existing(context, DownloadStore.fileNameFor(track, extension))
-            }?.let { uri ->
-                return@withContext Prepared(song.videoId, track, route = null, alreadyAt = uri)
-            }
+        LOSSLESS_EXTENSIONS.firstNotNullOfOrNull { extension ->
+            DownloadStore.existing(context, DownloadStore.fileNameFor(track, extension))
+        }?.let { uri ->
+            return@withContext Prepared(song.videoId, track, route = null, alreadyAt = uri)
         }
 
-        val route = routeFor(track, quality)
+        val route = routeFor(track)
             ?: error("No enabled source has this track")
-        Log.d(TAG, "downloading ${song.videoId} as .${route.extension} (${route.describe}, ${quality.label})")
+        Log.d(TAG, "downloading ${song.videoId} as .${route.extension} (${route.describe})")
         Prepared(song.videoId, track, route = route, alreadyAt = null)
     }
 
@@ -1089,8 +1085,8 @@ object Downloads {
      *   changed while this track is in the queue applies to the next one
      *   rather than to the middle of this one.
      */
-    private suspend fun routeFor(track: Song, quality: DownloadQuality): Route? {
-        val (stream, storable) = fromSources(track, quality) ?: return null
+    private suspend fun routeFor(track: Song): Route? {
+        val (stream, storable) = fromSources(track) ?: return null
         // A manifest is an index, not audio. Whichever kind it is, fetching
         // it as a file writes the index into something named `.flac` —
         // which is exactly what a `.mpd` did until [OfflineDash] existed:
@@ -1145,7 +1141,6 @@ object Downloads {
      */
     private suspend fun fromSources(
         track: Song,
-        quality: DownloadQuality,
     ): Pair<SourceStream, DownloadStore.Storable>? {
         // Wrapped so the two ways this can come back empty stay apart in the
         // log. `withTimeoutOrNull` collapses them into one null, and the
@@ -1158,7 +1153,7 @@ object Downloads {
             try {
                 SourceResolver.forDownload(
                     TrackMatcher.targetOf(track),
-                    SourceResolver.requestForDownload(quality),
+                    SourceResolver.requestForDownload(),
                 )
             } catch (e: CancellationException) {
                 throw e
@@ -1172,7 +1167,7 @@ object Downloads {
                 Log.w(
                     TAG,
                     "source lookup for ${track.videoId} ran past ${SOURCE_LOOKUP_MS}ms; " +
-                        "giving up on it rather than waiting for ${quality.label}",
+                        "giving up on it rather than waiting",
                 )
             }
             return null

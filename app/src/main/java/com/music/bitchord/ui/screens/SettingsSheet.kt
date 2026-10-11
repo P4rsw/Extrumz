@@ -122,7 +122,6 @@ import com.music.bitchord.playback.AudioOutputStatus
 import com.music.bitchord.data.settings.AutomixPerformanceMode
 import com.music.bitchord.R
 import com.music.bitchord.data.settings.AudioQuality
-import com.music.bitchord.data.settings.DownloadQuality
 import com.music.bitchord.data.settings.ThemeMode
 import com.music.bitchord.data.stats.Backup
 import com.music.bitchord.playback.AudioCache
@@ -180,7 +179,6 @@ fun SettingsScreen(
     val playingFormat by NerdStats.current.collectAsStateWithLifecycle()
     val playingDolbyAtmos = playingFormat?.isDolbyAtmos == true
     val cacheLimitBytes by AppSettings.audioCacheLimitBytes.collectAsStateWithLifecycle()
-    val downloadQuality by AppSettings.downloadQuality.collectAsStateWithLifecycle()
     val wifiOnlyDownloads by AppSettings.wifiOnlyDownloads.collectAsStateWithLifecycle()
     val exportDownloads by AppSettings.exportDownloads.collectAsStateWithLifecycle()
     val stopOnTaskRemoved by AppSettings.stopOnTaskRemoved.collectAsStateWithLifecycle()
@@ -211,7 +209,6 @@ fun SettingsScreen(
     // exactly as if the field weren't there.
     var searchQuery by remember { mutableStateOf("") }
     var pickingQuality by remember { mutableStateOf(false) }
-    var pickingDownloadQuality by remember { mutableStateOf(false) }
     var pickingAutomixPerformance by remember { mutableStateOf(false) }
     // What the last export or import did, shown on the row that did it rather
     // than as a toast: a backup is the one action here whose outcome nobody can
@@ -357,20 +354,6 @@ fun SettingsScreen(
         // it be fetched" — and those two questions only make sense read
         // together, which is what puts them side by side here.
         SearchableSettingsGroup(search, header = stringResource(R.string.downloads)) {
-            val downloadQualityTitle = stringResource(R.string.download_quality)
-            row(downloadQualityTitle, "offline", "lossless", "دانلود", "کیفیت", "کیفیت دانلود", "آفلاین", "بدون افت کیفیت") {
-                SettingsRow(
-                    icon = Icons.Rounded.Download,
-                    title = downloadQualityTitle,
-                    subtitle = stringResource(
-                        R.string.download_quality_subtitle,
-                        downloadQuality.localizedPerTrack(),
-                    ),
-                    value = downloadQuality.localizedLabel(),
-                    onClick = { pickingDownloadQuality = true },
-                )
-            }
-            // Reads as part of Download quality above it, not as a setting
             // of its own — same treatment as Play animated cover over
             // cellular gets under Animated cover art.
             val downloadWifiOnlyTitle = stringResource(R.string.download_wifi_only)
@@ -1053,7 +1036,6 @@ fun SettingsScreen(
             }
         }
 
-
         SearchableSettingsGroup(search, header = stringResource(R.string.advanced_options)) {
             val smartAlignmentTitle = stringResource(R.string.smart_version_alignment)
             row(smartAlignmentTitle, "alignment", "sync", "waveform", "video", "audio", "skit", "intro", "همگامسازی", "هماهنگسازی", "شکل موج", "ویدیو", "صوت", "مقدمه") {
@@ -1146,21 +1128,6 @@ fun SettingsScreen(
                 onSelect = { quality ->
                     AppSettings.setAudioQuality(quality)
                     pickingQuality = false
-                },
-            )
-        }
-    }
-
-    if (pickingDownloadQuality) {
-        ModalBottomSheet(
-            onDismissRequest = { pickingDownloadQuality = false },
-            containerColor = MaterialTheme.colorScheme.background,
-        ) {
-            DownloadQualitySheet(
-                selected = downloadQuality,
-                onSelect = { quality ->
-                    AppSettings.setDownloadQuality(quality)
-                    pickingDownloadQuality = false
                 },
             )
         }
@@ -1279,15 +1246,6 @@ private fun AudioQuality.localizedLabel(): String = stringResource(
 )
 
 @Composable
-private fun DownloadQuality.localizedLabel(): String = stringResource(
-    when (this) {
-        DownloadQuality.STANDARD -> R.string.standard
-        DownloadQuality.HIGH -> R.string.high
-        DownloadQuality.LOSSLESS -> R.string.lossless
-    },
-)
-
-@Composable
 private fun ThemeMode.localizedLabel(): String = stringResource(
     when (this) {
         ThemeMode.SYSTEM -> R.string.system
@@ -1345,24 +1303,6 @@ private fun AudioQuality.localizedDetail(): String = stringResource(
         AudioQuality.MEDIUM -> R.string.quality_detail_medium
         AudioQuality.HIGH -> R.string.quality_detail_high
         AudioQuality.LOSSLESS -> R.string.quality_detail_lossless
-    },
-)
-
-@Composable
-private fun DownloadQuality.localizedDetail(): String = stringResource(
-    when (this) {
-        DownloadQuality.STANDARD -> R.string.download_detail_standard
-        DownloadQuality.HIGH -> R.string.download_detail_high
-        DownloadQuality.LOSSLESS -> R.string.download_detail_lossless
-    },
-)
-
-@Composable
-private fun DownloadQuality.localizedPerTrack(): String = stringResource(
-    when (this) {
-        DownloadQuality.STANDARD -> R.string.download_per_track_standard
-        DownloadQuality.HIGH -> R.string.download_per_track_high
-        DownloadQuality.LOSSLESS -> R.string.download_per_track_lossless
     },
 )
 
@@ -1504,92 +1444,6 @@ private fun AutomixPerformanceSheet(
                                 AutomixPerformanceMode.BALANCED -> R.string.automix_mode_balanced_subtitle
                                 AutomixPerformanceMode.PERFORMANCE -> R.string.automix_mode_performance_subtitle
                             },
-                        ),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                if (chosen) {
-                    Spacer(Modifier.width(12.dp))
-                    Icon(
-                        Icons.Rounded.Check,
-                        contentDescription = stringResource(R.string.selected),
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(22.dp),
-                    )
-                }
-            }
-        }
-    }
-}
-
-/**
- * What to keep when a track is saved, with what each rung costs on disk.
- *
- * Priced per track rather than per hour, the way [QualitySheet] is. That sheet
- * is answering "what will listening cost me this hour", because a stream is
- * spent again on every replay; this one is answering "what will keeping this
- * cost me", and the answer is charged once. Same widget, different question, so
- * the numbers beside the options are in different units on purpose.
- */
-@Composable
-private fun DownloadQualitySheet(
-    selected: DownloadQuality,
-    onSelect: (DownloadQuality) -> Unit,
-) {
-    val haptics = LocalHapticFeedback.current
-    Column(Modifier.fillMaxWidth().padding(bottom = 24.dp)) {
-        Row(
-            modifier = Modifier.padding(start = 22.dp, end = 22.dp, bottom = 14.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Icon(
-                imageVector = Icons.Rounded.Download,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onBackground,
-                modifier = Modifier.size(22.dp),
-            )
-            Spacer(Modifier.width(14.dp))
-            Column {
-                Text(
-                    text = stringResource(R.string.download_quality),
-                    style = MaterialTheme.typography.titleLarge,
-                    color = MaterialTheme.colorScheme.onBackground,
-                )
-                Text(
-                    text = stringResource(R.string.download_quality_dialog_subtitle),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
-        HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outline)
-
-        // Best first, matching [QualitySheet] — and here the best rung is also
-        // the default, so the checkmark starts where the eye does.
-        DownloadQuality.entries.reversed().forEach { quality ->
-            val chosen = quality == selected
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable {
-                        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                        onSelect(quality)
-                    }
-                    .padding(horizontal = 22.dp, vertical = 14.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Column(Modifier.weight(1f)) {
-                    Text(
-                        text = quality.localizedLabel(),
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onBackground,
-                    )
-                    Text(
-                        text = stringResource(
-                            R.string.quality_per_track,
-                            quality.localizedDetail(),
-                            quality.localizedPerTrack(),
                         ),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,

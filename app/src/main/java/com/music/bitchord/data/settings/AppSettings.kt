@@ -83,36 +83,6 @@ enum class OutputPcmMode(val label: String) {
     FLOAT_32("32-bit float"),
 }
 
-/**
- * What to keep when a track is saved to the device.
- *
- * Deliberately not [AudioQuality]. That enum budgets a *stream*, and is priced
- * per hour because the same bytes are spent again on every replay. A download is
- * the opposite trade — paid for once, kept, played from disk forever after — so
- * the figure that decides it is what one track costs, and the rung worth
- * defaulting to is the top one rather than the cheap one.
- *
- * The rungs themselves differ too: configured sources can supply their own AAC
- * or lossless copy of a track. And [LOSSLESS] has no streaming counterpart at
- * all: it is the only rung that lets a configured source's bit-exact file end
- * up as a file on disk.
- */
-enum class DownloadQuality(
-    /** Ceiling for a lossy fallback download. [Int.MAX_VALUE] means "whichever rung is best". */
-    val maxKbps: Int,
-    /**
-     * The rung's English name — kept out of translation on purpose, for the
-     * same reason [AudioQuality.label] is: a log tag that swaps language
-     * between builds is a tag a grep will not find.
-     */
-    val label: String,
-    /** Whether a source's bit-exact file is worth keeping, or a transcode will do. */
-    val keepsLossless: Boolean,
-) {
-    STANDARD(128, "Standard", false),
-    HIGH(Int.MAX_VALUE, "High", false),
-    LOSSLESS(Int.MAX_VALUE, "Lossless", true),
-}
 
 enum class ThemeMode(val label: String) {
     SYSTEM("System"), LIGHT("Light"), DARK("Dark")
@@ -212,24 +182,6 @@ object AppSettings {
     /** Allowed duration difference when replacing a playing stream with one from a source. */
     val upgradeLengthSlackSeconds = MutableStateFlow(DEFAULT_UPGRADE_LENGTH_SLACK_SECONDS)
 
-    /**
-     * What a saved file should be, answered on its own terms.
-     *
-     * Kept apart from the two ceilings above on purpose. Those are about what
-     * this minute's connection costs, and a download outlives the minute it was
-     * started in — capping a permanent file at whichever network happened to be
-     * in hand bakes a temporary decision into a lasting artefact, and the
-     * reverse (a High ceiling on Wi-Fi implying 35MB FLACs of everything) is
-     * just as wrong in the other direction.
-     *
-     * Data spend on a download is [wifiOnlyDownloads]' problem, not this
-     * setting's, which is what lets this one be purely about the file.
-     *
-     * Defaults to [DownloadQuality.LOSSLESS] because that is what the download
-     * path already did on an uncapped connection, and [migrateDownloadQuality]
-     * keeps it that way for the people it didn't.
-     */
-    val downloadQuality = MutableStateFlow(DownloadQuality.LOSSLESS)
 
     /**
      * Refuse to start a download while the connection charges for data.
@@ -240,9 +192,9 @@ object AppSettings {
      * connection is worth using whether or not it arrives over Wi-Fi.
      *
      * On by default, and that is a deliberate change of behaviour for anyone
-     * updating. [downloadQuality] defaulting to Lossless means a tap that used
-     * to spend four megabytes of mobile data can now spend thirty-five, and of
-     * the two ways to get that wrong — silently overspending a data plan, or
+     * updating. A download is kept rather than spent again on every replay, so
+     * a tap that used to cost four megabytes can cost thirty-five, and of the
+     * two ways to get that wrong — silently overspending a data plan, or
      * refusing with a sentence naming the switch that would allow it — only the
      * second is recoverable by the person it happens to.
      */
@@ -608,8 +560,6 @@ object AppSettings {
             KEY_UPGRADE_LENGTH_SLACK_SECONDS,
             DEFAULT_UPGRADE_LENGTH_SLACK_SECONDS,
         ).coerceIn(MIN_UPGRADE_LENGTH_SLACK_SECONDS, MAX_UPGRADE_LENGTH_SLACK_SECONDS)
-        migrateDownloadQuality()
-        downloadQuality.value = readDownloadQuality()
         wifiOnlyDownloads.value = prefs.getBoolean(KEY_WIFI_ONLY_DOWNLOADS, true)
         exportDownloads.value = prefs.getBoolean(KEY_EXPORT_DOWNLOADS, false)
         crossfadeSeconds.value = prefs.getInt(KEY_CROSSFADE, 0)
@@ -727,33 +677,7 @@ object AppSettings {
         return runCatching { AudioQuality.valueOf(stored) }.getOrDefault(AudioQuality.LOSSLESS)
     }
 
-    /**
-     * Write down what the download path was already doing, before it starts
-     * being asked instead.
-     *
-     * Download quality used to be derived rather than chosen: a lossless copy
-     * was kept when `SourceResolver.requestForNow()` said Lossless, which meant
-     * a download quietly turned on the lossless preference and off again with
-     * it. Someone who switched that off on the Sources screen was getting AAC
-     * downloads on purpose, and defaulting them to Lossless now would answer a
-     * question they had already answered — with thirty-five megabytes a track.
-     *
-     * The ceilings are deliberately *not* consulted. They were only in that
-     * derivation because there was nowhere else to say "not on mobile data",
-     * and [wifiOnlyDownloads] is now where that is said.
-     */
-    private fun migrateDownloadQuality() {
-        if (prefs.contains(KEY_QUALITY_DOWNLOAD)) return
-        // Was derived from the old `losslessAudio` switch, which defaulted to
-        // on; LOSSLESS is what that produced for all but the few installs that
-        // had turned it off, and is the default a fresh install gets anyway.
-        prefs.edit().putString(KEY_QUALITY_DOWNLOAD, DownloadQuality.LOSSLESS.name).apply()
-    }
 
-    private fun readDownloadQuality(): DownloadQuality {
-        val stored = prefs.getString(KEY_QUALITY_DOWNLOAD, null) ?: return DownloadQuality.LOSSLESS
-        return runCatching { DownloadQuality.valueOf(stored) }.getOrDefault(DownloadQuality.LOSSLESS)
-    }
 
     /**
      * Track the active network so [downloadsAllowedNow] and [exportsAllowedNow]
@@ -812,10 +736,6 @@ object AppSettings {
         prefs.edit().putInt(KEY_UPGRADE_LENGTH_SLACK_SECONDS, normalized).apply()
     }
 
-    fun setDownloadQuality(value: DownloadQuality) {
-        downloadQuality.value = value
-        prefs.edit().putString(KEY_QUALITY_DOWNLOAD, value.name).apply()
-    }
 
     fun setWifiOnlyDownloads(value: Boolean) {
         wifiOnlyDownloads.value = value
@@ -1328,7 +1248,6 @@ object AppSettings {
     private const val KEY_QUALITY = "audio_quality"
     private const val KEY_QUALITY_WIFI = "audio_quality_wifi"
     private const val KEY_UPGRADE_LENGTH_SLACK_SECONDS = "upgrade_length_slack_seconds"
-    private const val KEY_QUALITY_DOWNLOAD = "audio_quality_download"
     private const val KEY_WIFI_ONLY_DOWNLOADS = "wifi_only_downloads"
     private const val KEY_EXPORT_DOWNLOADS = "export_downloads"
     private const val KEY_LOSSLESS = "lossless_audio"
