@@ -334,7 +334,7 @@ fun SettingsScreen(
         // [SourceRegistry.activeForPlayback][com.music.bitchord.data.sources.SourceRegistry.activeForPlayback].
         SearchableSettingsGroup(search, header = stringResource(R.string.audio_quality)) {
             val streamQualityTitle = stringResource(R.string.stream_quality)
-            row(streamQualityTitle, "wi-fi", "cellular", "streaming quality") {
+            row(streamQualityTitle, "wi-fi", "cellular", "streaming quality", "کیفیت", "کیفیت پخش", "استریم", "پخش آنلاین", "وای فای") {
                 SettingsRow(
                     icon = Icons.Rounded.Wifi,
                     title = streamQualityTitle,
@@ -351,7 +351,7 @@ fun SettingsScreen(
         // together, which is what puts them side by side here.
         SearchableSettingsGroup(search, header = stringResource(R.string.downloads)) {
             val downloadQualityTitle = stringResource(R.string.download_quality)
-            row(downloadQualityTitle, "offline", "lossless") {
+            row(downloadQualityTitle, "offline", "lossless", "دانلود", "کیفیت", "کیفیت دانلود", "آفلاین", "بدون افت کیفیت") {
                 SettingsRow(
                     icon = Icons.Rounded.Download,
                     title = downloadQualityTitle,
@@ -364,7 +364,7 @@ fun SettingsScreen(
             // of its own — same treatment as Play animated cover over
             // cellular gets under Animated cover art.
             val downloadWifiOnlyTitle = stringResource(R.string.download_wifi_only)
-            row(downloadWifiOnlyTitle, "wi-fi", "cellular", divided = false) {
+            row(downloadWifiOnlyTitle, "wi-fi", "cellular", "دانلود", "وای فای", "فقط وای فای", "اینترنت همراه", divided = false) {
                 SettingsSubRow(
                     title = downloadWifiOnlyTitle,
                     checked = wifiOnlyDownloads,
@@ -373,7 +373,7 @@ fun SettingsScreen(
                 )
             }
             val exportDownloadsTitle = stringResource(R.string.export_compatible_downloads)
-            row(exportDownloadsTitle, "music folder", divided = false) {
+            row(exportDownloadsTitle, "music folder", "پوشه", "پوشه موسیقی", "خروجی", "دانلود", "استخراج", "پوشه دانلود", divided = false) {
                 SettingsSubRow(
                     title = exportDownloadsTitle,
                     checked = exportDownloads,
@@ -385,7 +385,7 @@ fun SettingsScreen(
 
         SearchableSettingsGroup(search, header = stringResource(R.string.playback)) {
             val outputPrecisionTitle = stringResource(R.string.output_precision)
-            row(outputPrecisionTitle, "pcm", "bit depth", "sample rate", "dac") {
+            row(outputPrecisionTitle, "pcm", "bit depth", "sample rate", "dac", "دقت خروجی", "خروجی", "عمق بیت", "نرخ نمونهبرداری", "داک") {
                 SettingsRow(
                     icon = Icons.Rounded.GraphicEq,
                     title = outputPrecisionTitle,
@@ -407,7 +407,7 @@ fun SettingsScreen(
                 )
             }
             val preferUsbDacTitle = stringResource(R.string.prefer_usb_dac)
-            row(preferUsbDacTitle, "headphone", "output") {
+            row(preferUsbDacTitle, "headphone", "output", "هدفون", "خروجی", "یو اس بی", "داک", "داک یو اس بی") {
                 SettingsSubRow(
                     title = preferUsbDacTitle,
                     checked = preferUsbDac,
@@ -416,7 +416,7 @@ fun SettingsScreen(
                 )
             }
             val loudnessTitle = stringResource(R.string.loudness_normalization)
-            row(loudnessTitle, "loudness", "volume", "normalize", "replaygain", "lufs") {
+            row(loudnessTitle, "loudness", "volume", "normalize", "replaygain", "lufs", "نرمالسازی بلندی", "بلندی صدا", "نرمالسازی", "صدا", "گین ریپلی", "یکنواخت سازی") {
                 SettingsRow(
                     icon = Icons.Rounded.VolumeUp,
                     title = loudnessTitle,
@@ -439,7 +439,7 @@ fun SettingsScreen(
             // than needing it set to anything first.
             if (!smartFade) {
                 val crossfadeTitle = stringResource(R.string.crossfade)
-                row(crossfadeTitle, "fade", "gapless") {
+                row(crossfadeTitle, "fade", "gapless", "کراسفید", "محو شدن", "پیوسته", "تداخل") {
                     SliderRow(
                         icon = Icons.Rounded.Waves,
                         title = crossfadeTitle,
@@ -453,7 +453,7 @@ fun SettingsScreen(
                 }
             }
             val automixTitle = stringResource(R.string.automix)
-            row(automixTitle, "crossfade", "smart fade", "mix") {
+            row(automixTitle, "crossfade", "smart fade", "mix", "اتومیکس", "میکس", "کراسفید", "محو هوشمند", "میکس خودکار") {
                 SettingsRow(
                     icon = Icons.Rounded.AutoAwesome,
                     title = automixTitle,
@@ -476,7 +476,7 @@ fun SettingsScreen(
                 )
             }
             val automixPerformanceTitle = stringResource(R.string.automix_performance)
-            row(automixPerformanceTitle, "cpu", "battery") {
+            row(automixPerformanceTitle, "cpu", "battery", "عملکرد", "پردازنده", "باتری", "مصرف باتری") {
                 SettingsRow(
                     icon = Icons.Rounded.Tune,
                     title = automixPerformanceTitle,
@@ -486,7 +486,7 @@ fun SettingsScreen(
                 )
             }
             val skipSilenceTitle = stringResource(R.string.skip_silence)
-            row(skipSilenceTitle, "silence") {
+            row(skipSilenceTitle, "silence", "رد کردن سکوت", "سکوت", "حذف سکوت") {
                 SettingsRow(
                     icon = Icons.AutoMirrored.Rounded.VolumeOff,
                     title = skipSilenceTitle,
@@ -516,7 +516,7 @@ fun SettingsScreen(
                 )
             }
             val spatialAudioTitle = stringResource(R.string.spatial_audio)
-            row(spatialAudioTitle, "surround", "3d") {
+            row(spatialAudioTitle, "surround", "3d", "صدای فضایی", "سه بعدی", "فراگیر", "فضایی", "سوراند") {
                 SettingsRow(
                     icon = Icons.Rounded.SurroundSound,
                     title = spatialAudioTitle,
@@ -551,7 +551,7 @@ fun SettingsScreen(
             // keeps its row — but one level in, at the foot of the equaliser
             // screen, rather than as a second equaliser entry alongside ours.
             val equalizerTitle = stringResource(R.string.equalizer)
-            row(equalizerTitle, "eq", "bass", "treble") {
+            row(equalizerTitle, "eq", "bass", "treble", "اکولایزر", "بیس", "تریبل", "تنظیم صدا") {
                 SettingsRow(
                     icon = Icons.Rounded.Tune,
                     title = equalizerTitle,
@@ -563,7 +563,7 @@ fun SettingsScreen(
 
         SearchableSettingsGroup(search, header = stringResource(R.string.appearance)) {
             val themeTitle = stringResource(R.string.theme)
-            row(themeTitle, "dark mode", "light mode") {
+            row(themeTitle, "dark mode", "light mode", "پوسته", "تم", "حالت تیره", "حالت روشن", "دارک مود") {
                 SettingsRow(icon = Icons.Rounded.Brightness4, title = themeTitle)
                 SegmentedControl(
                     options = ThemeMode.entries.map { it.localizedLabel() },
@@ -573,7 +573,7 @@ fun SettingsScreen(
                 )
             }
             val reduceAnimationTitle = stringResource(R.string.reduce_animation)
-            row(reduceAnimationTitle, "motion") {
+            row(reduceAnimationTitle, "motion", "پویانمایی", "کاهش پویانمایی", "انیمیشن", "کاهش انیمیشن", "حرکت") {
                 SettingsRow(
                     icon = Icons.Rounded.MotionPhotosOff,
                     title = reduceAnimationTitle,
@@ -592,7 +592,7 @@ fun SettingsScreen(
                 )
             }
             val reduceDynamicBlurTitle = stringResource(R.string.reduce_dynamic_blur)
-            row(reduceDynamicBlurTitle, "blur", "performance") {
+            row(reduceDynamicBlurTitle, "blur", "performance", "تاری", "تاری پویا", "کاهش تاری", "بلر", "عملکرد") {
                 SettingsRow(
                     icon = Icons.Rounded.BlurOff,
                     title = reduceDynamicBlurTitle,
@@ -611,7 +611,7 @@ fun SettingsScreen(
                 )
             }
             val liquidGlassTitle = stringResource(R.string.liquid_glass)
-            row(liquidGlassTitle, "glass", "blur") {
+            row(liquidGlassTitle, "glass", "blur", "شیشه", "شیشه شفاف", "افکت شیشه", "تاری") {
                 SettingsRow(
                     icon = Icons.Rounded.AutoAwesome,
                     title = liquidGlassTitle,
@@ -643,7 +643,7 @@ fun SettingsScreen(
             // honour it — see [fullBleedArtworkAvailable].
             if (fullBleedArtworkAvailable(windowWidth)) {
                 val fullScreenCoverArtTitle = stringResource(R.string.full_screen_cover_art)
-                row(fullScreenCoverArtTitle, "artwork", "player") {
+                row(fullScreenCoverArtTitle, "artwork", "player", "کاور", "تمامصفحه", "کاور تمامصفحه", "پخشکننده", "تصویر آلبوم") {
                     SettingsRow(
                         icon = Icons.Rounded.Fullscreen,
                         title = fullScreenCoverArtTitle,
@@ -655,7 +655,7 @@ fun SettingsScreen(
                                 colors = SwitchDefaults.colors(
                                     checkedTrackColor = MaterialTheme.colorScheme.primary,
                                     checkedBorderColor = MaterialTheme.colorScheme.primary,
-                                ),
+                                    ),
                             )
                         },
                         onClick = { AppSettings.setFullBleedArtwork(!fullBleedArtwork) },
@@ -665,7 +665,7 @@ fun SettingsScreen(
             val syncedLyricsTitle = stringResource(R.string.synced_lyrics)
             // Same reasoning as Animated cover art above: the lyrics source and
             // translation rows are only here while this is on.
-            row(syncedLyricsTitle, "lyrics", "translation", "lrclib", "musixmatch") {
+            row(syncedLyricsTitle, "lyrics", "translation", "lrclib", "musixmatch", "متن آهنگ", "ترجمه", "متن ترانه", "همگام") {
                 SettingsRow(
                     icon = Icons.AutoMirrored.Rounded.Notes,
                     title = syncedLyricsTitle,
@@ -688,7 +688,7 @@ fun SettingsScreen(
             // connection — which is the part worth being able to narrow.
             if (syncedLyrics) {
                 val lyricsBlurTitle = stringResource(R.string.blur_unfocused_lyrics)
-                row(lyricsBlurTitle, "lyrics", "blur") {
+                row(lyricsBlurTitle, "lyrics", "blur", "متن آهنگ", "تاری", "محو کردن متن", "تاری متن") {
                     SettingsRow(
                         icon = Icons.Rounded.BlurOn,
                         title = lyricsBlurTitle,
@@ -707,7 +707,7 @@ fun SettingsScreen(
                     )
                 }
                 val lyricsSourcesTitle = stringResource(R.string.lyrics_sources)
-                row(lyricsSourcesTitle, "lyrics", "lrclib", "musixmatch") {
+                row(lyricsSourcesTitle, "lyrics", "lrclib", "musixmatch", "متن آهنگ", "منابع متن آهنگ", "منابع متن") {
                     SettingsRow(
                         icon = Icons.Rounded.Language,
                         title = lyricsSourcesTitle,
@@ -720,7 +720,7 @@ fun SettingsScreen(
                     )
                 }
                 val translationLanguageTitle = stringResource(R.string.translation_language)
-                row(translationLanguageTitle, "lyrics", "translate") {
+                row(translationLanguageTitle, "lyrics", "translate", "متن آهنگ", "ترجمه", "زبان ترجمه") {
                     SettingsRow(
                         icon = Icons.Rounded.Translate,
                         title = translationLanguageTitle,
@@ -741,7 +741,7 @@ fun SettingsScreen(
 
         SearchableSettingsGroup(search, header = stringResource(R.string.language)) {
             val appLanguageTitle = stringResource(R.string.app_language)
-            row(appLanguageTitle, "locale", "translate", "persian", "english", "فارسی") {
+            row(appLanguageTitle, "locale", "translate", "persian", "english", "فارسی", "زبان برنامه", "زبان", "انگلیسی", "ترجمه") {
                 val selectedLanguage = AppCompatDelegate.getApplicationLocales().get(0)?.language
                     ?: java.util.Locale.getDefault().language
                 SettingsRow(
@@ -755,7 +755,7 @@ fun SettingsScreen(
 
         SearchableSettingsGroup(search, header = stringResource(R.string.performance)) {
             val highPerformanceModeTitle = stringResource(R.string.high_performance_mode)
-            row(highPerformanceModeTitle, "frame rate", "refresh rate", "hz", "battery", "smooth") {
+            row(highPerformanceModeTitle, "frame rate", "refresh rate", "hz", "battery", "smooth", "عملکرد بالا", "نرخ نوسازی", "نرخ فریم", "روان", "باتری", "هرتز") {
                 SettingsRow(
                     icon = BitChordIcons.Performance,
                     title = highPerformanceModeTitle,
@@ -791,7 +791,7 @@ fun SettingsScreen(
             }
             if (highPerformanceMode) {
                 val refreshRateTitle = stringResource(R.string.refresh_rate)
-                row(refreshRateTitle, "hz", "frame rate") {
+                row(refreshRateTitle, "hz", "frame rate", "نرخ نوسازی", "نرخ فریم", "هرتز") {
                     SettingsRow(
                         icon = BitChordIcons.FrameRate,
                         title = refreshRateTitle,
@@ -814,7 +814,7 @@ fun SettingsScreen(
 
         SearchableSettingsGroup(search, header = stringResource(R.string.local_music)) {
             val localMusicFolderTitle = stringResource(R.string.local_music_folder)
-            row(localMusicFolderTitle, "folder", "offline", "files") {
+            row(localMusicFolderTitle, "folder", "offline", "files", "پوشه", "موسیقی محلی", "آهنگ محلی", "پوشه آهنگ", "فایلها", "آفلاین") {
                 SettingsRow(
                     icon = Icons.Rounded.Folder,
                     title = localMusicFolderTitle,
@@ -828,7 +828,7 @@ fun SettingsScreen(
             // the app having no such option at all. It is greyed instead — there
             // is nothing to go back from when every folder is already in use.
             val useAllAudioFoldersTitle = stringResource(R.string.use_all_audio_folders)
-            row(useAllAudioFoldersTitle, "folder") {
+            row(useAllAudioFoldersTitle, "folder", "پوشه", "همهٔ پوشههای صوتی", "پوشههای صوتی", "همه پوشهها") {
                 SettingsRow(
                     icon = Icons.Rounded.LibraryMusic,
                     title = useAllAudioFoldersTitle,
@@ -838,7 +838,7 @@ fun SettingsScreen(
                 )
             }
             val filterNonMusicAudioTitle = stringResource(R.string.filter_non_music_audio)
-            row(filterNonMusicAudioTitle, "podcast", "recording") {
+            row(filterNonMusicAudioTitle, "podcast", "recording", "فیلتر", "پادکست", "ضبط صدا", "فایلهای صوتی غیرموسیقی", "غیر موسیقی") {
                 SettingsRow(
                     icon = Icons.Rounded.FilterAlt,
                     title = filterNonMusicAudioTitle,
@@ -861,7 +861,7 @@ fun SettingsScreen(
         val cacheLimitMb = (cacheLimitBytes / (1024 * 1024)).toInt()
         SearchableSettingsGroup(search, header = stringResource(R.string.storage)) {
             val songCacheLimitTitle = stringResource(R.string.song_cache_limit)
-            row(songCacheLimitTitle, "cache", "space") {
+            row(songCacheLimitTitle, "cache", "space", "کش", "کش آهنگ", "محدودیت کش", "حافظه", "فضا", "حافظه کش") {
                 SliderRow(
                     icon = Icons.Rounded.Storage,
                     title = songCacheLimitTitle,
@@ -881,7 +881,7 @@ fun SettingsScreen(
                 )
             }
             val clearSongCacheTitle = stringResource(R.string.clear_song_cache)
-            row(clearSongCacheTitle, "cache", "free space") {
+            row(clearSongCacheTitle, "cache", "free space", "کش", "پاک کردن کش", "حذف کش", "فضای خالی", "کش آهنگ") {
                 SettingsRow(
                     icon = Icons.Rounded.DeleteSweep,
                     title = clearSongCacheTitle,
@@ -894,7 +894,7 @@ fun SettingsScreen(
                 )
             }
             val clearImageCacheTitle = stringResource(R.string.clear_image_cache)
-            row(clearImageCacheTitle, "cache", "artwork", "free space") {
+            row(clearImageCacheTitle, "cache", "artwork", "free space", "کش", "کاور", "کش تصاویر", "پاک کردن کش", "تصاویر آلبوم") {
                 SettingsRow(
                     icon = Icons.Rounded.DeleteSweep,
                     title = clearImageCacheTitle,
@@ -911,7 +911,7 @@ fun SettingsScreen(
 
         SearchableSettingsGroup(search, header = stringResource(R.string.your_data)) {
             val replayTitle = stringResource(R.string.replay)
-            row(replayTitle, "stats", "history", "wrapped") {
+            row(replayTitle, "stats", "history", "wrapped", "آمار", "تاریخچه", "ریپلی", "مرور", "آمار شنیدن") {
                 SettingsRow(
                     icon = Icons.Rounded.BarChart,
                     title = replayTitle,
@@ -920,7 +920,7 @@ fun SettingsScreen(
                 )
             }
             val exportDataTitle = stringResource(R.string.export_data)
-            row(exportDataTitle, "backup") {
+            row(exportDataTitle, "backup", "پشتیبان", "پشتیبانگیری", "بکاپ", "خروجی", "خروجی دادهها", "استخراج") {
                 SettingsRow(
                     icon = Icons.Rounded.FileUpload,
                     title = exportDataTitle,
@@ -929,7 +929,7 @@ fun SettingsScreen(
                 )
             }
             val importDataTitle = stringResource(R.string.import_data)
-            row(importDataTitle, "backup", "restore") {
+            row(importDataTitle, "backup", "restore", "پشتیبان", "بازیابی", "بکاپ", "وارد کردن دادهها", "ریستور") {
                 SettingsRow(
                     icon = Icons.Rounded.FileDownload,
                     title = importDataTitle,
@@ -943,7 +943,7 @@ fun SettingsScreen(
         // which sits four rows above it and says the same thing in fewer words.
         SearchableSettingsGroup(search, header = stringResource(R.string.miscellaneous)) {
             val playNextOnSwipeTitle = stringResource(R.string.play_next_on_swipe)
-            row(playNextOnSwipeTitle, "swipe", "queue") {
+            row(playNextOnSwipeTitle, "swipe", "queue", "سوایپ", "کشیدن", "صف پخش", "پخش بعدی") {
                 SettingsRow(
                     icon = Icons.Rounded.PlaylistPlay,
                     title = playNextOnSwipeTitle,
@@ -966,7 +966,7 @@ fun SettingsScreen(
                 )
             }
             val dontRepeatSongsTitle = stringResource(R.string.dont_repeat_songs)
-            row(dontRepeatSongsTitle, "radio", "suggestions") {
+            row(dontRepeatSongsTitle, "radio", "suggestions", "رادیو", "پیشنهادات", "تکرار", "عدم تکرار", "پیشنهادها") {
                 SettingsRow(
                     icon = Icons.Rounded.History,
                     title = dontRepeatSongsTitle,
@@ -985,7 +985,7 @@ fun SettingsScreen(
                 )
             }
             val stopMusicOnCloseTitle = stringResource(R.string.stop_music_on_close)
-            row(stopMusicOnCloseTitle, "notification", "background") {
+            row(stopMusicOnCloseTitle, "notification", "background", "اعلان", "پسزمینه", "توقف پخش", "بستن", "بستن برنامه") {
                 SettingsRow(
                     icon = Icons.Rounded.MusicOff,
                     title = stopMusicOnCloseTitle,
@@ -1004,7 +1004,7 @@ fun SettingsScreen(
                 )
             }
             val hideVolumeBarTitle = stringResource(R.string.hide_volume_bar)
-            row(hideVolumeBarTitle, "volume", "player") {
+            row(hideVolumeBarTitle, "volume", "player", "صدا", "میزان صدا", "ولوم", "نوار صدا", "پخشکننده") {
                 SettingsRow(
                     icon = Icons.Rounded.VolumeOff,
                     title = hideVolumeBarTitle,
@@ -1023,7 +1023,7 @@ fun SettingsScreen(
                 )
             }
             val hideSongStatusTitle = stringResource(R.string.hide_song_status)
-            row(hideSongStatusTitle, "player", "playing from", "played by") {
+            row(hideSongStatusTitle, "player", "playing from", "played by", "وضعیت آهنگ", "پخشکننده", "در حال پخش از", "پخش شده توسط") {
                 SettingsRow(
                     icon = Icons.Rounded.VisibilityOff,
                     title = hideSongStatusTitle,
@@ -1046,7 +1046,7 @@ fun SettingsScreen(
 
         SearchableSettingsGroup(search, header = stringResource(R.string.advanced_options)) {
             val smartAlignmentTitle = stringResource(R.string.smart_version_alignment)
-            row(smartAlignmentTitle, "alignment", "sync", "waveform", "video", "audio", "skit", "intro") {
+            row(smartAlignmentTitle, "alignment", "sync", "waveform", "video", "audio", "skit", "intro", "همگامسازی", "هماهنگسازی", "شکل موج", "ویدیو", "صوت", "مقدمه") {
                 SettingsRow(
                     icon = Icons.Rounded.GraphicEq,
                     title = smartAlignmentTitle,
@@ -1065,7 +1065,7 @@ fun SettingsScreen(
                 )
             }
             val showNerdStatsTitle = stringResource(R.string.show_nerd_stats)
-            row(showNerdStatsTitle, "debug", "bitrate", "codec") {
+            row(showNerdStatsTitle, "debug", "bitrate", "codec", "دیباگ", "بیت ریت", "کدک", "آمار تخصصی", "اطلاعات فنی") {
                 SettingsRow(
                     icon = Icons.Rounded.BarChart,
                     title = showNerdStatsTitle,
