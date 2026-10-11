@@ -201,12 +201,26 @@ object AppSettings {
     val wifiOnlyDownloads = MutableStateFlow(true)
 
     /**
-     * Keep ordinary downloads in Music/BitChord where other music apps can see
-     * them. Off (the default) keeps downloads in this app's private storage.
-     * HLS downloads always stay private because they are a playlist package,
-     * not one portable audio file.
+     * Save ordinary downloads to Music/BitChord, where a file manager and every
+     * other player can see them. Off keeps them in this app's private storage,
+     * which nothing outside the app can reach.
+     *
+     * **On by default, and that is a change.** It used to be off, and the
+     * result was a download that worked, played, and could not be found: the
+     * file was at `files/downloads/`, which is invisible to a file manager and
+     * absent from the media store, so a listener who had just saved a track
+     * looked in Music and concluded nothing had been saved. It had.
+     *
+     * Private storage is the right default for a service that lends you access
+     * to its catalogue. This is not that: there is no DRM here, the bytes are
+     * the listener's own file out of their own Telegram, and a file they cannot
+     * open, move, or hand to another player is a file they do not really have.
+     * The switch stays for anyone who wants the other answer.
+     *
+     * HLS downloads always stay private either way — a playlist package is not
+     * one portable audio file.
      */
-    val exportDownloads = MutableStateFlow(false)
+    val exportDownloads = MutableStateFlow(true)
 
     /** Whether the active network charges for data. `null` while offline. */
     val meteredConnection = MutableStateFlow<Boolean?>(null)
@@ -561,7 +575,7 @@ object AppSettings {
             DEFAULT_UPGRADE_LENGTH_SLACK_SECONDS,
         ).coerceIn(MIN_UPGRADE_LENGTH_SLACK_SECONDS, MAX_UPGRADE_LENGTH_SLACK_SECONDS)
         wifiOnlyDownloads.value = prefs.getBoolean(KEY_WIFI_ONLY_DOWNLOADS, true)
-        exportDownloads.value = prefs.getBoolean(KEY_EXPORT_DOWNLOADS, false)
+        exportDownloads.value = prefs.getBoolean(KEY_EXPORT_DOWNLOADS, true)
         crossfadeSeconds.value = prefs.getInt(KEY_CROSSFADE, 0)
         smartFadeEnabled.value = prefs.getBoolean(KEY_SMART_FADE, false)
         automixPerformanceMode.value = runCatching {

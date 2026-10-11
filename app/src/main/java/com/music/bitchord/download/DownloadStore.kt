@@ -157,14 +157,21 @@ object DownloadStore {
      * taps download twice gets two copies rather than being told they already
      * have one.
      */
+    /**
+     * Wherever it was saved, not only where it would be saved now.
+     *
+     * Both locations are asked because a file may have been written under the
+     * other answer: the setting can be toggled, and its default moved from
+     * private to public. Asking only the current one would find nothing, call
+     * the track not-downloaded, and fetch a second copy next to the first.
+     */
     fun existing(context: Context, name: String): Uri? =
-        if (!AppSettings.exportDownloads.value) {
-            privateFile(context, name).takeIf { it.exists() }?.let(Uri::fromFile)
-        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            mediaStoreEntry(context, name)
-        } else {
-            legacyFile(name).takeIf { it.exists() }?.let(Uri::fromFile)
-        }
+        privateFile(context, name).takeIf { it.exists() }?.let(Uri::fromFile)
+            ?: if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                mediaStoreEntry(context, name)
+            } else {
+                legacyFile(name).takeIf { it.exists() }?.let(Uri::fromFile)
+            }
 
     @RequiresApi(Build.VERSION_CODES.Q)
     private fun mediaStoreEntry(context: Context, name: String): Uri? = runCatching {
