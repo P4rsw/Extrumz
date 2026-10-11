@@ -1180,8 +1180,16 @@ object Downloads {
 
         val storable = DownloadStore.storable(stream.format.codec)
         if (storable == null) {
-            Log.d(TAG, "nothing to file a '${stream.format.codec}' as; passing on ${track.videoId}")
-            return null
+            // Thrown rather than passed back as null, because the caller turns a
+            // null into "No enabled source has this track" — and that is the one
+            // claim this situation disproves. The source was found; the audio was
+            // opened; Android just has no filename for it. Letting the two read
+            // the same is what made this look like a source that had gone quiet.
+            Log.w(TAG, "no filename for codec '${stream.format.codec}' on ${track.videoId}")
+            error(
+                "Found the audio, but this app has no way to save a " +
+                    "'${stream.format.codec}' file",
+            )
         }
         return stream to storable
     }

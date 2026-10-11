@@ -105,9 +105,31 @@ class DownloadStoreTest {
         // answering with a guess here would cost a file nothing can open.
         assertNull(DownloadStore.storable(null))
         assertNull(DownloadStore.storable(""))
-        assertNull(DownloadStore.storable("opus"))
         assertNull(DownloadStore.storable("webm"))
         assertNull(DownloadStore.storable("dsf"))
+    }
+
+    /**
+     * The two codecs Telegram actually hands over, and the reason this test
+     * exists: both were missing, so a download found the audio, opened it, and
+     * then had nothing to file it as. The failure read "No enabled source has
+     * this track" — naming the one thing that was never in doubt.
+     */
+    @Test
+    fun `telegram's two lossy carriers are fileable`() {
+        val mp3 = DownloadStore.storable("mp3")
+        assertEquals("mp3", mp3?.extension)
+        assertEquals("audio/mpeg", mp3?.mimeType)
+
+        // Opus arrives inside Ogg, so it is filed as the container it is.
+        val opus = DownloadStore.storable("opus")
+        assertEquals("ogg", opus?.extension)
+        assertEquals("audio/ogg", opus?.mimeType)
+
+        // Same file either way the source spells it.
+        assertEquals("mp3", DownloadStore.storable("mpeg")?.extension)
+        assertEquals("ogg", DownloadStore.storable("ogg")?.extension)
+        assertEquals("mp3", DownloadStore.storable(" MP3 ")?.extension)
     }
 
     @Test

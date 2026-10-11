@@ -134,6 +134,15 @@ object DownloadStore {
     fun storable(codec: String?): Storable? = when (codec?.lowercase(Locale.ROOT)?.trim()) {
         "flac", "x-flac" -> Storable("flac", "audio/flac")
         "wav", "x-wav", "wave" -> Storable("wav", "audio/x-wav")
+        // Telegram's two lossy carriers, and they are the common ones: a channel
+        // upload is usually an mp3 and an official track is usually Opus in Ogg.
+        // Both were absent here for years, which meant the download found the
+        // audio, opened it, and then had nothing to file it as — reported as
+        // "no enabled source has this track", naming the one thing that was
+        // never in doubt. Neither is in [MediaTagger]'s TAGGABLE, so they save
+        // untagged like WAV does; the file is the point.
+        "mp3", "mpeg", "mpga" -> Storable("mp3", "audio/mpeg")
+        "opus", "ogg", "oga" -> Storable("ogg", "audio/ogg")
         "alac", "m4a", "mp4", "eac3-joc", "ec3-joc", "dolby-atmos" -> Storable("m4a", "audio/mp4")
         else -> null
     }
