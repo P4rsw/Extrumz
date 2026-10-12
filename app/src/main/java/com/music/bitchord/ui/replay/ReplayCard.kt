@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -171,10 +172,14 @@ fun ReplayCreditCard(
                     brush = PolishedInk,
                     shadow = EmbossShadow,
                 ),
-                // Same fix the channel shelf and the tab labels carry. A loose
-                // constraint closes the line at the text's measured width and
-                // shaped Persian is wider than that, so `126` came back as `12`
-                // with the `6` on a second line. A figure has one line in it.
+                // The same width pair the channel shelf and the tab labels
+                // carry, and the reason is the same one measured here: with no
+                // width of its own the line is closed at the *measured* width
+                // of `۱۲۶` (101px) while the shaped digits need more, so the
+                // line starts at the right edge and the `۶` runs off the left
+                // of it and is never painted. A full-width box gives the
+                // shaped line somewhere to be, and a figure has one line in it.
+                modifier = Modifier.fillMaxWidth(),
                 maxLines = 1,
                 softWrap = false,
             )

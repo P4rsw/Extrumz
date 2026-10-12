@@ -13,6 +13,7 @@ import com.music.bitchord.data.stats.ListeningStats
 import com.music.bitchord.data.stats.ReplayPeriod
 import com.music.bitchord.data.stats.ReplaySummary
 import com.music.bitchord.R
+import com.music.bitchord.ui.components.forLanguage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
@@ -282,11 +283,17 @@ fun formatHour(context: Context, hour: Int): String = when (hour) {
     else -> context.getString(R.string.hour_pm, hour - 12)
 }
 
-/** `2026-08-14` as "14 August". */
+/** `2026-08-14` as "14 August", in the reader's digits. */
 fun formatDay(context: Context, iso: String): String = runCatching {
     LocalDate.parse(iso).format(
         DateTimeFormatter.ofPattern("d MMMM", context.resources.configuration.locales[0]),
     )
+        // The pattern carries the month's *name* from the app's locale but not
+        // its digits: java.time keeps its own Western DecimalStyle whatever
+        // locale it is handed, so a Persian reader was being shown `10 اکتبر`.
+        // The digits go through the same rewrite every other figure on this
+        // page does, and an English name is left alone with them.
+        .forLanguage()
 }.getOrDefault(iso)
 
 fun Context.replayCount(count: Int, plural: Int): String =

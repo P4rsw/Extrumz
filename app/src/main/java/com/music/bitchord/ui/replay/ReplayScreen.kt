@@ -57,6 +57,7 @@ import com.music.bitchord.data.stats.ReplayPeriod
 import com.music.bitchord.data.stats.ReplaySummary
 import com.music.bitchord.ui.components.PAGE_GUTTER
 import com.music.bitchord.ui.components.forLanguage
+import com.music.bitchord.ui.components.forLanguageSegments
 import com.music.bitchord.ui.components.thumbnailBorder
 import com.music.bitchord.ui.icons.BitChordIcons
 import com.music.bitchord.ui.player.MeshGradientBackground
@@ -488,11 +489,14 @@ private fun ReplayChartRow(row: ReplayRow, circular: Boolean, dark: Boolean, onC
             Text(
                 // The duration is rewritten on its own rather than the joined
                 // line: the subtitle beside it is content, and a track called
-                // Hoodadk4 has to stay Hoodadk4.
+                // Hoodadk4 has to stay Hoodadk4. The join then goes through the
+                // segment pass so the name is fenced off — see
+                // [com.music.bitchord.ui.components.isolatedForReading] — and
+                // the line reads name-then-figure the way it was written.
                 text = listOfNotNull(
                     row.subtitle,
                     formatListening(LocalContext.current, row.ms).forLanguage(),
-                ).joinToString(" · "),
+                ).joinToString(" · ").forLanguageSegments(),
                 style = MaterialTheme.typography.bodyMedium,
                 color = textVariant,
                 maxLines = 1,
@@ -569,7 +573,10 @@ private fun StatTile(label: String, value: String, dark: Boolean, modifier: Modi
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Text(
-            text = value,
+            // A count the model built with Locale.ROOT, so its digits are the
+            // reader's only once they are read — the same rule every figure on
+            // this page follows, and these three were the ones it missed.
+            text = value.forLanguage(),
             style = MaterialTheme.typography.headlineMedium,
             fontWeight = FontWeight.W800,
             color = textColor,

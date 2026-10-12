@@ -79,7 +79,28 @@ internal fun String.forLanguage(): String {
  * the segments are rejoined on it.
  */
 internal fun String.forLanguageSegments(): String =
-    split(" · ", " • ").joinToString(" · ") { it.forLanguage() }
+    split(" · ", " • ").joinToString(" · ") { it.forLanguage().isolatedForReading() }
+
+/**
+ * A run fenced off from the line it sits in, so the line's direction cannot
+ * reach into it.
+ *
+ * A subtitle puts a Latin name beside Persian — `Hoodadk4 · ۱۴ دقیقه` — and
+ * bidi, left to itself, moves the whole left-to-right island to the far end of
+ * the right-to-left line: the reader meets the count first, the separator
+ * next, and the artist's name last, which is the parts in no order anybody
+ * wrote them in. U+2068 (FSI) starts a fresh paragraph inside the run and
+ * resolves its direction from its first strong character, so a Latin name
+ * stays a left-to-right island in the place the sentence put it and a Persian
+ * one stays right-to-left; U+2069 (PDI) closes it. Both are zero-width, so
+ * the line keeps its text and only its order changes.
+ *
+ * Only a run carrying Latin letters is fenced. A Persian run already sits in
+ * the Persian line the way it is read, and fencing it would answer a question
+ * nobody asked.
+ */
+internal fun String.isolatedForReading(): String =
+    if (any { it in 'a'..'z' || it in 'A'..'Z' }) "\u2068$this\u2069" else this
 
 internal fun String.forLanguageDate(): String {
     val parts = split('/')

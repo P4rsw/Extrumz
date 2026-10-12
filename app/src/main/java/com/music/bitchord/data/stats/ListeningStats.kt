@@ -514,7 +514,13 @@ object ListeningStats {
             }
             repeat(24) { hours[it] += bucket.hours.getOrElse(it) { 0L } }
             bucket.days.forEach { (day, ms) ->
-                val date = "${bucket.month}-%02d".format(day)
+                // ROOT, not the default: this key is the ISO date the whole
+                // Replay reads back, and `format` was taking the phone's
+                // locale — a Persian system turned `2026-10-10` into
+                // `2026-10-۱۰`, which LocalDate.parse then rejects and the
+                // "biggest day" note prints verbatim. Digits are rewritten
+                // for the reader at the point of reading, never stored.
+                val date = "${bucket.month}-%02d".format(Locale.ROOT, day)
                 days[date] = (days[date] ?: 0L) + ms
             }
             if (earliest == null || bucket.month < earliest!!) earliest = bucket.month
