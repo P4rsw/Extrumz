@@ -20,6 +20,8 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -113,6 +115,11 @@ fun SongsScreen(
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
+            // The connection line sits at the right edge, where a status line
+            // in a Persian UI belongs, rather than trailing the list from the
+            // left. Arrangement.End is direction-aware, so it still lands on
+            // the right whichever way the rest of the app is being read.
+            horizontalArrangement = Arrangement.End,
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 8.dp),
@@ -151,8 +158,18 @@ fun SongsScreen(
         OutlinedTextField(
             value = query,
             onValueChange = { query = it },
-            placeholder = { Text(stringResource(R.string.tg_search_hint)) },
+            placeholder = {
+                Text(
+                    stringResource(R.string.tg_search_hint),
+                    // Written right-to-left; the field is part of a screen that
+                    // reads left-to-right, so the alignment is asked for
+                    // directly rather than inherited.
+                    textAlign = TextAlign.End,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            },
             singleLine = true,
+            textStyle = LocalTextStyle.current.copy(textAlign = TextAlign.End),
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp),

@@ -794,6 +794,11 @@ private fun ChannelFilterPill(
     onClear: () -> Unit,
 ) {
     Row(
+        // The channel filter is one chip on an empty row, so the row may as
+        // well put it where a Persian reader looks for it. It scrolls too —
+        // with a name long enough to need it, the overflow still trails the
+        // chip rather than leading it.
+        horizontalArrangement = Arrangement.End,
         modifier = Modifier
             .fillMaxWidth()
             .horizontalScroll(rememberScrollState())

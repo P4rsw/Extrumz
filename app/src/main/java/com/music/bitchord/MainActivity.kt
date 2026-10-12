@@ -1679,38 +1679,46 @@ private fun BitChordApp(
                             )
                         }
                     } else if (key == "replay") {
-                        ReplayScreen(
-                            state = replay,
-                            holder = account?.name.orEmpty(),
-                            onPeriodChange = setReplayPeriod,
-                            onOpenStory = { replayStory = it },
-                            // A track tapped on a chart is one the user already
-                            // knows they like, so it starts a station off itself
-                            // rather than queueing the chart it was on — the
-                            // same reading [playRadio] makes of a search hit.
-                            onPlaySong = { song ->
+                        // Replay reads right-to-left, like the library and the settings —
+                        // the same deal one screen at a time. The charts, the shelves, the
+                        // story pages: they were drawn for a reader coming from the right,
+                        // and a flag on the manifest would have taken the player with them.
+                        CompositionLocalProvider(
+                            LocalLayoutDirection provides LayoutDirection.Rtl,
+                        ) {
+                            ReplayScreen(
+                                state = replay,
+                                holder = account?.name.orEmpty(),
+                                onPeriodChange = setReplayPeriod,
+                                onOpenStory = { replayStory = it },
+                                // A track tapped on a chart is one the user already
+                                // knows they like, so it starts a station off itself
+                                // rather than queueing the chart it was on — the
+                                // same reading [playRadio] makes of a search hit.
+                                onPlaySong = { song ->
                                 playRadio(song, QueueSource(replayLabel, PlaybackSourceType.REPLAY))
-                            },
-                            onOpenArtist = { id, name ->
+                                },
+                                onOpenArtist = { id, name ->
                                 showReplay = false
                                 id?.let {
-                                    viewModel.openDetail(
-                                        it, name, context.getString(R.string.artist), null, BrowseType.ARTIST,
-                                    )
+                                viewModel.openDetail(
+                                it, name, context.getString(R.string.artist), null, BrowseType.ARTIST,
+                                )
                                 }
-                            },
-                            onOpenAlbum = { id, title, artist, art ->
+                                },
+                                onOpenAlbum = { id, title, artist, art ->
                                 showReplay = false
                                 id?.let { viewModel.openDetail(it, title, artist.orEmpty(), art, BrowseType.ALBUM) }
-                            },
-                            onShare = {
+                                },
+                                onShare = {
                                 replaySharePage = null
                                 showReplayShare = true
-                            },
-                            contentPadding = listPadding,
-                            listState = replayListState,
-                            landingPage = replayLandingPage,
-                        )
+                                },
+                                contentPadding = listPadding,
+                                listState = replayListState,
+                                landingPage = replayLandingPage,
+                            )
+                        }
                     } else if (key == "equalizer") {
                         EqualizerScreen(contentPadding = listPadding)
                     } else if (key == "settings") {
