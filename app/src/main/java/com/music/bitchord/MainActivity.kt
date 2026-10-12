@@ -103,6 +103,8 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.music.bitchord.data.LocalMediaRepository
@@ -1712,19 +1714,26 @@ private fun BitChordApp(
                     } else if (key == "equalizer") {
                         EqualizerScreen(contentPadding = listPadding)
                     } else if (key == "settings") {
+                    // Settings the same — read from the right, one screen at a
+                    // time, so nothing else moves.
+
+                    CompositionLocalProvider(
+                        LocalLayoutDirection provides LayoutDirection.Rtl,
+                    ) {
                         SettingsScreen(
                             windowWidth = windowWidth,
                             onEqualizer = { showEqualizer = true },
                             onOpenReplay = {
-                                showSettings = false
-                                replayLandingPage = ReplayStoryPage.INTRO
-                                showReplay = true
+                            showSettings = false
+                            replayLandingPage = ReplayStoryPage.INTRO
+                            showReplay = true
                             },
                             onLyricsSources = { showLyricsSources = true },
                             onTranslationLanguage = { showTranslationLanguage = true },
                             onAppLanguage = { showAppLanguage = true },
                             contentPadding = listPadding,
                         )
+                    }
                     } else if (page != null && page.browseId.isDeviceFolder()) {
                         // Local Music and Downloads — both the tabbed Songs / Artists /
                         // Albums view. Two folders of tracks already on the device, so
@@ -2001,24 +2010,34 @@ private fun BitChordApp(
                             },
                             contentPadding = listPadding,
                         )
-                        TAB_LIBRARY -> LibraryScreen(
-                            listState = libraryListState,
-                            onShelfItemClick = onLibraryItemClick,
-                            // Every shelf here has a menu behind it now — a saved
-                            // album or a Liked Music card gets it. Holding an artist
-                            // still does nothing; see [onBrowseLongPress].
-                            onShelfItemLongPress = onBrowseLongPress,
-                            onShowAll = { shelf -> libraryShowAll = shelf },
-                            replayCards = replayCards,
-                            replayHolder = account?.name.orEmpty(),
-                            replayMemberSince = replay.memberSince,
-                            onOpenReplay = { page ->
-                                replayLandingPage = page
-                                showReplay = true
-                            },
-                            contentPadding = listPadding,
-                            downloadedPlaylists = downloadedPlaylists,
-                        )
+                        // The library reads right-to-left — the whole screen, not
+                        // just its strings: shelf order, title alignment, the "Show
+                        // all" link. It is mounted under an explicit direction rather
+                        // than by flipping supportsRtl, because that flag would take
+                        // every other screen with it.
+
+                        TAB_LIBRARY -> CompositionLocalProvider(
+                            LocalLayoutDirection provides LayoutDirection.Rtl,
+                        ) {
+                            LibraryScreen(
+                                listState = libraryListState,
+                                onShelfItemClick = onLibraryItemClick,
+                                // Every shelf here has a menu behind it now — a saved
+                                // album or a Liked Music card gets it. Holding an artist
+                                // still does nothing; see [onBrowseLongPress].
+                                onShelfItemLongPress = onBrowseLongPress,
+                                onShowAll = { shelf -> libraryShowAll = shelf },
+                                replayCards = replayCards,
+                                replayHolder = account?.name.orEmpty(),
+                                replayMemberSince = replay.memberSince,
+                                onOpenReplay = { page ->
+                                    replayLandingPage = page
+                                    showReplay = true
+                                },
+                                contentPadding = listPadding,
+                                downloadedPlaylists = downloadedPlaylists,
+                            )
+                        }
                         // [TAB_HOME] itself, and any stray value a tab key
                         // could carry, land on the default home tab — the
                         // three real branches above are explicit.
