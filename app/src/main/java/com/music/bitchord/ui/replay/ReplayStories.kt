@@ -82,6 +82,7 @@ import com.music.bitchord.ui.player.MeshPalette
 import com.music.bitchord.ui.player.rememberArtworkColors
 import com.music.bitchord.ui.theme.AccentRed
 import kotlinx.coroutines.launch
+import com.music.bitchord.ui.components.forLanguageSegments
 
 /**
  * The Replay as a run of full-screen cards you tap through.
@@ -568,6 +569,10 @@ private fun ColumnScope.Minutes(summary: ReplaySummary, headline: List<HeadlineR
         // first afternoon of listening, and it reads as the page failing to
         // count rather than as a small number. Under an hour, the plays are the
         // only figure worth restating.
+        // Two faults this line had: the figures come out of Locale.ROOT and
+        // were never rewritten, and the full stop was unconditional — with a
+        // peak hour after it the sentence read ` plays. , mostly around …`.
+        // It is a full stop only when it is the end of the sentence.
         text = buildString {
             if (summary.hours >= 1) {
                 append(context.getString(R.string.replay_hours_across, grouped(summary.hours)))
@@ -579,12 +584,15 @@ private fun ColumnScope.Minutes(summary: ReplaySummary, headline: List<HeadlineR
                 summary.totalPlays,
                 grouped(summary.totalPlays.toLong()),
             ))
-            append(".")
-            summary.peakHour?.let {
-                append(" ")
-                append(context.getString(R.string.replay_mostly_around, formatHour(context, it)))
+            val peak = summary.peakHour
+            if (peak == null) {
+                append(".")
+            } else {
+                // No space: the clause opens with its own comma, and one here
+                // put a gap in front of it — ` plays , mostly around …`.
+                append(context.getString(R.string.replay_mostly_around, formatHour(context, peak)))
             }
-        },
+        }.forLanguage(),
         style = MaterialTheme.typography.bodyLarge,
         color = Color.White.copy(alpha = 0.62f),
     )
@@ -637,11 +645,14 @@ private fun ColumnScope.Leaderboard(
             }
             Spacer(Modifier.height(4.dp))
             Text(
-                text = "${formatListening(context, lead.ms)} · " + context.resources.getQuantityString(
+                // Built from Locale.ROOT, so both halves come out Western and
+                // the joined line is rewritten segment by segment — the count
+                // turns, the label beside it already reads right.
+                text = ("${formatListening(context, lead.ms)} · " + context.resources.getQuantityString(
                     R.plurals.replay_play_count,
                     lead.plays,
                     grouped(lead.plays.toLong()),
-                ),
+                )).forLanguageSegments(),
                 style = MaterialTheme.typography.bodyMedium,
                 color = Color.White.copy(alpha = 0.55f),
             )
@@ -666,7 +677,7 @@ private fun ColumnScope.Leaderboard(
                 modifier = Modifier.weight(1f),
             )
             Text(
-                text = formatListening(context, row.ms),
+                text = formatListening(context, row.ms).forLanguage(),
                 style = MaterialTheme.typography.labelMedium,
                 color = Color.White.copy(alpha = 0.5f),
             )
@@ -695,7 +706,7 @@ private fun ColumnScope.Genres(summary: ReplaySummary, headline: List<HeadlineRu
         modifier = Modifier.fillMaxWidth(),
     )
     Text(
-        text = formatListening(context, lead.ms),
+        text = formatListening(context, lead.ms).forLanguage(),
         style = MaterialTheme.typography.titleMedium,
         color = Color.White.copy(alpha = 0.6f),
     )
@@ -714,7 +725,7 @@ private fun ColumnScope.Genres(summary: ReplaySummary, headline: List<HeadlineRu
                 modifier = Modifier.weight(1f),
             )
             Text(
-                text = formatListening(context, row.ms),
+                text = formatListening(context, row.ms).forLanguage(),
                 style = MaterialTheme.typography.labelMedium,
                 color = Color.White.copy(alpha = 0.45f),
             )
@@ -734,7 +745,7 @@ private fun ColumnScope.Habits(summary: ReplaySummary, headline: List<HeadlineRu
     summary.busiestDay?.let {
         BigStat(
             formatDay(context, it),
-            stringResource(R.string.your_biggest_day, formatListening(context, summary.busiestDayMs)),
+            stringResource(R.string.your_biggest_day, formatListening(context, summary.busiestDayMs).forLanguage()),
         )
     }
     summary.peakHour?.let {

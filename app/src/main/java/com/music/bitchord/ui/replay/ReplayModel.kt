@@ -118,64 +118,55 @@ private fun runs(vararg parts: Pair<String, Boolean>): List<HeadlineRun> =
     parts.map { HeadlineRun(it.first, it.second) }
 
 /** The sentence at the top of [page]. */
-fun ReplaySummary.storyHeadline(context: Context, page: ReplayStoryPage): List<HeadlineRun> = when (page) {
+fun ReplaySummary.storyHeadline(context: Context, page: ReplayStoryPage): List<HeadlineRun> = headlineRuns(context, page)
+    // The counts and the label are formatted with Locale.ROOT so a timestamp
+    // never changes shape with the phone's region, which leaves every figure
+    // on a story card Western. Rewritten once, at the end, rather than at the
+    // eleven places a run is built — and the wordmark is untouched, because
+    // forLanguage refuses any run carrying a Latin letter.
+    .map { it.copy(text = it.text.forLanguage()) }
+
+private fun ReplaySummary.headlineRuns(context: Context, page: ReplayStoryPage): List<HeadlineRun> = when (page) {
     ReplayStoryPage.INTRO -> runs(
         context.getString(R.string.replay_intro_start) to false,
-        " " to false,
         "Replay" to true,
-        " " to false,
         context.getString(R.string.replay_intro_end) to false,
     )
     ReplayStoryPage.MINUTES -> runs(
         context.getString(R.string.replay_minutes_start) to false,
-        " " to false,
         context.getString(R.string.replay_minutes_value, formatMinutes(totalMs)) to true,
-        " " to false,
         context.getString(R.string.replay_minutes_end) to false,
     )
     ReplayStoryPage.SONGS -> runs(
         context.getString(R.string.replay_songs_start) to false,
-        " " to false,
         context.replayCount(totalPlays, R.plurals.replay_song_count) to true,
-        " " to false,
         context.getString(R.string.replay_songs_end) to false,
     )
     ReplayStoryPage.ARTISTS -> runs(
         context.getString(R.string.replay_artist_start) to false,
-        " " to false,
         context.getString(R.string.replay_artist_focus) to true,
-        " " to false,
         context.getString(R.string.replay_artist_end) to false,
     )
     ReplayStoryPage.ALBUMS -> runs(
         context.getString(R.string.replay_album_start) to false,
-        " " to false,
         context.getString(R.string.replay_album_focus) to true,
-        " " to false,
         context.getString(R.string.replay_album_end) to false,
     )
     ReplayStoryPage.GENRES -> runs(
         context.getString(R.string.replay_genre_start) to false,
-        " " to false,
         context.getString(R.string.replay_genre_focus) to true,
-        " " to false,
         context.getString(R.string.replay_genre_end) to false,
     )
     ReplayStoryPage.HABITS -> runs(
         context.getString(R.string.replay_habits_start) to false,
-        " " to false,
         context.replayCount(distinctSongs, R.plurals.replay_song_count) to true,
-        " " to false,
         context.getString(R.string.replay_habits_middle) to false,
-        " " to false,
         context.replayCount(distinctArtists, R.plurals.replay_artist_count) to true,
         "." to false,
     )
     ReplayStoryPage.SUMMARY -> runs(
         context.getString(R.string.replay_summary_start) to false,
-        " " to false,
         label to true,
-        " " to false,
         "." to false,
     )
 }

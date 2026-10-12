@@ -16,7 +16,7 @@
     <string name="play">پخش</string>
     <string name="explore">کاوش</string>
     <string name="listen_now">همین حالا گوش کنید</string>
-    <string name="downloads">دانلود‌ها</string>
+    <string name="downloads">دانلودها</string>
     <string name="downloaded_songs">آهنگ‌های دانلود‌شده</string>
     <string name="local_music">موسیقی محلی</string>
     <string name="audio_files_on_device">فایل‌های صوتی روی دستگاه</string>
@@ -26,7 +26,7 @@
     <string name="shuffle">پخش تصادفی</string>
     <string name="more">بیشتر</string>
     <string name="lyrics_offset">جابجایی متن آهنگ</string>
-    <string name="lyrics_offset_description">مقادیر مثبت، متن آهنگ را دیر‌تر نمایش می‌دهند</string>
+    <string name="lyrics_offset_description">مقادیر مثبت، متن آهنگ را دیرتر نمایش می‌دهند</string>
     <string name="lyrics_offset_reset">بازنشانی</string>
     <string name="decrease_lyrics_offset">کاهش جابجایی متن آهنگ</string>
     <string name="increase_lyrics_offset">افزایش جابجایی متن آهنگ</string>
@@ -35,18 +35,18 @@
     <string name="auto_liked">آهنگ‌های پسندیده‌شده</string>
     <string name="auto_login_title">روی گوشی‌ات وارد تلگرام شو</string>
     <string name="auto_login_subtitle">برای ورود، TeleMusic را در گوشی خود باز کنید</string>
-    <string name="auto_empty_recents_title">هیچ آهنگ اخیری وجود ندارد</string>
-    <string name="auto_empty_recents_subtitle">آهنگ‌هایی که پخش می‌کنید اینجا نمایش داده می‌شوند</string>
-    <string name="auto_empty_quick_picks_title">پیشنهادی وجود ندارد</string>
-    <string name="auto_empty_quick_picks_subtitle">اتصال خود را بررسی کرده و دوباره تلاش کنید</string>
-    <string name="auto_empty_playlists_title">هیچ پلی‌لیست‌ی در دسترس نیست</string>
-    <string name="auto_empty_playlists_subtitle">اتصال خود را بررسی کرده و دوباره تلاش کنید</string>
-    <string name="auto_empty_liked_title">هیچ آهنگ پسندیده‌شده‌های وجود ندارد</string>
-    <string name="auto_empty_liked_subtitle">روی نشان قلب هر آهنگ بزنید تا اینجا ذخیره شود</string>
-    <string name="auto_empty_offline_title">هیچ آهنگ آفلاینی وجود ندارد</string>
-    <string name="auto_empty_offline_subtitle">آهنگ‌ها را در گوشی خود دانلود کنید تا اینجا گوش دهید</string>
-    <string name="auto_unavailable_title">محتوا در دسترس نیست</string>
-    <string name="auto_unavailable_subtitle">پوشه را دوباره باز کنید و تلاش کنید</string>
+    <string name="auto_empty_recents_title">هنوز آهنگی پخش نکردی</string>
+    <string name="auto_empty_recents_subtitle">هر آهنگی که گوش بدی، همین‌جا میاد</string>
+    <string name="auto_empty_quick_picks_title">پیشنهادی پیدا نشد</string>
+    <string name="auto_empty_quick_picks_subtitle">اتصال اینترت رو چک کن و دوباره بزن</string>
+    <string name="auto_empty_playlists_title">پلی‌لیستی پیدا نشد</string>
+    <string name="auto_empty_playlists_subtitle">اتصال اینترت رو چک کن و دوباره بزن</string>
+    <string name="auto_empty_liked_title">هنوز آهنگی لایک نکردی</string>
+    <string name="auto_empty_liked_subtitle">روی قلب هر آهنگی بزنی، میاد اینجا</string>
+    <string name="auto_empty_offline_title">هنوز آهنگی دانلود نکردی</string>
+    <string name="auto_empty_offline_subtitle">آهنگ‌ها رو دانلود کن تا اینجا آفلاین گوش بدی</string>
+    <string name="auto_unavailable_title">محتوا بارگذاری نشد</string>
+    <string name="auto_unavailable_subtitle">پوشه رو ببند و دوباره بازش کن</string>
     <string name="download_all">دانلود همه</string>
     <string name="top_songs">برترین آهنگ‌ها</string>
     <plurals name="song_count_plural">
@@ -82,11 +82,11 @@
     <string name="now_playing">در حال پخش</string>
     <string name="next_in_queue">بعدی در صف پخش</string>
     <string name="next_from">بعدی از: %1$s</string>
-    <string name="selected">انتخابشده</string>
+    <string name="selected">انتخاب‌شده</string>
     <string name="select_all">انتخاب همه</string>
     <string name="song_cache_cleared">کش آهنگ‌ها پاک شد</string>
     <string name="image_cache_cleared">کش تصاویر پاک شد</string>
-    <string name="no_equalizer">هیچ اکولایزر سیستمی در این دستگاه وجود ندارد</string>
+    <string name="no_equalizer">این گوشی اکولایزر سیستمی ندارد</string>
     <string name="try_again">تلاش دوباره</string>
     <string name="play_next">پخش بعدی</string>
     <string name="queue">صف پخش</string>
@@ -94,13 +94,13 @@
     <string name="widget_square_label">در حال پخش 2×2</string>
     <string name="widget_wide_label">در حال پخش 4×2</string>
     <string name="widget_square_description">کاور آلبوم همراه با دکمه‌های کنترل پخش، در یک مربع.</string>
-    <string name="widget_wide_description">کاور آلبوم همراه با آهنگ و دکمه‌های کنترل پخش، تمامعرض.</string>
+    <string name="widget_wide_description">کاور آلبوم همراه با آهنگ و دکمه‌های کنترل پخش، تمام‌عرض.</string>
     <string name="widget_play">پخش</string>
     <string name="widget_pause">توقف موقت</string>
     <string name="widget_next">بعدی</string>
     <string name="widget_previous">قبلی</string>
     <string name="widget_artwork">کاور آلبوم</string>
-    <string name="widget_nothing_played">هنوز چیزی پخش نشده است</string>
+    <string name="widget_nothing_played">هنوز چیزی پخش نشده</string>
     <string name="widget_preview_title">عنوان آهنگ</string>
     <string name="widget_preview_artist">هنرمند</string>
     <string name="widget_pill_label">در حال پخش 4×1</string>
@@ -132,7 +132,7 @@
     <string name="switch_to_list_view">تغییر به نمای فهرستی</string>
     <string name="playback">پخش</string>
     <string name="appearance">ظاهر</string>
-    <string name="storage">فضای ذخیرهسازی</string>
+    <string name="storage">فضای ذخیره‌سازی</string>
     <string name="your_data">داده‌های شما</string>
     <string name="miscellaneous">متفرقه</string>
     <string name="in_use">در حال استفاده</string>
@@ -141,14 +141,14 @@
     <string name="crossfade_subtitle">آهنگ‌ها را به آرامی در یکدیگر ادغام می‌کند</string>
     <string name="automix">اتومیکس (آزمایشی)</string>
     <string name="automix_performance">عملکرد اتومیکس</string>
-    <string name="automix_performance_subtitle">میزان مصرف CPU برای پردازش پسزمینه را تعیین می‌کند</string>
+    <string name="automix_performance_subtitle">میزان مصرف CPU برای پردازش پس‌زمینه را تعیین می‌کند</string>
     <string name="automix_performance_warning">با اینکار آهنگ‌ها سریع‌تر آماده می‌شوند، ولی باتری بیشتری می‌سوزاند و شاید گوشی گرم‌تر شود.</string>
     <string name="automix_mode_efficient">بهینه</string>
     <string name="automix_mode_efficient_subtitle">1 رشته · کمترین مصرف باتری و حرارت · تحلیل ممکن است بیشتر طول بکشد</string>
     <string name="automix_mode_balanced">متعادل</string>
     <string name="automix_mode_balanced_subtitle">2 رشته · تعادل پیشنهادی سرعت، حرارت و باتری</string>
     <string name="automix_mode_performance">حداکثر عملکرد</string>
-    <string name="automix_mode_performance_subtitle">4 رشته · سریع‌ترین تحلیل · حرارت و مصرف باتری بالا‌تر</string>
+    <string name="automix_mode_performance_subtitle">4 رشته · سریع‌ترین تحلیل · حرارت و مصرف باتری بالاتر</string>
     <string name="skip_silence">رد کردن سکوت</string>
     <string name="skip_silence_subtitle">فاصله‌های طولانی‌تر از یک ثانیه را حذف می‌کند</string>
     <string name="skip_silence_float_subtitle">در خروجی 32 بیتی float در دسترس نیست</string>
@@ -166,9 +166,9 @@
     <string name="equalizer_focused">متمرکز</string>
     <string name="equalizer_broad_footer">برای صدای گرم‌تر بکش به چپ، برای صدای شفاف‌تر بکش به راست — پایین صدا را نرم می‌کنه، بالا را تیز‌تر. حالت پهن هم‌زمان روی بخش‌های وسیعی از طیف اثر می‌گذارد.</string>
     <string name="equalizer_focused_footer">برای صدای گرم‌تر بکش به چپ، برای صدای شفاف‌تر بکش به راست — پایین صدا را نرم می‌کنه، بالا را تیز‌تر. حالت متمرکز روی بخش‌های باریک‌تری از طیف کار می‌کند، پس تغییرش آرام‌تر و دقیق‌تر است.</string>
-    <string name="equalizer_preset">پیشفرض</string>
+    <string name="equalizer_preset">پیش‌فرض</string>
     <string name="equalizer_bands">باند‌ها</string>
-    <string name="equalizer_bands_footer">جابجایی یک باند، پیشفرض را کنار می‌گذارد و منحنی اختصاصی شما می‌شود.</string>
+    <string name="equalizer_bands_footer">جابجایی یک باند، پیش‌فرض را کنار می‌گذارد و منحنی اختصاصی شما می‌شود.</string>
     <string name="equalizer_reset">بازنشانی همهٔ باند‌ها</string>
     <string name="equalizer_balance">تعادل</string>
     <string name="equalizer_balance_left">چ</string>
@@ -206,16 +206,16 @@
     <string name="reduce_dynamic_blur_subtitle">شیشه مات را با رنگ‌های یکدست در سرتاسر برنامه جایگزین می‌کند</string>
     <string name="liquid_glass">لیکوید گلس</string>
     <string name="liquid_glass_subtitle">شیشهٔ واقعی روی نوار ناوبری شناور — فقط Android 12 به بالا، و GPU بیشتری مصرف می‌کنه.</string>
-    <string name="liquid_glass_unavailable">به Android 12 یا جدید‌تر نیاز دارد</string>
+    <string name="liquid_glass_unavailable">به Android 12 یا جدیدتر نیاز دارد</string>
     <string name="full_screen_cover_art">کاور تمام‌صفحه</string>
     <string name="synced_lyrics">متن همگام آهنگ</string>
     <string name="synced_lyrics_subtitle">همزمان با خوانده شدن، کلمات را روی پخش‌کننده روشن می‌کند</string>
     <string name="lyrics_sources">منابع متن آهنگ</string>
     <string name="song_cache_limit">محدودیت کش آهنگ</string>
     <string name="clear_song_cache">پاک کردن کش آهنگ</string>
-    <string name="clear_song_cache_subtitle">فضای اشغالشده توسط فایل‌های صوتی دانلود‌شده را آزاد می‌کند</string>
+    <string name="clear_song_cache_subtitle">فضای اشغال‌شده توسط فایل‌های صوتی دانلود‌شده را آزاد می‌کند</string>
     <string name="clear_image_cache">پاک کردن کش تصاویر</string>
-    <string name="clear_image_cache_subtitle">فضای اشغالشده توسط کاور آلبوم را آزاد می‌کند</string>
+    <string name="clear_image_cache_subtitle">فضای اشغال‌شده توسط کاور آلبوم را آزاد می‌کند</string>
     <string name="play_next_on_swipe">پخش بعدی با کشیدن انگشت</string>
     <string name="dont_repeat_songs">عدم تکرار آهنگ‌ها در نشست فعلی</string>
     <string name="stop_music_on_close">توقف پخش هنگام بستن از برنامه‌های اخیر</string>
@@ -239,12 +239,12 @@
     <string name="high_performance_subtitle">انیمیشن و تاری کامل را روشن می‌کند و برای صفحه‌نمایش نرخ تازه‌سازی بالاتری می‌گیرد</string>
     <string name="high_performance_active">%1$d Hz درخواست شد. Android ممکن است در صورت نیاز آن را کاهش دهد.</string>
     <string name="refresh_rate">نرخ نوسازی</string>
-    <string name="high_performance_before_enabling">قبل از فعالسازی</string>
-    <string name="high_performance_battery_warning">اول مصرف باتری تلی‌میوزیک را روی «بدون محدودیت» بگذار. نرخ تازه‌سازی بالا‌تر یعنی باتری و پردازنده بیشتر کار می‌کنند و شاید گوشی گرم شود.</string>
+    <string name="high_performance_before_enabling">قبل از فعال‌سازی</string>
+    <string name="high_performance_battery_warning">اول مصرف باتری تلی‌میوزیک را روی «بدون محدودیت» بگذار. نرخ تازه‌سازی بالاتر یعنی باتری و پردازنده بیشتر کار می‌کنند و شاید گوشی گرم شود.</string>
     <string name="open_battery_settings">باز کردن تنظیمات باتری</string>
     <string name="enable_high_performance_title">حالت عملکرد بالا فعال شود؟</string>
     <string name="enable_high_performance_confirmation">فقط وقتی روشن کن که مصرف باتری تلی‌میوزیک روی «بدون محدودیت» باشد. با این حال، اگر گوشی داغ شد یا باتری کم آمد، خود اندروید نرخ تازه‌سازی را پایین می‌آورد.</string>
-    <string name="enable">فعالسازی</string>
+    <string name="enable">فعال‌سازی</string>
     <string name="not_yet">هنوز نه</string>
     <string name="add_to_queue">افزودن به صف پخش</string>
     <string name="after_this_song">بعد از این آهنگ</string>
@@ -256,8 +256,8 @@
     <string name="translating_lyrics_to">در حال ترجمه به %1$s…</string>
     <string name="lyrics_translated_to">ترجمه‌شده به %1$s</string>
     <string name="romanizing_lyrics">در حال لاتین‌نویسی متن آهنگ…</string>
-    <string name="lyrics_romanized">تلفظ لاتین‌نویسیشده</string>
-    <string name="lyrics_already_romanized">این متن آهنگ از قبل با حروف لاتین نوشته شده است</string>
+    <string name="lyrics_romanized">تلفظ لاتین‌نویسی‌شده</string>
+    <string name="lyrics_already_romanized">این متن از قبل به خط لاتین است</string>
     <string name="lyrics_romanization_unavailable">لاتین‌نویسی برای این متن آهنگ در دسترس نیست</string>
     <string name="lyrics_already_in_language">این متن آهنگ از قبل به زبان %1$s است</string>
     <string name="lyrics_translation_unavailable">ترجمه در حال حاضر در دسترس نیست</string>
@@ -276,7 +276,7 @@
     <string name="drag_to_reorder">برای تغییر ترتیب بکشید</string>
     <string name="enabled">فعال</string>
     <string name="high_quality">کیفیت بالا</string>
-    <string name="instrumental">بیکلام</string>
+    <string name="instrumental">بی‌کلام</string>
     <string name="pause">توقف موقت</string>
     <string name="lyrics_by">متن آهنگ از %1$s</string>
     <string name="change_lyrics_provider">تغییر</string>
@@ -295,7 +295,7 @@
     <string name="repeat_off">تکرار خاموش</string>
     <string name="autoplay_on">پخش خودکار روشن</string>
     <string name="autoplay_off">پخش خودکار خاموش</string>
-    <string name="autoplay_queue_description">موسیقی مشابه، انتخابشده برای پخش بعدی</string>
+    <string name="autoplay_queue_description">موسیقی مشابه، انتخاب‌شده برای پخش بعدی</string>
     <string name="autoplay_empty_description">پخش موسیقی مشابه ادامه خواهد یافت</string>
     <string name="high_quality_upgrading">کیفیت بالا، در حال ارتقا</string>
     <string name="upgrading_quality">در حال ارتقای کیفیت</string>
@@ -321,7 +321,7 @@
     <string name="pipeline_cutoff">فرکانس قطع</string>
     <string name="pipeline_quality">کیفیت</string>
     <string name="pipeline_pcm_format">فرمت PCM</string>
-    <string name="pipeline_eq_preset">پیشفرض اکولایزر</string>
+    <string name="pipeline_eq_preset">پیش‌فرض اکولایزر</string>
     <string name="pipeline_stereo_expand">گسترش استریو</string>
     <string name="pipeline_buffers">بافر‌ها</string>
     <string name="pipeline_output_api">API خروجی</string>
@@ -335,11 +335,11 @@
     <string name="wifi">وای‌فای</string>
     <string name="mobile_data">اینترنت همراه</string>
     <string name="couldnt_load_tracks">بارگذاری این آهنگ‌ها ممکن نشد</string>
-    <string name="wifi_only_download_refusal">دانلود‌ها فقط با وای‌فای. اگر می‌خواهی با اینترنت همراه بگیری، این گزینه را در تنظیمات خاموش کن.</string>
-    <string name="pinned_playlist_limit">تن‌ها سنجاق کردن %1$d پلی‌لیست ممکن است</string>
+    <string name="wifi_only_download_refusal">دانلودها فقط با وای‌فای. اگر می‌خواهی با اینترنت همراه بگیری، این گزینه را در تنظیمات خاموش کن.</string>
+    <string name="pinned_playlist_limit">تنها سنجاق کردن %1$d پلی‌لیست ممکن است</string>
     <string name="downloaded_playlist">پلی‌لیست دانلود‌شده</string>
-    <string name="downloads_progress">دانلود‌ها · %1$d%%</string>
-    <string name="downloads_finished">دانلود‌ها · پایان یافت</string>
+    <string name="downloads_progress">دانلودها · %1$d%%</string>
+    <string name="downloads_finished">دانلودها · پایان یافت</string>
     <string name="downloading_progress">در حال دانلود · %1$d%%</string>
     <string name="starting">در حال شروع</string>
     <string name="start_radio">شروع رادیو</string>
@@ -347,10 +347,10 @@
     <string name="playing_from">در حال پخش از %1$s</string>
     <string name="radio_started">رادیوی %1$s شروع شد</string>
     <!-- پوشهٔ روی دیسک هنوز Music/BitChord است (DownloadStore.FOLDER)؛
-         تغییر نام آن باعث بی‌استفاده شدن دانلود‌های نسخه‌های نصب‌شده فعلی می‌شود. -->
+         تغییر نام آن باعث بی‌استفاده شدن دانلودهای نسخه‌های نصب‌شده فعلی می‌شود. -->
     <string name="saved_to_bitchord_folder">در Music/BitChord ذخیره شد</string>
     <string name="nothing_downloading">هیچ دانلودی در حال انجام نیست</string>
-    <string name="history_empty">هنوز چیزی پخش نشده است</string>
+    <string name="history_empty">هنوز چیزی پخش نشده</string>
     <string name="no_results">نتیجه‌ای یافت نشد</string>
     <string name="downloaded_playlist_empty">هیچ موردی از این پلی‌لیست روی این دستگاه باقی نمانده است</string>
     <string name="no_local_audio_found">هیچ فایل صوتی در این دستگاه یافت نشد</string>
@@ -358,7 +358,7 @@
     <string name="something_went_wrong">مشکلی پیش آمد</string>
     <string name="unknown_artist">هنرمند ناشناس</string>
     <plurals name="downloads_failed_count">
-        <item quantity="other">دانلود‌ها · %1$d ناموفق</item>
+        <item quantity="other">دانلودها · %1$d ناموفق</item>
     </plurals>
     <plurals name="download_waiting_count">
         <item quantity="other">%1$d در انتظار</item>
@@ -393,9 +393,9 @@
     </plurals>
     <string name="like">پسندیدن</string>
     <string name="listening_history">تاریخچه شنیدن</string>
-    <string name="lyrics_not_available">متن آهنگ در دسترس نیست</string>
+    <string name="lyrics_not_available">متن این آهنگ پیدا نشد</string>
     <string name="lyrics_sources_order">منابع به همین ترتیب چک می‌شوند؛ برای عوض کردنشان بکش و جابه‌جا کن. اولین منبعی که متن داشته باشد برنده است، مگر منابع بعدی متن کلمه‌به‌کلمه داشته باشند.</string>
-    <string name="no_lyrics_for_track">هیچ متن آهنگی برای این آهنگ وجود ندارد</string>
+    <string name="no_lyrics_for_track">برای این آهنگ متنی پیدا نشد</string>
     <string name="no_tracks_here">هیچ آهنگی اینجا نیست</string>
     <string name="one_hour">1 ساعت</string>
     <string name="open_album">باز کردن آلبوم</string>
@@ -409,8 +409,8 @@
     <string name="remove">حذف</string>
     <string name="remove_from_liked">حذف از آهنگ‌های پسندیده‌شده</string>
     <string name="remove_from_queue">حذف از صف پخش</string>
-    <string name="reset_to_default">بازنشانی به پیشفرض</string>
-    <string name="saved_to_downloads">در دانلود‌ها ذخیره شد</string>
+    <string name="reset_to_default">بازنشانی به پیش‌فرض</string>
+    <string name="saved_to_downloads">در دانلودها ذخیره شد</string>
     <string name="search_this_folder">جستجو در این پوشه</string>
     <string name="search_this_list">جستجو در این فهرست</string>
     <string name="share">اشتراک‌گذاری</string>
@@ -459,8 +459,8 @@
     <string name="replay_hours_across">%1$s ساعت</string>
     <string name="replay_intro_end"> آماده است.</string>
     <string name="replay_intro_start">بخش </string>
-    <string name="replay_minutes_end"> با موسیقی سپری شد.</string>
-    <string name="replay_minutes_start">شما سپری کردید </string>
+    <string name="replay_minutes_end"> با موسیقی گذراندید.</string>
+    <string name="replay_minutes_start">شما </string>
     <string name="replay_minutes_value">%1$s</string>
     <string name="replay_mostly_around">، بیشتر در حدود %1$s.</string>
     <string name="replay_private_counting">به‌صورت محرمانه از تاریخچه شنیدن شما در این دستگاه ساخته شده است</string>
@@ -492,16 +492,16 @@
     </plurals>
     <string name="all_audio_folders">همهٔ پوشه‌های صوتی</string>
     <string name="local_music_folder">پوشه موسیقی محلی</string>
-    <string name="sort_music">مرتبسازی موسیقی</string>
+    <string name="sort_music">مرتب‌سازی موسیقی</string>
     <string name="sort_title_ascending">الفبایی (A تا Z)</string>
     <string name="sort_title_descending">الفبایی (Z تا A)</string>
-    <string name="sort_date_added">تاریخ افزودن (جدید‌ترین اول)</string>
+    <string name="sort_date_added">تاریخ افزودن (جدیدترین اول)</string>
     <string name="sort_date_added_oldest">تاریخ افزودن (قدیمی‌ترین اول)</string>
     <string name="sort_date_added_toggle">تاریخ افزودن</string>
-    <string name="sort_date_modified">تاریخ تغییر (جدید‌ترین اول)</string>
-    <string name="sort_default">ترتیب پیشفرض</string>
-    <string name="sort_library">مرتبسازی</string>
-    <string name="sort_songs">مرتبسازی آهنگ‌ها</string>
+    <string name="sort_date_modified">تاریخ تغییر (جدیدترین اول)</string>
+    <string name="sort_default">ترتیب پیش‌فرض</string>
+    <string name="sort_library">مرتب‌سازی</string>
+    <string name="sort_songs">مرتب‌سازی آهنگ‌ها</string>
     <string name="use_all_audio_folders">استفاده از همهٔ پوشه‌های صوتی</string>
     <string name="use_all_audio_folders_subtitle">حذف محدودیت پوشه و اسکن موسیقی در سراسر دستگاه</string>
     <string name="album">آلبوم</string>
@@ -540,7 +540,7 @@
     </plurals>
     <string name="no_local_albums">هنوز چیزی که مال یک آلبوم یا پلی‌لیست کامل باشد دانلود نکرده‌ای. یکی را کامل بگیر تا اینجا بنشیند.</string>
     <string name="play_your_replay">پخش ریپلی شما</string>
-    <string name="counted_on_device_with_bitchord">شمارششده در این دستگاه با TeleMusic</string>
+    <string name="counted_on_device_with_bitchord">شمارش‌شده در این دستگاه با TeleMusic</string>
     <string name="this_month">این ماه</string>
     <string name="this_year">امسال</string>
     <string name="all_time">تمام زمان‌ها</string>
@@ -581,7 +581,7 @@
     <string name="hdmi_output">HDMI</string>
     <string name="personal_phone">گوشی %1$s</string>
     <string name="this_phone">این گوشی</string>
-    <string name="export_compatible_downloads">خروجی دانلود‌های سازگار</string>
+    <string name="export_compatible_downloads">خروجی دانلودهای سازگار</string>
     <string name="output_precision">دقت خروجی</string>
     <string name="prefer_usb_dac">اولویت دادن به USB DAC</string>
     <string name="loudness_normalization">یکدست‌کردن بلندی</string>
@@ -628,7 +628,7 @@
     <string name="tab_search">جستجو</string>
     <string name="tab_library">کتابخانه</string>
     <string name="tg_login">ورود با تلگرام</string>
-    <string name="tg_login_subtitle">برای جمع‌آوری آهنگ‌های کانال‌ها و گروههایت وارد شو</string>
+    <string name="tg_login_subtitle">برای جمع‌آوری آهنگ‌های کانال‌ها و گروه‌هایت وارد شو</string>
     <string name="tg_phone">شماره تلفن (با کد کشور)</string>
     <string name="tg_send_code">ارسال کد</string>
     <string name="tg_code">کد تأیید</string>
@@ -644,7 +644,7 @@
     <string name="tg_empty_hint">هنوز آهنگی پیدا نشده. وارد تلگرام شو تا کانال‌هایت را اسکن کنم.</string>
     <string name="tg_search_hint">جستجو در آهنگ‌های تلگرام</string>
     <string name="tg_all_chats">همهٔ کانال‌ها</string>
-    <string name="tg_chats_empty">هنوز کانالی اسکن نشده است.</string>
+    <string name="tg_chats_empty">هنوز کانالی اسکن نشده.</string>
     <string name="tg_connected">متصل به تلگرام</string>
     <string name="tg_start_scan">شروع اسکن</string>
     <string name="tg_hide_empty_chats">فیلتر: چت‌های بدون آهنگ</string>
