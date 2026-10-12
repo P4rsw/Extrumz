@@ -45,6 +45,7 @@ import com.music.bitchord.download.DownloadState
 import com.music.bitchord.download.Downloads
 import com.music.bitchord.ui.icons.BitChordIcons
 import java.util.Locale
+import com.music.bitchord.ui.components.mirroredForReading
 
 /**
  * The album or playlist a long-press is acting on.
@@ -200,6 +201,7 @@ fun BrowseActionsSheet(
             ActionRow(
                 BitChordIcons.ChevronRight,
                 target.type.localizedOpenLabel(),
+                directional = true,
                 onClick = it,
             )
         }

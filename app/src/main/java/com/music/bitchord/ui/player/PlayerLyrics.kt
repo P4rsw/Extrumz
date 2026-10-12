@@ -140,6 +140,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import com.music.bitchord.ui.components.mirroredForReading
 
 
 /**
@@ -2217,7 +2218,7 @@ private fun CurrentLyricLine(
                 imageVector = BitChordIcons.ChevronRight,
                 contentDescription = null,
                 tint = Color.White.copy(alpha = 0.5f),
-                modifier = Modifier.size(14.dp),
+                modifier = Modifier.size(14.dp).mirroredForReading(),
             )
         }
         return
@@ -2321,7 +2322,7 @@ private fun CurrentLyricLine(
             imageVector = BitChordIcons.ChevronRight,
             contentDescription = null,
             tint = Color.White.copy(alpha = 0.5f),
-            modifier = Modifier.size(14.dp),
+            modifier = Modifier.size(14.dp).mirroredForReading(),
         )
     }
 }

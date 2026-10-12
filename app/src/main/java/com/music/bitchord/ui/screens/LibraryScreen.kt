@@ -58,6 +58,7 @@ import com.music.bitchord.ui.replay.ReplayCardRow
 import com.music.bitchord.ui.replay.ReplayHeroCard
 import com.music.bitchord.ui.replay.ReplayStoryPage
 import java.util.Locale
+import com.music.bitchord.ui.components.mirroredForReading
 
 /**
  * The signed-in library: the saved collections, as shelves of cards.
@@ -324,7 +325,7 @@ private fun ReplayBanner(card: ReplayHeroCard?, onClick: () -> Unit) {
                 imageVector = BitChordIcons.ChevronRight,
                 contentDescription = null,
                 tint = Color.White.copy(alpha = 0.85f),
-                modifier = Modifier.size(16.dp),
+                modifier = Modifier.size(16.dp).mirroredForReading(),
             )
         }
     }

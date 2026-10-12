@@ -614,6 +614,13 @@ internal fun ActionRow(
     tint: Color? = null,
     accent: Color = MaterialTheme.colorScheme.primary,
     enabled: Boolean = true,
+    /**
+     * Set for a glyph that points one way — a disclosure chevron, a back
+     * arrow — so it turns to face the reading direction. Left off for the
+     * rest: mirroring a trash can or a pencil is not a direction, it is a
+     * sideways icon, and half of these rows would get worse for it.
+     */
+    directional: Boolean = false,
     onClick: () -> Unit,
 ) {
     Row(
@@ -629,7 +636,9 @@ internal fun ActionRow(
             tint = (tint ?: MaterialTheme.colorScheme.onBackground).copy(
                 alpha = if (enabled) 1f else 0.4f,
             ),
-            modifier = Modifier.size(22.dp),
+            modifier = Modifier.size(22.dp).then(
+                if (directional) Modifier.mirroredForReading() else Modifier,
+            ),
         )
         Spacer(Modifier.width(18.dp))
         Text(

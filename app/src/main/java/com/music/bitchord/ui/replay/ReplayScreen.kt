@@ -60,6 +60,7 @@ import com.music.bitchord.ui.icons.BitChordIcons
 import com.music.bitchord.ui.player.MeshGradientBackground
 import com.music.bitchord.ui.player.rememberArtworkColors
 import com.music.bitchord.ui.theme.AccentRed
+import com.music.bitchord.ui.components.mirroredForReading
 
 /** Whether the Replay page is being shown in dark mode (vs light). */
 @Composable
@@ -396,7 +397,7 @@ private fun ReplayActionRow(icon: ImageVector, label: String, dark: Boolean, onC
             imageVector = BitChordIcons.ChevronRight,
             contentDescription = null,
             tint = textColor.copy(alpha = 0.5f),
-            modifier = Modifier.size(16.dp),
+            modifier = Modifier.size(16.dp).mirroredForReading(),
         )
     }
 }
