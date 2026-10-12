@@ -56,3 +56,35 @@ internal fun String.forLanguage(): String {
     }
     return String(out)
 }
+
+/**
+ * A card's date, put the way a Persian reader reads one.
+ *
+ * The model builds it month-first — `10/26` for October 2026 — because that
+ * is the shape every other figure on the card is in. Persian dates run the
+ * other way, so the halves swap before the digits are rewritten: `۲۶/۱۰`,
+ * not `۱۰/۲۶`. Anything that is not two numbers around a slash is passed
+ * through untouched, because guessing at a date that arrived in another
+ * shape is worse than leaving it alone.
+ */
+/**
+ * Digits in every segment of a joined line, leaving the segments themselves
+ * to be judged one at a time.
+ *
+ * A subtitle is often an artist beside a count — `Hoodadk4 · 4 plays` — and
+ * rewritten as one run it does nothing at all: [forLanguage] refuses a run
+ * carrying Latin letters, and the name makes the whole line carry them. Split
+ * first and the count is a run of its own with no letters in it, so it is
+ * rewritten and the name is still left alone. The separator survives because
+ * the segments are rejoined on it.
+ */
+internal fun String.forLanguageSegments(): String =
+    split(" · ", " • ").joinToString(" · ") { it.forLanguage() }
+
+internal fun String.forLanguageDate(): String {
+    val parts = split('/')
+    if (parts.size != 2 || parts.any { it.isBlank() || it.any { c -> c !in WESTERN } }) {
+        return forLanguage()
+    }
+    return if (persianNumerals()) "${parts[1]}/${parts[0]}".forLanguage() else this
+}

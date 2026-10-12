@@ -39,6 +39,8 @@ import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.sp
 import com.music.bitchord.R
 import com.music.bitchord.ui.components.forLanguage
+import com.music.bitchord.ui.components.forLanguageDate
+import com.music.bitchord.ui.components.forLanguageSegments
 import com.music.bitchord.ui.player.MeshGradientBackground
 import com.music.bitchord.ui.player.rememberArtworkColors
 import java.util.Locale
@@ -169,8 +171,12 @@ fun ReplayCreditCard(
                     brush = PolishedInk,
                     shadow = EmbossShadow,
                 ),
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
+                // Same fix the channel shelf and the tab labels carry. A loose
+                // constraint closes the line at the text's measured width and
+                // shaped Persian is wider than that, so `126` came back as `12`
+                // with the `6` on a second line. A figure has one line in it.
+                maxLines = 1,
+                softWrap = false,
             )
             Text(
                 text = label.uppercase(Locale.ROOT),
@@ -193,7 +199,7 @@ fun ReplayCreditCard(
                     )
                     if (detail != null) {
                         Text(
-                            text = detail.forLanguage(),
+                            text = detail.forLanguageSegments(),
                             style = MaterialTheme.typography.labelSmall,
                             color = Color.White.copy(alpha = 0.6f),
                             maxLines = 1,
@@ -219,7 +225,11 @@ fun ReplayCreditCard(
                             // catches the eye every time.
                             textAlign = TextAlign.End,
                         )
-                        Embossed(text = memberSince.forLanguage(), size = 12.sp)
+                        // `10/26` is October 2026 written month-first, which is
+                        // how the model builds it. A Persian date puts the year
+                        // first, so the two halves swap before the digits do —
+                        // `۲۶/۱۰`, not `۱۰/۲۶`.
+                        Embossed(text = memberSince.forLanguageDate(), size = 12.sp)
                     }
                 }
             }

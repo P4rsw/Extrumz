@@ -224,8 +224,12 @@ internal fun localizeShelfSubtitle(subtitle: String): String {
 @Composable
 internal fun localizeCardSubtitle(subtitle: String): String {
     if (subtitle.isBlank()) return subtitle
-    val delimiter = " • "
-    val parts = subtitle.split(delimiter)
+    // Split on either dot, rejoin on the middle one. The app builds subtitles
+    // with ` · ` and this looked for ` • `, so the split never fired and an
+    // artist beside a count went through as one run — which the digit
+    // rewriting then left alone, because it carries Latin letters. Rejoining
+    // on the middle dot keeps the separator the reader already sees.
+    val parts = subtitle.split(" • ", " · ")
     val songLabel = stringResource(R.string.shelf_song_item)
     val singleLabel = stringResource(R.string.shelf_single)
     val chartLabel = stringResource(R.string.shelf_chart)
@@ -269,7 +273,11 @@ internal fun localizeCardSubtitle(subtitle: String): String {
             else -> part
         }
     }
-    return localizedParts.joinToString(delimiter)
+    // Per segment rather than on the joined line: a subtitle is an artist
+    // beside a count — `Hoodadk4 · 4 plays` — and only the count is a numeral.
+    // forLanguage leaves a segment carrying Latin letters alone, so the name
+    // survives and the count gets rewritten without needing to be found first.
+    return localizedParts.joinToString(" · ") { it.forLanguage() }
 }
 
 /**
