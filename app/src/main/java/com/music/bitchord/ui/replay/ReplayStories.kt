@@ -75,6 +75,8 @@ import com.music.bitchord.data.model.HEADER_ART_PX
 import com.music.bitchord.data.model.ROW_ART_PX
 import com.music.bitchord.data.model.artworkAt
 import com.music.bitchord.data.stats.ReplaySummary
+import com.music.bitchord.ui.components.forLanguage
+import com.music.bitchord.ui.components.thumbnailBorder
 import com.music.bitchord.ui.player.MeshGradientBackground
 import com.music.bitchord.ui.player.MeshPalette
 import com.music.bitchord.ui.player.rememberArtworkColors
@@ -399,16 +401,20 @@ private fun StoryChrome(
             }
         }
         Spacer(Modifier.height(14.dp))
+        // "Replay'26" for a year, which is the shape everyone knows this
+        // by. A month or "All time" has no two-digit form and is spelt
+        // out rather than truncated into nonsense.
+        val heading = if (label.length == 4 && label.all { it.isDigit() }) {
+            "Replay'${label.takeLast(2)}"
+        } else {
+            "Replay · $label"
+        }
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
-                // "Replay'26" for a year, which is the shape everyone knows this
-                // by. A month or "All time" has no two-digit form and is spelt
-                // out rather than truncated into nonsense.
-                text = if (label.length == 4 && label.all { it.isDigit() }) {
-                    "Replay'${label.takeLast(2)}"
-                } else {
-                    "Replay · $label"
-                },
+                // The year is a figure this screen produced rather than a word
+                // it was handed, so it is set in the reader's digits — the same
+                // rule every other number on a Replay follows.
+                text = heading.forLanguage(),
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.W700,
                 color = Color.White,
@@ -811,6 +817,11 @@ private fun Cover(
         .size(size)
         .let { if (elevated) it.shadow(18.dp, shape, clip = false) else it }
         .clip(shape)
+        // The one treatment every other cover in the app carries and this one
+        // did not: without the hairline a cover sits on the card with no edge
+        // of its own and reads as a flat patch of the backdrop rather than as a
+        // photograph lying on it.
+        .thumbnailBorder(shape)
     when {
         url != null -> AsyncImage(
             model = url.artworkAt(px),

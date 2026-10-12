@@ -56,6 +56,8 @@ import com.music.bitchord.data.model.artworkAt
 import com.music.bitchord.data.stats.ReplayPeriod
 import com.music.bitchord.data.stats.ReplaySummary
 import com.music.bitchord.ui.components.PAGE_GUTTER
+import com.music.bitchord.ui.components.forLanguage
+import com.music.bitchord.ui.components.thumbnailBorder
 import com.music.bitchord.ui.icons.BitChordIcons
 import com.music.bitchord.ui.player.MeshGradientBackground
 import com.music.bitchord.ui.player.rememberArtworkColors
@@ -253,7 +255,11 @@ private fun Heading(state: ReplayState, onPeriodChange: (ReplayPeriod) -> Unit, 
             modifier = Modifier.fillMaxWidth(),
         )
         Text(
-            text = state.summary?.localizedLabel(context) ?: state.period.localizedChip(context),
+            // A year or a month this page formatted itself — a label, not
+            // content — so its digits are the reader's, like every other
+            // figure below it. The chip it falls back to has none to move.
+            text = (state.summary?.localizedLabel(context) ?: state.period.localizedChip(context))
+                .forLanguage(),
             style = MaterialTheme.typography.titleMedium,
             color = textColor.copy(alpha = 0.6f),
         )
@@ -462,7 +468,9 @@ private fun ReplayChartRow(row: ReplayRow, circular: Boolean, dark: Boolean, onC
                 model = row.artworkUrl.artworkAt(ROW_ART_PX),
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
-                modifier = Modifier.size(48.dp).clip(shape),
+                // The hairline every other cover in the app wears — this chart
+                // was the one list of covers that had been left without it.
+                modifier = Modifier.size(48.dp).clip(shape).thumbnailBorder(shape),
             )
         } else {
             InitialTile(row.title, 48.dp, shape)
@@ -478,8 +486,13 @@ private fun ReplayChartRow(row: ReplayRow, circular: Boolean, dark: Boolean, onC
                 overflow = TextOverflow.Ellipsis,
             )
             Text(
-                text = listOfNotNull(row.subtitle, formatListening(LocalContext.current, row.ms))
-                    .joinToString(" · "),
+                // The duration is rewritten on its own rather than the joined
+                // line: the subtitle beside it is content, and a track called
+                // Hoodadk4 has to stay Hoodadk4.
+                text = listOfNotNull(
+                    row.subtitle,
+                    formatListening(LocalContext.current, row.ms).forLanguage(),
+                ).joinToString(" · "),
                 style = MaterialTheme.typography.bodyMedium,
                 color = textVariant,
                 maxLines = 1,
@@ -488,7 +501,7 @@ private fun ReplayChartRow(row: ReplayRow, circular: Boolean, dark: Boolean, onC
         }
         if (row.plays > 0) {
             Text(
-                text = row.plays.toString(),
+                text = row.plays.toString().forLanguage(),
                 style = MaterialTheme.typography.labelMedium,
                 color = textColor.copy(alpha = 0.45f),
             )

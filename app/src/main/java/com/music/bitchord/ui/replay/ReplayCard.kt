@@ -38,6 +38,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.sp
 import com.music.bitchord.R
+import com.music.bitchord.ui.components.forLanguage
 import com.music.bitchord.ui.player.MeshGradientBackground
 import com.music.bitchord.ui.player.rememberArtworkColors
 import java.util.Locale
@@ -155,8 +156,12 @@ fun ReplayCreditCard(
 
             Spacer(Modifier.weight(1f))
 
+            // The figure, the line under it and the date are all built in the
+            // model, where nobody has picked a language yet, so they come up as
+            // they were formatted. This is the first place a reader sees them.
+            // The cardholder name is left alone: it is a name, not a numeral.
             Text(
-                text = value,
+                text = value.forLanguage(),
                 style = MaterialTheme.typography.headlineMedium.copy(
                     fontSize = 27.sp,
                     lineHeight = 30.sp,
@@ -188,7 +193,7 @@ fun ReplayCreditCard(
                     )
                     if (detail != null) {
                         Text(
-                            text = detail,
+                            text = detail.forLanguage(),
                             style = MaterialTheme.typography.labelSmall,
                             color = Color.White.copy(alpha = 0.6f),
                             maxLines = 1,
@@ -214,7 +219,7 @@ fun ReplayCreditCard(
                             // catches the eye every time.
                             textAlign = TextAlign.End,
                         )
-                        Embossed(text = memberSince, size = 12.sp)
+                        Embossed(text = memberSince.forLanguage(), size = 12.sp)
                     }
                 }
             }
@@ -255,7 +260,9 @@ private fun Embossed(text: String, size: TextUnit) {
 @Composable
 fun RankBadge(rank: Int, accent: Color, modifier: Modifier = Modifier) {
     Text(
-        text = rank.toString(),
+        // A position this chart worked out, not a number anyone typed, so it
+        // is set in the reader's digits like the figures beside it.
+        text = rank.toString().forLanguage(),
         style = if (rank == 1) {
             MaterialTheme.typography.titleLarge
         } else {

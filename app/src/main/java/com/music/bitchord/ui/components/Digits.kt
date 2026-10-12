@@ -1,7 +1,6 @@
 package com.music.bitchord.ui.components
 
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.platform.LocalConfiguration
+import androidx.appcompat.app.AppCompatDelegate
 import java.util.Locale
 
 /**
@@ -25,18 +24,31 @@ private val PERSIAN = charArrayOf('\u06f0', '\u06f1', '\u06f2', '\u06f3', '\u06f
 /**
  * Whether this build should be showing Persian numerals.
  *
- * Asked of the configuration rather than of `AppSettings`, because by the time
- * a `Text` is composing the answer has already been decided: the locale is what
- * picked the strings, and the numerals belong to the same choice.
+ * Asked of the app's locales, which is the only answer that counts here: the
+ * phone can be set to English while the app is set to Persian, and that is
+ * how this one is configured. `Locale.getDefault` still answers the system
+ * and `LocalConfiguration` is derived from it, so either of those decides the
+ * numerals from a language the reader never chose. `AppCompatDelegate` holds
+ * what was actually picked — the same question the translation and the app
+ * language dialogs already ask — and the resources the strings came from
+ * follow from it.
  */
-@Composable
 internal fun persianNumerals(): Boolean =
-    LocalConfiguration.current.locales.get(0).language == "fa"
+    AppCompatDelegate.getApplicationLocales().get(0)?.language == "fa"
 
-/** Digits for the current language: `3:05` becomes `۳:۰۵` in Persian. */
-@Composable
+/**
+ * Digits for the current language: `3:05` becomes `۳:۰۵` in Persian.
+ *
+ * A run that contains a Latin letter is left exactly as it is. The field this
+ * is applied to is not always a numeral — the Replay's top-artist card prints
+ * an artist's name in the slot where every other card prints a figure — and
+ * `Hoodadk4` is a name with a four in it, not a count of four. Rewriting it
+ * produced `Hoodadk۴`, which is neither the artist nor a number. Units and
+ * punctuation are already left alone; this is the same rule one step up.
+ */
 internal fun String.forLanguage(): String {
     if (!persianNumerals() || none { it in WESTERN }) return this
+    if (any { it in 'a'..'z' || it in 'A'..'Z' }) return this
     val out = toCharArray()
     for (i in out.indices) {
         val digit = WESTERN.indexOf(out[i])

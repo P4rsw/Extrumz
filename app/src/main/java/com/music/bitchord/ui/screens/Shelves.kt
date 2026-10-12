@@ -46,6 +46,7 @@ import com.music.bitchord.ui.components.SHELF_CARD_WIDTH
 import com.music.bitchord.ui.components.thumbnailBorder
 import com.music.bitchord.ui.player.MeshGradientBackground
 import com.music.bitchord.ui.player.MeshPalette
+import com.music.bitchord.ui.components.forLanguage
 
 /**
  * Shared by the home feed, Explore and Library so headings line up across tabs.
@@ -243,18 +244,27 @@ internal fun localizeCardSubtitle(subtitle: String): String {
                 trimmed.equals("再生リスト", ignoreCase = true) -> playlistLabel
             lower.endsWith(" views") || lower.endsWith(" view") || lower.endsWith(" lượt xem") ||
                 lower.endsWith(" 回視聴") || lower.endsWith("回視聴") -> {
+                // The count is split off from whatever it counts before it is
+                // rewritten, so an artist's name beside it — `Hoodadk4` — is not
+                // read as a number with a four in it.
                 val count = trimmed.substringBeforeLast(' ', "").trim()
-                if (count.any { it.isDigit() }) stringResource(R.string.card_views_format, count) else part
+                if (count.any { it.isDigit() }) {
+                    stringResource(R.string.card_views_format, count.forLanguage())
+                } else part
             }
             lower.endsWith(" plays") || lower.endsWith(" play") || lower.endsWith(" lượt phát") ||
                 lower.endsWith(" 回再生") || lower.endsWith("回再生") -> {
                 val count = trimmed.substringBeforeLast(' ', "").trim()
-                if (count.any { it.isDigit() }) stringResource(R.string.card_plays_format, count) else part
+                if (count.any { it.isDigit() }) {
+                    stringResource(R.string.card_plays_format, count.forLanguage())
+                } else part
             }
             lower.endsWith(" songs") || lower.endsWith(" song") || lower.endsWith(" bài hát") ||
                 lower.endsWith(" 曲") || lower.endsWith("曲") -> {
                 val count = trimmed.substringBeforeLast(' ', "").trim()
-                if (count.any { it.isDigit() }) stringResource(R.string.card_songs_format, count) else part
+                if (count.any { it.isDigit() }) {
+                    stringResource(R.string.card_songs_format, count.forLanguage())
+                } else part
             }
             else -> part
         }

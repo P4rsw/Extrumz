@@ -2385,16 +2385,24 @@ private fun BitChordApp(
         // instead of over it.
         replayStory?.let { start ->
             replay.summary?.takeUnless { it.isEmpty }?.let { summary ->
-                ReplayStories(
-                    summary = summary,
-                    start = start,
-                    onClose = { replayStory = null },
-                    onShare = { card ->
-                        replaySharePage = card
-                        showReplayShare = true
-                    },
-                    paused = showReplayShare,
-                )
+                // A story is mounted out here, above the pane, so the direction
+                // the page beneath it declared does not reach it — and without
+                // declaring its own, every card in the run laid out from the
+                // left while the Replay it was opened from read from the right.
+                CompositionLocalProvider(
+                    LocalLayoutDirection provides LayoutDirection.Rtl,
+                ) {
+                    ReplayStories(
+                        summary = summary,
+                        start = start,
+                        onClose = { replayStory = null },
+                        onShare = { card ->
+                            replaySharePage = card
+                            showReplayShare = true
+                        },
+                        paused = showReplayShare,
+                    )
+                }
             }
         }
 

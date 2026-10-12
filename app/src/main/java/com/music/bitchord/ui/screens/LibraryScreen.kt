@@ -58,6 +58,7 @@ import com.music.bitchord.ui.replay.ReplayCardRow
 import com.music.bitchord.ui.replay.ReplayHeroCard
 import com.music.bitchord.ui.replay.ReplayStoryPage
 import java.util.Locale
+import com.music.bitchord.ui.components.forLanguage
 import com.music.bitchord.ui.components.mirroredForReading
 
 /**
@@ -312,8 +313,13 @@ private fun ReplayBanner(card: ReplayHeroCard?, onClick: () -> Unit) {
                 Text(
                     // The numbers when there are any, because "5,231 minutes" is
                     // a reason to tap and a description of the feature is not.
-                    text = card?.let { "${it.value} ${it.label.lowercase(Locale.ROOT)} · ${it.detail}" }
-                        ?: stringResource(R.string.replay_subtitle),
+                    // The card's own digits are formatted in the model, where the
+                    // reader has not been asked yet; this is the first place they
+                    // are shown to one, so they are rewritten here rather than
+                    // carried up from the data layer already flipped.
+                    text = card?.let {
+                        "${it.value} ${it.label.lowercase(Locale.ROOT)} · ${it.detail}".forLanguage()
+                    } ?: stringResource(R.string.replay_subtitle),
                     style = MaterialTheme.typography.bodyMedium,
                     color = Color.White.copy(alpha = 0.82f),
                     maxLines = 2,
