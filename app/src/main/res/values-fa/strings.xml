@@ -422,7 +422,7 @@
     <plurals name="minute_count">
         <item quantity="other">%1$d دقیقه</item>
     </plurals>
-    <string name="biggest_day_note">پرمصرف‌ترین روز شما %1$s با %2$s شنیدن بود.</string>
+    <string name="biggest_day_note">%1$s پرگوش‌ترین روزتان بود؛ %2$s هم پایش نشستید.</string>
     <string name="close_replay">بستن ریپلی</string>
     <string name="couldnt_draw_picture">ایجاد تصویر ممکن نشد</string>
     <string name="default_replay_holder">شنوندهٔ TeleMusic</string>
@@ -430,7 +430,7 @@
     <string name="hour_am">%1$d ق.ظ</string>
     <string name="hour_pm">%1$d ب.ظ</string>
     <string name="hours_minutes_short">%1$d ساعت %2$d دقیقه</string>
-    <string name="listen_most_around">شما بیشتر در حدود ساعت %1$s گوش می‌دهید.</string>
+    <string name="listen_most_around">بیشترِ وقت‌ها نزدیک ساعت %1$s گوش می‌دهید.</string>
     <string name="listening_shape">الگوی شنیدن شما</string>
     <string name="member_since">عضویت از</string>
     <string name="member_since_value">عضویت از %1$s</string>

@@ -580,6 +580,13 @@ private fun StatTile(label: String, value: String, dark: Boolean, modifier: Modi
             style = MaterialTheme.typography.headlineMedium,
             fontWeight = FontWeight.W800,
             color = textColor,
+            // The pair the heading above these tiles carries, for the reason
+            // given there: with no width of its own the line closes at the
+            // measured width of the digits and shaped Persian is wider, so
+            // the last one falls off a line the tile does not draw.
+            maxLines = 1,
+            softWrap = false,
+            modifier = Modifier.fillMaxWidth(),
         )
         Text(
             text = label,
