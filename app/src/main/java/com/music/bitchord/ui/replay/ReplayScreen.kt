@@ -586,6 +586,11 @@ private fun StatTile(label: String, value: String, dark: Boolean, modifier: Modi
             // the last one falls off a line the tile does not draw.
             maxLines = 1,
             softWrap = false,
+            // Centred explicitly. fillMaxWidth only gives the line somewhere
+            // to land; alignment is still Align.Start, and this page reads
+            // right-to-left, so the figure sat against the tile's right edge
+            // with the label centred under it.
+            textAlign = TextAlign.Center,
             modifier = Modifier.fillMaxWidth(),
         )
         Text(
