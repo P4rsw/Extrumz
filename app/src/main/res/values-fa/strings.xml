@@ -19,7 +19,7 @@
     <string name="downloads">دانلودها</string>
     <string name="downloaded_songs">آهنگ‌های دانلودشده</string>
     <string name="local_music">آهنگ‌های گوشی</string>
-    <string name="audio_files_on_device">فایل‌های صوتی حافظه گوشی</string>
+    <string name="audio_files_on_device">فایل‌های صوتی</string>
     <string name="on_device">روی حافظه گوشی</string>
     <string name="playlists">پلی‌لیست‌ها</string>
     <string name="retry">تلاش دوباره</string>
@@ -197,7 +197,7 @@
     <string name="eq_preset_small_speakers">اسپیکرهای کوچک</string>
     <string name="eq_preset_late_night">آخر شب (آرام)</string>
     <string name="eq_preset_custom">سفارشی</string>
-    <string name="show_nerd_stats">اطلاعات فنی و تخصصی (Stats for nerds)</string>
+    <string name="show_nerd_stats">اطلاعات فنی و تخصصی</string>
     <string name="show_nerd_stats_subtitle">نمایش کدک، بیت‌ریت و سمپل‌ریت روی صفحه پلیر</string>
     <string name="theme">تم برنامه</string>
     <string name="reduce_animation">کاهش انیمیشن‌ها</string>
@@ -216,9 +216,9 @@
     <string name="clear_song_cache_subtitle">حافظه اشغال‌شده توسط کش آهنگ‌ها رو آزاد می‌کنه</string>
     <string name="clear_image_cache">خالی کردن کش تصاویر</string>
     <string name="clear_image_cache_subtitle">حافظه اشغال‌شده توسط کاورها رو آزاد می‌کنه</string>
-    <string name="play_next_on_swipe">پخش بعدی با کشیدن انگشت (سوایپ)</string>
+    <string name="play_next_on_swipe">پخش بعدی با کشیدن انگشت</string>
     <string name="dont_repeat_songs">عدم تکرار آهنگ‌ها در این دور</string>
-    <string name="stop_music_on_close">قطع آهنگ با بستن از برنامه‌های اخیر (Recent)</string>
+    <string name="stop_music_on_close">قطع آهنگ با بستن برنامه از اخیر</string>
     <string name="stop_music_on_close_subtitle">وقتی برنامه رو از لیست برنامه‌های اخیر ببندی، پخش متوقف می‌شه</string>
     <string name="hide_volume_bar">مخفی کردن نوار ولوم</string>
     <string name="hide_volume_bar_subtitle">اسلایدر تغییر ولوم رو از صفحه اصلی پلیر برمی‌داره</string>
@@ -235,7 +235,7 @@
     <string name="filter_non_music_audio">فیلتر کردن فایل‌های غیرموسیقی</string>
     <string name="filter_non_music_audio_subtitle">ویس‌ها، صداهای ضبط‌شده، فایل‌های زیر ۳۰ ثانیه و صداهای سیستم رو مخفی می‌کنه</string>
     <string name="performance">عملکرد و کارایی</string>
-    <string name="high_performance_mode">حالت نهایت قدرت (High Performance)</string>
+    <string name="high_performance_mode">حالت نهایت قدرت</string>
     <string name="high_performance_subtitle">انیمیشن‌ها و بلور کامل رو فعال می‌کنه و رفرش‌ریت صفحه رو بالا می‌بره</string>
     <string name="high_performance_active">رفرش‌ریت %1$d هرتز فعال شد. اندروید در صورت داغ شدن ممکنه کاهشش بده.</string>
     <string name="refresh_rate">نرخ نوسازی (رفرش‌ریت)</string>
@@ -581,9 +581,9 @@
     <string name="hdmi_output">HDMI</string>
     <string name="personal_phone">گوشی %1$s</string>
     <string name="this_phone">این گوشی</string>
-    <string name="export_compatible_downloads">خروجی گرفتن از دانلودها با فرمت استاندارد</string>
+    <string name="export_compatible_downloads">خروجی استاندارد از دانلودها</string>
     <string name="output_precision">دقت خروجی صدا (Bit Precision)</string>
-    <string name="prefer_usb_dac">اولویت با داک صوتی USB (USB DAC)</string>
+    <string name="prefer_usb_dac">اولویت با داک صوتی USB</string>
     <string name="loudness_normalization">یکسان‌سازی بلندی صدا (نرمالایز)</string>
     <string name="loudness_normalization_subtitle">ولوم صدای همه آهنگ‌ها رو در یک سطح یکنواخت نگه می‌داره</string>
     <string name="pipeline_loudness_gain">گین</string>
@@ -626,7 +626,7 @@
     <string name="tab_songs">آهنگ‌ها</string>
     <string name="tab_channels">کانال‌ها</string>
     <string name="tab_search">جستجو</string>
-    <string name="tab_library">کتابخانه (مجموعه من)</string>
+    <string name="tab_library">کتابخانه</string>
     <string name="tg_login">ورود به حساب تلگرام</string>
     <string name="tg_login_subtitle">وارد شو تا آهنگ‌های کانال‌ها و گروه‌هات رو جمع‌آوری کنم</string>
     <string name="tg_phone">شماره تلفن (با کد کشور)</string>
