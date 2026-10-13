@@ -99,7 +99,7 @@ fun SearchField(
                     // Persian reads right-to-left inside a screen that stays
                     // left-to-right, so the edge is asked for here rather than
                     // inherited. English is left where it falls.
-                    textAlign = if (isRtlReading) TextAlign.End else TextAlign.Start,
+                    textAlign = TextAlign.Start,
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
@@ -109,7 +109,7 @@ fun SearchField(
                 singleLine = true,
                 textStyle = MaterialTheme.typography.bodyLarge.copy(
                     color = MaterialTheme.colorScheme.onBackground,
-                    textAlign = if (isRtlReading) TextAlign.End else TextAlign.Start,
+                    textAlign = TextAlign.Start,
                 ),
                 cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),

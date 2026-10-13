@@ -63,6 +63,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
 import com.extrumz.app.ui.util.isRtlReading
+import com.extrumz.app.ui.util.ProvideLocaleDirection
 
 /**
  * The offline Telegram library: every track the scanner has indexed in Room,
@@ -114,70 +115,75 @@ fun SongsScreen(
             .fillMaxSize()
             .padding(contentPadding),
     ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            // The connection line sits at the reading edge: the right for a
-            // Persian UI, the left for an English one. `Arrangement.End` would
-            // be direction-aware on its own, but this window is pinned to LTR —
-            // `supportsRtl` is off and stays off — so the edge is picked here
-            // from the locale instead of inherited from the view.
-            horizontalArrangement = if (isRtlReading) Arrangement.End else Arrangement.Start,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 8.dp),
-        ) {
-            val connected = authState is TelegramAuthState.Ready
-            Box(
-                Modifier
-                    .size(9.dp)
-                    .background(
-                        if (connected) MaterialTheme.colorScheme.primary
-                        else MaterialTheme.colorScheme.outline,
-                        CircleShape,
+    // The whole header mirrors for Persian: the connection line and the
+    // search field both sit at the reading edge, and a provider is the
+    // only thing that can move both without flipping the tabs below.
+    ProvideLocaleDirection {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                // The connection line sits at the reading edge: the right for a
+                // Persian UI, the left for an English one. `Arrangement.End` would
+                // be direction-aware on its own, but this window is pinned to LTR —
+                // `supportsRtl` is off and stays off — so the edge is picked here
+                // from the locale instead of inherited from the view.
+                horizontalArrangement = Arrangement.Start,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+            ) {
+                val connected = authState is TelegramAuthState.Ready
+                Box(
+                    Modifier
+                        .size(9.dp)
+                        .background(
+                            if (connected) MaterialTheme.colorScheme.primary
+                            else MaterialTheme.colorScheme.outline,
+                            CircleShape,
+                        )
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    if (connected) stringResource(R.string.tg_connected)
+                    else stringResource(R.string.tg_login),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.clickable(enabled = !connected) {
+                        TelegramAuthController.requestAuthUi()
+                    },
+                )
+                if (chatFilter != null) {
+                    Spacer(Modifier.width(12.dp))
+                    Text(
+                        "✕ " + (filteredChatName ?: stringResource(R.string.tg_all_chats)),
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.clickable { TelegramUi.selectedChatId.value = null },
                     )
-            )
-            Spacer(Modifier.width(8.dp))
-            Text(
-                if (connected) stringResource(R.string.tg_connected)
-                else stringResource(R.string.tg_login),
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.clickable(enabled = !connected) {
-                    TelegramAuthController.requestAuthUi()
-                },
-            )
-            if (chatFilter != null) {
-                Spacer(Modifier.width(12.dp))
-                Text(
-                    "✕ " + (filteredChatName ?: stringResource(R.string.tg_all_chats)),
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.clickable { TelegramUi.selectedChatId.value = null },
-                )
+                }
             }
-        }
 
-        OutlinedTextField(
-            value = query,
-            onValueChange = { query = it },
-            placeholder = {
-                Text(
-                    stringResource(R.string.tg_search_hint),
-                    // Persian reads right-to-left inside a screen that stays
-                    // left-to-right, so the edge is asked for here rather than
-                    // inherited. English is left where it falls.
-                    textAlign = if (isRtlReading) TextAlign.End else TextAlign.Start,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            },
-            singleLine = true,
-            textStyle = LocalTextStyle.current.copy(
-                textAlign = if (isRtlReading) TextAlign.End else TextAlign.Start,
-            ),
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp),
-        )
+            OutlinedTextField(
+                value = query,
+                onValueChange = { query = it },
+                placeholder = {
+                    Text(
+                        stringResource(R.string.tg_search_hint),
+                        // Persian reads right-to-left inside a screen that stays
+                        // left-to-right, so the edge is asked for here rather than
+                        // inherited. English is left where it falls.
+                        textAlign = TextAlign.Start,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                },
+                singleLine = true,
+                textStyle = LocalTextStyle.current.copy(
+                    textAlign = TextAlign.Start,
+                ),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
+            )
+    }
 
         if (scan.isRunning) {
             Spacer(Modifier.height(8.dp))

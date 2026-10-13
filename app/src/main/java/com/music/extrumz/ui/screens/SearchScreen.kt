@@ -81,6 +81,7 @@ import com.extrumz.app.ui.haptics.Haptic
 import com.extrumz.app.ui.haptics.rememberHaptics
 import java.util.Locale
 import com.extrumz.app.ui.util.isRtlReading
+import com.extrumz.app.ui.util.ProvideLocaleDirection
 
 @Composable
 fun SearchScreen(
@@ -794,46 +795,48 @@ private fun ChannelFilterPill(
     onOpenPicker: () -> Unit,
     onClear: () -> Unit,
 ) {
-    Row(
-        // One chip on an empty row, so it sits at the reading edge: the right
-        // for Persian, the left for English. It scrolls too — with a name long
-        // enough to need it, the overflow trails the chip rather than leading.
-        horizontalArrangement = if (isRtlReading) Arrangement.End else Arrangement.Start,
-        modifier = Modifier
-            .fillMaxWidth()
-            .horizontalScroll(rememberScrollState())
-            .padding(horizontal = PAGE_GUTTER, vertical = 2.dp),
-    ) {
-        if (chatId == null) {
-            Box(
-                modifier = Modifier
-                    .clip(FILTER_PILL_SHAPE)
-                    .background(MaterialTheme.colorScheme.surfaceVariant)
-                    .clickable(onClick = onOpenPicker)
-                    .padding(horizontal = 12.dp, vertical = 6.dp),
-            ) {
-                Text(
-                    text = stringResource(R.string.tab_channels),
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.onBackground,
-                    maxLines = 1,
-                )
-            }
-        } else {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier
-                    .clip(FILTER_PILL_SHAPE)
-                    .background(MaterialTheme.colorScheme.onBackground)
-                    .clickable(onClick = onClear)
-                    .padding(horizontal = 12.dp, vertical = 6.dp),
-            ) {
-                Text(
-                    text = "✕ " + (chatName ?: stringResource(R.string.tab_channels)),
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.background,
-                    maxLines = 1,
-                )
+ProvideLocaleDirection {
+        Row(
+            // One chip on an empty row, so it sits at the reading edge: the right
+            // for Persian, the left for English. It scrolls too — with a name long
+            // enough to need it, the overflow trails the chip rather than leading.
+            horizontalArrangement = Arrangement.Start,
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState())
+                .padding(horizontal = PAGE_GUTTER, vertical = 2.dp),
+        ) {
+            if (chatId == null) {
+                Box(
+                    modifier = Modifier
+                        .clip(FILTER_PILL_SHAPE)
+                        .background(MaterialTheme.colorScheme.surfaceVariant)
+                        .clickable(onClick = onOpenPicker)
+                        .padding(horizontal = 12.dp, vertical = 6.dp),
+                ) {
+                    Text(
+                        text = stringResource(R.string.tab_channels),
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.onBackground,
+                        maxLines = 1,
+                    )
+                }
+            } else {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .clip(FILTER_PILL_SHAPE)
+                        .background(MaterialTheme.colorScheme.onBackground)
+                        .clickable(onClick = onClear)
+                        .padding(horizontal = 12.dp, vertical = 6.dp),
+                ) {
+                    Text(
+                        text = "✕ " + (chatName ?: stringResource(R.string.tab_channels)),
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.background,
+                        maxLines = 1,
+                    )
+                }
             }
         }
     }
