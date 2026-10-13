@@ -130,6 +130,7 @@ import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 import java.util.Locale
 import androidx.compose.runtime.setValue
+import com.extrumz.app.ui.util.ProvideLocaleDirection
 
 /**
  * Grouped settings, in the shape phones have taught people to expect: inset
@@ -151,1045 +152,1047 @@ fun SettingsScreen(
     contentPadding: PaddingValues,
     modifier: Modifier = Modifier,
 ) {
-    val context = LocalContext.current
+    ProvideLocaleDirection {
+        val context = LocalContext.current
 
-    val metered by AppSettings.meteredConnection.collectAsStateWithLifecycle()
-    val crossfade by AppSettings.crossfadeSeconds.collectAsStateWithLifecycle()
-    val smartFade by AppSettings.smartFadeEnabled.collectAsStateWithLifecycle()
-    val automixPerformance by AppSettings.automixPerformanceMode.collectAsStateWithLifecycle()
-    val skipSilence by AppSettings.skipSilence.collectAsStateWithLifecycle()
-    val spatialAudio by AppSettings.spatialAudio.collectAsStateWithLifecycle()
-    val nerdStats by AppSettings.showNerdStats.collectAsStateWithLifecycle()
-    val reduceAnimation by AppSettings.reduceAnimation.collectAsStateWithLifecycle()
-    val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
-    val liquidGlass by AppSettings.liquidGlass.collectAsStateWithLifecycle()
-    val liquidGlassSupported = isGlassSupported()
-    val lyricsBlur by AppSettings.lyricsBlur.collectAsStateWithLifecycle()
-    val fullBleedArtwork by AppSettings.fullBleedArtwork.collectAsStateWithLifecycle()
-    val syncedLyrics by AppSettings.syncedLyrics.collectAsStateWithLifecycle()
-    val lyricsSources by AppSettings.lyricsSources.collectAsStateWithLifecycle()
-    val translationLanguage by AppSettings.translationLanguage.collectAsStateWithLifecycle()
-    val theme by AppSettings.themeMode.collectAsStateWithLifecycle()
-    val sessionId by AppSettings.audioSessionId.collectAsStateWithLifecycle()
-    val outputPcmMode by AppSettings.outputPcmMode.collectAsStateWithLifecycle()
-    val preferUsbDac by AppSettings.preferUsbDac.collectAsStateWithLifecycle()
-    val loudnessNormalization by AppSettings.loudnessNormalization.collectAsStateWithLifecycle()
-    val outputStatus by AudioOutputStatus.current.collectAsStateWithLifecycle()
-    val playingFormat by NerdStats.current.collectAsStateWithLifecycle()
-    val playingDolbyAtmos = playingFormat?.isDolbyAtmos == true
-    val cacheLimitBytes by AppSettings.audioCacheLimitBytes.collectAsStateWithLifecycle()
-    val wifiOnlyDownloads by AppSettings.wifiOnlyDownloads.collectAsStateWithLifecycle()
-    val exportDownloads by AppSettings.exportDownloads.collectAsStateWithLifecycle()
-    val stopOnTaskRemoved by AppSettings.stopOnTaskRemoved.collectAsStateWithLifecycle()
-    val hideVolumeBar by AppSettings.hideVolumeBar.collectAsStateWithLifecycle()
-    val hideSongStatus by AppSettings.hideSongStatus.collectAsStateWithLifecycle()
-    val swipeToPlayNext by AppSettings.swipeToPlayNext.collectAsStateWithLifecycle()
-    val dontRepeatSuggestions by AppSettings.dontRepeatSuggestions.collectAsStateWithLifecycle()
-    val smartVersionAlignment by AppSettings.smartVersionAlignment.collectAsStateWithLifecycle()
-    val filterNonMusicAudio by AppSettings.filterNonMusicAudio.collectAsStateWithLifecycle()
-    val localMusicFolderUri by AppSettings.localMusicFolderUri.collectAsStateWithLifecycle()
-    val highPerformanceMode by AppSettings.highPerformanceMode.collectAsStateWithLifecycle()
-    val performanceRefreshRate by AppSettings.performanceRefreshRate.collectAsStateWithLifecycle()
-    val currentDisplay = LocalView.current.display
-    val supportedRefreshRates = remember(currentDisplay) {
-        currentDisplay.supportedPerformanceRefreshRates()
-    }
-    val selectedPerformanceRefreshRate = remember(currentDisplay, performanceRefreshRate) {
-        currentDisplay.resolvePerformanceRefreshRate(performanceRefreshRate)
-    }
-
-    LaunchedEffect(selectedPerformanceRefreshRate, performanceRefreshRate) {
-        if (selectedPerformanceRefreshRate != performanceRefreshRate) {
-            AppSettings.setPerformanceRefreshRate(selectedPerformanceRefreshRate)
+        val metered by AppSettings.meteredConnection.collectAsStateWithLifecycle()
+        val crossfade by AppSettings.crossfadeSeconds.collectAsStateWithLifecycle()
+        val smartFade by AppSettings.smartFadeEnabled.collectAsStateWithLifecycle()
+        val automixPerformance by AppSettings.automixPerformanceMode.collectAsStateWithLifecycle()
+        val skipSilence by AppSettings.skipSilence.collectAsStateWithLifecycle()
+        val spatialAudio by AppSettings.spatialAudio.collectAsStateWithLifecycle()
+        val nerdStats by AppSettings.showNerdStats.collectAsStateWithLifecycle()
+        val reduceAnimation by AppSettings.reduceAnimation.collectAsStateWithLifecycle()
+        val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
+        val liquidGlass by AppSettings.liquidGlass.collectAsStateWithLifecycle()
+        val liquidGlassSupported = isGlassSupported()
+        val lyricsBlur by AppSettings.lyricsBlur.collectAsStateWithLifecycle()
+        val fullBleedArtwork by AppSettings.fullBleedArtwork.collectAsStateWithLifecycle()
+        val syncedLyrics by AppSettings.syncedLyrics.collectAsStateWithLifecycle()
+        val lyricsSources by AppSettings.lyricsSources.collectAsStateWithLifecycle()
+        val translationLanguage by AppSettings.translationLanguage.collectAsStateWithLifecycle()
+        val theme by AppSettings.themeMode.collectAsStateWithLifecycle()
+        val sessionId by AppSettings.audioSessionId.collectAsStateWithLifecycle()
+        val outputPcmMode by AppSettings.outputPcmMode.collectAsStateWithLifecycle()
+        val preferUsbDac by AppSettings.preferUsbDac.collectAsStateWithLifecycle()
+        val loudnessNormalization by AppSettings.loudnessNormalization.collectAsStateWithLifecycle()
+        val outputStatus by AudioOutputStatus.current.collectAsStateWithLifecycle()
+        val playingFormat by NerdStats.current.collectAsStateWithLifecycle()
+        val playingDolbyAtmos = playingFormat?.isDolbyAtmos == true
+        val cacheLimitBytes by AppSettings.audioCacheLimitBytes.collectAsStateWithLifecycle()
+        val wifiOnlyDownloads by AppSettings.wifiOnlyDownloads.collectAsStateWithLifecycle()
+        val exportDownloads by AppSettings.exportDownloads.collectAsStateWithLifecycle()
+        val stopOnTaskRemoved by AppSettings.stopOnTaskRemoved.collectAsStateWithLifecycle()
+        val hideVolumeBar by AppSettings.hideVolumeBar.collectAsStateWithLifecycle()
+        val hideSongStatus by AppSettings.hideSongStatus.collectAsStateWithLifecycle()
+        val swipeToPlayNext by AppSettings.swipeToPlayNext.collectAsStateWithLifecycle()
+        val dontRepeatSuggestions by AppSettings.dontRepeatSuggestions.collectAsStateWithLifecycle()
+        val smartVersionAlignment by AppSettings.smartVersionAlignment.collectAsStateWithLifecycle()
+        val filterNonMusicAudio by AppSettings.filterNonMusicAudio.collectAsStateWithLifecycle()
+        val localMusicFolderUri by AppSettings.localMusicFolderUri.collectAsStateWithLifecycle()
+        val highPerformanceMode by AppSettings.highPerformanceMode.collectAsStateWithLifecycle()
+        val performanceRefreshRate by AppSettings.performanceRefreshRate.collectAsStateWithLifecycle()
+        val currentDisplay = LocalView.current.display
+        val supportedRefreshRates = remember(currentDisplay) {
+            currentDisplay.supportedPerformanceRefreshRates()
         }
-    }
-
-    // Filters the rows below — see [SettingsSearch]. Blank shows everything,
-    // exactly as if the field weren't there.
-    var searchQuery by remember { mutableStateOf("") }
-    var pickingAutomixPerformance by remember { mutableStateOf(false) }
-    // What the last export or import did, shown on the row that did it rather
-    // than as a toast: a backup is the one action here whose outcome nobody can
-    // check by looking at the app afterwards. Held per direction, or an import's
-    // result reports itself under the word "Export".
-    var exportStatus by remember { mutableStateOf<String?>(null) }
-    var importStatus by remember { mutableStateOf<String?>(null) }
-    var confirmImport by remember { mutableStateOf(false) }
-    var showPerformanceWarning by remember { mutableStateOf(false) }
-    var showPerformanceConfirmation by remember { mutableStateOf(false) }
-    val backupScope = rememberCoroutineScope()
-
-    val batterySettingsLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.StartActivityForResult(),
-    ) {
-        showPerformanceConfirmation = true
-    }
-    val localMusicFolderPicker = rememberLauncherForActivityResult(
-        ActivityResultContracts.OpenDocumentTree(),
-    ) { folder ->
-        if (folder == null) return@rememberLauncherForActivityResult
-        runCatching {
-            context.contentResolver.takePersistableUriPermission(
-                folder,
-                Intent.FLAG_GRANT_READ_URI_PERMISSION,
-            )
+        val selectedPerformanceRefreshRate = remember(currentDisplay, performanceRefreshRate) {
+            currentDisplay.resolvePerformanceRefreshRate(performanceRefreshRate)
         }
-        AppSettings.setLocalMusicFolderUri(folder.toString())
-    }
 
-    /**
-     * Both halves go through the system document picker rather than a path of
-     * this app's own choosing. That is what puts the file somewhere the user can
-     * actually find it — Drive, Files, a folder they already back up — and it
-     * means neither direction needs a storage permission, since the grant
-     * arrives with the document they picked.
-     */
-    val exportPicker = rememberLauncherForActivityResult(
-        ActivityResultContracts.CreateDocument("application/json"),
-    ) { target ->
-        if (target == null) return@rememberLauncherForActivityResult
-        backupScope.launch {
-            exportStatus = Backup.exportTo(context, target).fold(
-                onSuccess = { months ->
-                    context.getString(R.string.export_succeeded, context.countOfMonths(months))
-                },
-                onFailure = {
-                    context.getString(R.string.export_failed, it.message ?: context.getString(R.string.unknown_error))
-                },
-            )
+        LaunchedEffect(selectedPerformanceRefreshRate, performanceRefreshRate) {
+            if (selectedPerformanceRefreshRate != performanceRefreshRate) {
+                AppSettings.setPerformanceRefreshRate(selectedPerformanceRefreshRate)
+            }
         }
-    }
-    val importPicker = rememberLauncherForActivityResult(
-        ActivityResultContracts.OpenDocument(),
-    ) { source ->
-        if (source == null) return@rememberLauncherForActivityResult
-        backupScope.launch {
-            importStatus = Backup.importFrom(context, source).fold(
-                onSuccess = {
-                    context.getString(R.string.import_succeeded, context.countOfMonths(it.months), it.from)
-                },
-                onFailure = {
-                    context.getString(R.string.import_failed, it.message ?: context.getString(R.string.unknown_error))
-                },
-            )
+
+        // Filters the rows below — see [SettingsSearch]. Blank shows everything,
+        // exactly as if the field weren't there.
+        var searchQuery by remember { mutableStateOf("") }
+        var pickingAutomixPerformance by remember { mutableStateOf(false) }
+        // What the last export or import did, shown on the row that did it rather
+        // than as a toast: a backup is the one action here whose outcome nobody can
+        // check by looking at the app afterwards. Held per direction, or an import's
+        // result reports itself under the word "Export".
+        var exportStatus by remember { mutableStateOf<String?>(null) }
+        var importStatus by remember { mutableStateOf<String?>(null) }
+        var confirmImport by remember { mutableStateOf(false) }
+        var showPerformanceWarning by remember { mutableStateOf(false) }
+        var showPerformanceConfirmation by remember { mutableStateOf(false) }
+        val backupScope = rememberCoroutineScope()
+
+        val batterySettingsLauncher = rememberLauncherForActivityResult(
+            ActivityResultContracts.StartActivityForResult(),
+        ) {
+            showPerformanceConfirmation = true
         }
-    }
-
-    val version = remember(context) {
-        runCatching {
-            context.packageManager.getPackageInfo(context.packageName, 0).versionName
-        }.getOrNull() ?: "1.0"
-    }
-
-    // Made fresh on every pass rather than remembered: it tallies the rows
-    // that answered to the query, and that tally has to start from zero each
-    // time the query changes.
-    val search = SettingsSearch(searchQuery)
-
-    // What is left after a keystroke is a different list, and the offset the
-    // last one was scrolled to means nothing in it.
-    val scrollState = rememberSaveable(saver = ScrollState.Saver) { ScrollState(0) }
-    var isFirstSearchComposition by remember { mutableStateOf(true) }
-    LaunchedEffect(searchQuery) {
-        if (isFirstSearchComposition && searchQuery.isEmpty()) {
-            // Skip the initial composition during Activity recreation:
-            // rememberSaveable already restored the scroll position.
-            isFirstSearchComposition = false
-        } else {
-            isFirstSearchComposition = false
-            scrollState.scrollTo(0)
+        val localMusicFolderPicker = rememberLauncherForActivityResult(
+            ActivityResultContracts.OpenDocumentTree(),
+        ) { folder ->
+            if (folder == null) return@rememberLauncherForActivityResult
+            runCatching {
+                context.contentResolver.takePersistableUriPermission(
+                    folder,
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION,
+                )
+            }
+            AppSettings.setLocalMusicFolderUri(folder.toString())
         }
-    }
 
-    Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .verticalScroll(scrollState)
-            .padding(contentPadding),
-    ) {
-        // fillMaxWidth before the padding, per the fix that landed for the
-        // channel shelf (see the letter-break entry in MASTER_LIST). Without a
-        // fixed width Compose closes the line at the text's intrinsic width,
-        // shaped Persian is wider than that, and the last letter is sent to a
-        // second line that draws as nothing — «تنظیما» over «ت».
-        Text(
-            text = stringResource(R.string.settings),
-            style = MaterialTheme.typography.displayLarge,
-            color = MaterialTheme.colorScheme.onBackground,
-            modifier = Modifier
+        /**
+         * Both halves go through the system document picker rather than a path of
+         * this app's own choosing. That is what puts the file somewhere the user can
+         * actually find it — Drive, Files, a folder they already back up — and it
+         * means neither direction needs a storage permission, since the grant
+         * arrives with the document they picked.
+         */
+        val exportPicker = rememberLauncherForActivityResult(
+            ActivityResultContracts.CreateDocument("application/json"),
+        ) { target ->
+            if (target == null) return@rememberLauncherForActivityResult
+            backupScope.launch {
+                exportStatus = Backup.exportTo(context, target).fold(
+                    onSuccess = { months ->
+                        context.getString(R.string.export_succeeded, context.countOfMonths(months))
+                    },
+                    onFailure = {
+                        context.getString(R.string.export_failed, it.message ?: context.getString(R.string.unknown_error))
+                    },
+                )
+            }
+        }
+        val importPicker = rememberLauncherForActivityResult(
+            ActivityResultContracts.OpenDocument(),
+        ) { source ->
+            if (source == null) return@rememberLauncherForActivityResult
+            backupScope.launch {
+                importStatus = Backup.importFrom(context, source).fold(
+                    onSuccess = {
+                        context.getString(R.string.import_succeeded, context.countOfMonths(it.months), it.from)
+                    },
+                    onFailure = {
+                        context.getString(R.string.import_failed, it.message ?: context.getString(R.string.unknown_error))
+                    },
+                )
+            }
+        }
+
+        val version = remember(context) {
+            runCatching {
+                context.packageManager.getPackageInfo(context.packageName, 0).versionName
+            }.getOrNull() ?: "1.0"
+        }
+
+        // Made fresh on every pass rather than remembered: it tallies the rows
+        // that answered to the query, and that tally has to start from zero each
+        // time the query changes.
+        val search = SettingsSearch(searchQuery)
+
+        // What is left after a keystroke is a different list, and the offset the
+        // last one was scrolled to means nothing in it.
+        val scrollState = rememberSaveable(saver = ScrollState.Saver) { ScrollState(0) }
+        var isFirstSearchComposition by remember { mutableStateOf(true) }
+        LaunchedEffect(searchQuery) {
+            if (isFirstSearchComposition && searchQuery.isEmpty()) {
+                // Skip the initial composition during Activity recreation:
+                // rememberSaveable already restored the scroll position.
+                isFirstSearchComposition = false
+            } else {
+                isFirstSearchComposition = false
+                scrollState.scrollTo(0)
+            }
+        }
+
+        Column(
+            modifier = modifier
                 .fillMaxWidth()
-                .padding(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 14.dp),
-        )
-        SearchField(
-            query = searchQuery,
-            onQueryChange = { searchQuery = it },
-            onSubmit = {},
-            placeholder = stringResource(R.string.settings_search_hint),
-            modifier = Modifier.padding(start = 20.dp, end = 20.dp, bottom = 4.dp),
-        )
+                .verticalScroll(scrollState)
+                .padding(contentPadding),
+        ) {
+            // fillMaxWidth before the padding, per the fix that landed for the
+            // channel shelf (see the letter-break entry in MASTER_LIST). Without a
+            // fixed width Compose closes the line at the text's intrinsic width,
+            // shaped Persian is wider than that, and the last letter is sent to a
+            // second line that draws as nothing — «تنظیما» over «ت».
+            Text(
+                text = stringResource(R.string.settings),
+                style = MaterialTheme.typography.displayLarge,
+                color = MaterialTheme.colorScheme.onBackground,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 14.dp),
+            )
+            SearchField(
+                query = searchQuery,
+                onQueryChange = { searchQuery = it },
+                onSubmit = {},
+                placeholder = stringResource(R.string.settings_search_hint),
+                modifier = Modifier.padding(start = 20.dp, end = 20.dp, bottom = 4.dp),
+            )
 
-        // Its own group rather than rows bolted onto the two above, because a
-        // download is not a third kind of connection. The ceilings answer "what
-        // does this minute cost"; these answer "what am I keeping, and when may
-        // it be fetched" — and those two questions only make sense read
-        // together, which is what puts them side by side here.
-        SearchableSettingsGroup(search, header = stringResource(R.string.downloads)) {
-            val downloadWifiOnlyTitle = stringResource(R.string.download_wifi_only)
-            row(downloadWifiOnlyTitle, "wi-fi", "cellular", "دانلود", "وای فای", "فقط وای فای", "اینترنت همراه", divided = false) {
-                SettingsSubRow(
-                    title = downloadWifiOnlyTitle,
-                    checked = wifiOnlyDownloads,
-                    onCheckedChange = AppSettings::setWifiOnlyDownloads,
-                    badge = stringResource(R.string.blocking).takeIf { wifiOnlyDownloads && metered == true },
-                )
-            }
-            val exportDownloadsTitle = stringResource(R.string.export_compatible_downloads)
-            row(exportDownloadsTitle, "music folder", "پوشه", "پوشه موسیقی", "خروجی", "دانلود", "استخراج", "پوشه دانلود", divided = false) {
-                SettingsSubRow(
-                    title = exportDownloadsTitle,
-                    checked = exportDownloads,
-                    onCheckedChange = AppSettings::setExportDownloads,
-                    subtitle = "Music/Extrumz".takeIf { exportDownloads },
-                )
-            }
-        }
-
-        SearchableSettingsGroup(search, header = stringResource(R.string.playback)) {
-            val outputPrecisionTitle = stringResource(R.string.output_precision)
-            row(outputPrecisionTitle, "pcm", "bit depth", "sample rate", "dac", "دقت خروجی", "خروجی", "عمق بیت", "نرخ نمونهبرداری", "داک") {
-                SettingsRow(
-                    icon = Icons.Rounded.GraphicEq,
-                    title = outputPrecisionTitle,
-                    subtitle = buildString {
-                        append(outputStatus.sink)
-                        append(" · ")
-                        append(outputStatus.deviceName)
-                        (outputStatus.actualSampleRateHz ?: outputStatus.sampleRatesHz.firstOrNull())
-                            ?.let { append(" · ${it / 1000.0} kHz") }
-                        append(" · ")
-                        append(AudioOutputStatus.encodingLabel(outputStatus))
-                    },
-                )
-                SegmentedControl(
-                    options = OutputPcmMode.entries.map(OutputPcmMode::label),
-                    selectedIndex = OutputPcmMode.entries.indexOf(outputPcmMode),
-                    onSelect = { AppSettings.setOutputPcmMode(OutputPcmMode.entries[it]) },
-                    modifier = Modifier.padding(start = TEXT_INSET, end = ROW_INSET, bottom = 14.dp),
-                )
-            }
-            val preferUsbDacTitle = stringResource(R.string.prefer_usb_dac)
-            row(preferUsbDacTitle, "headphone", "output", "هدفون", "خروجی", "یو اس بی", "داک", "داک یو اس بی") {
-                SettingsSubRow(
-                    title = preferUsbDacTitle,
-                    checked = preferUsbDac,
-                    onCheckedChange = AppSettings::setPreferUsbDac,
-                    badge = stringResource(R.string.connected).takeIf { outputStatus.isUsb },
-                )
-            }
-            val loudnessTitle = stringResource(R.string.loudness_normalization)
-            row(loudnessTitle, "loudness", "volume", "normalize", "replaygain", "lufs", "نرمالسازی بلندی", "بلندی صدا", "نرمالسازی", "صدا", "گین ریپلی", "یکنواخت سازی") {
-                SettingsRow(
-                    icon = Icons.Rounded.VolumeUp,
-                    title = loudnessTitle,
-                    subtitle = stringResource(R.string.loudness_normalization_subtitle),
-                    trailing = {
-                        Switch(
-                            checked = loudnessNormalization,
-                            onCheckedChange = AppSettings::setLoudnessNormalization,
-                            colors = SwitchDefaults.colors(
-                                checkedTrackColor = MaterialTheme.colorScheme.primary,
-                                checkedBorderColor = MaterialTheme.colorScheme.primary,
-                            ),
-                        )
-                    },
-                    onClick = { AppSettings.setLoudnessNormalization(!loudnessNormalization) },
-                )
-            }
-            // Automix decides its own length from each pair of tracks —
-            // tempo, key, structure — so it replaces the manual slider rather
-            // than needing it set to anything first.
-            if (!smartFade) {
-                val crossfadeTitle = stringResource(R.string.crossfade)
-                row(crossfadeTitle, "fade", "gapless", "کراسفید", "محو شدن", "پیوسته", "تداخل") {
-                    SliderRow(
-                        icon = Icons.Rounded.Waves,
-                        title = crossfadeTitle,
-                        subtitle = stringResource(R.string.crossfade_subtitle),
-                        value = if (crossfade == 0) stringResource(R.string.off) else "${crossfade}s",
-                        sliderValue = crossfade.toFloat(),
-                        onSliderValue = { AppSettings.setCrossfadeSeconds(it.roundToInt()) },
-                        valueRange = 0f..12f,
-                        steps = 11,
+            // Its own group rather than rows bolted onto the two above, because a
+            // download is not a third kind of connection. The ceilings answer "what
+            // does this minute cost"; these answer "what am I keeping, and when may
+            // it be fetched" — and those two questions only make sense read
+            // together, which is what puts them side by side here.
+            SearchableSettingsGroup(search, header = stringResource(R.string.downloads)) {
+                val downloadWifiOnlyTitle = stringResource(R.string.download_wifi_only)
+                row(downloadWifiOnlyTitle, "wi-fi", "cellular", "دانلود", "وای فای", "فقط وای فای", "اینترنت همراه", divided = false) {
+                    SettingsSubRow(
+                        title = downloadWifiOnlyTitle,
+                        checked = wifiOnlyDownloads,
+                        onCheckedChange = AppSettings::setWifiOnlyDownloads,
+                        badge = stringResource(R.string.blocking).takeIf { wifiOnlyDownloads && metered == true },
+                    )
+                }
+                val exportDownloadsTitle = stringResource(R.string.export_compatible_downloads)
+                row(exportDownloadsTitle, "music folder", "پوشه", "پوشه موسیقی", "خروجی", "دانلود", "استخراج", "پوشه دانلود", divided = false) {
+                    SettingsSubRow(
+                        title = exportDownloadsTitle,
+                        checked = exportDownloads,
+                        onCheckedChange = AppSettings::setExportDownloads,
+                        subtitle = "Music/Extrumz".takeIf { exportDownloads },
                     )
                 }
             }
-            val automixTitle = stringResource(R.string.automix)
-            row(automixTitle, "crossfade", "smart fade", "mix", "اتومیکس", "میکس", "کراسفید", "محو هوشمند", "میکس خودکار") {
-                SettingsRow(
-                    icon = Icons.Rounded.AutoAwesome,
-                    title = automixTitle,
-                    subtitle = if (smartFade) {
-                        stringResource(R.string.automix_enabled_subtitle)
-                    } else {
-                        stringResource(R.string.automix_disabled_subtitle)
-                    },
-                    trailing = {
-                        Switch(
-                            checked = smartFade,
-                            onCheckedChange = AppSettings::setSmartFadeEnabled,
-                            colors = SwitchDefaults.colors(
-                                checkedTrackColor = MaterialTheme.colorScheme.primary,
-                                checkedBorderColor = MaterialTheme.colorScheme.primary,
-                            ),
-                        )
-                    },
-                    onClick = { AppSettings.setSmartFadeEnabled(!smartFade) },
-                )
-            }
-            val automixPerformanceTitle = stringResource(R.string.automix_performance)
-            row(automixPerformanceTitle, "cpu", "battery", "عملکرد", "پردازنده", "باتری", "مصرف باتری") {
-                SettingsRow(
-                    icon = Icons.Rounded.Tune,
-                    title = automixPerformanceTitle,
-                    subtitle = stringResource(R.string.automix_performance_subtitle),
-                    value = automixPerformance.localizedLabel(),
-                    onClick = { pickingAutomixPerformance = true },
-                )
-            }
-            val skipSilenceTitle = stringResource(R.string.skip_silence)
-            row(skipSilenceTitle, "silence", "رد کردن سکوت", "سکوت", "حذف سکوت") {
-                SettingsRow(
-                    icon = Icons.AutoMirrored.Rounded.VolumeOff,
-                    title = skipSilenceTitle,
-                    // Silence skipping is Media3's own processor, and
-                    // `DefaultAudioSink.configure` appends that processor list
-                    // only on its 16-bit branch — the float branch gets the
-                    // format converter and nothing else. So on a float track
-                    // this switch really does nothing, and the row says so
-                    // rather than letting someone toggle it and wonder. The
-                    // equaliser is unaffected: it runs upstream of that sink.
-                    subtitle = if (outputStatus.actualEncoding == AudioFormat.ENCODING_PCM_FLOAT) {
-                        stringResource(R.string.skip_silence_float_subtitle)
-                    } else {
-                        stringResource(R.string.skip_silence_subtitle)
-                    },
-                    trailing = {
-                        Switch(
-                            checked = skipSilence,
-                            onCheckedChange = AppSettings::setSkipSilence,
-                            colors = SwitchDefaults.colors(
-                                checkedTrackColor = MaterialTheme.colorScheme.primary,
-                                checkedBorderColor = MaterialTheme.colorScheme.primary,
-                            ),
-                        )
-                    },
-                    onClick = { AppSettings.setSkipSilence(!skipSilence) },
-                )
-            }
-            val spatialAudioTitle = stringResource(R.string.spatial_audio)
-            row(spatialAudioTitle, "surround", "3d", "صدای فضایی", "سه بعدی", "فراگیر", "فضایی", "سوراند") {
-                SettingsRow(
-                    icon = Icons.Rounded.SurroundSound,
-                    title = spatialAudioTitle,
-                    // Widening a JOC stream would fight the object-based mix
-                    // Dolby has already spatialized, so the service holds this
-                    // off for the duration of an Atmos track — see
-                    // `PlaybackService.applySpatialAudioEnabled`. Said on the
-                    // row because the switch stays where the listener left it,
-                    // and a switch reading "on" over an effect that is not
-                    // running is the same silent lie the equaliser screen used
-                    // to tell.
-                    subtitle = if (playingDolbyAtmos) {
-                        stringResource(R.string.spatial_audio_atmos_subtitle)
-                    } else {
-                        stringResource(R.string.spatial_audio_subtitle)
-                    },
-                    trailing = {
-                        Switch(
-                            checked = spatialAudio,
-                            onCheckedChange = AppSettings::setSpatialAudio,
-                            colors = SwitchDefaults.colors(
-                                checkedTrackColor = MaterialTheme.colorScheme.primary,
-                                checkedBorderColor = MaterialTheme.colorScheme.primary,
-                            ),
-                        )
-                    },
-                    onClick = { AppSettings.setSpatialAudio(!spatialAudio) },
-                )
-            }
-            // The system panel is not listed here as well. A device with a
-            // Dolby or Dirac panel has something Extrumz cannot reproduce and
-            // keeps its row — but one level in, at the foot of the equaliser
-            // screen, rather than as a second equaliser entry alongside ours.
-            val equalizerTitle = stringResource(R.string.equalizer)
-            row(equalizerTitle, "eq", "bass", "treble", "اکولایزر", "بیس", "تریبل", "تنظیم صدا") {
-                SettingsRow(
-                    icon = Icons.Rounded.Tune,
-                    title = equalizerTitle,
-                    subtitle = stringResource(R.string.equalizer_subtitle),
-                    onClick = onEqualizer,
-                )
-            }
-        }
 
-        SearchableSettingsGroup(search, header = stringResource(R.string.appearance)) {
-            val themeTitle = stringResource(R.string.theme)
-            row(themeTitle, "dark mode", "light mode", "پوسته", "تم", "حالت تیره", "حالت روشن", "دارک مود") {
-                SettingsRow(icon = Icons.Rounded.Brightness4, title = themeTitle)
-                SegmentedControl(
-                    options = ThemeMode.entries.map { it.localizedLabel() },
-                    selectedIndex = ThemeMode.entries.indexOf(theme),
-                    onSelect = { AppSettings.setThemeMode(ThemeMode.entries[it]) },
-                    modifier = Modifier.padding(start = ROW_INSET, end = ROW_INSET, bottom = 14.dp),
-                )
-            }
-            val reduceAnimationTitle = stringResource(R.string.reduce_animation)
-            row(reduceAnimationTitle, "motion", "پویانمایی", "کاهش پویانمایی", "انیمیشن", "کاهش انیمیشن", "حرکت") {
-                SettingsRow(
-                    icon = Icons.Rounded.MotionPhotosOff,
-                    title = reduceAnimationTitle,
-                    subtitle = stringResource(R.string.reduce_animation_subtitle),
-                    trailing = {
-                        Switch(
-                            checked = reduceAnimation,
-                            onCheckedChange = AppSettings::setReduceAnimation,
-                            colors = SwitchDefaults.colors(
-                                checkedTrackColor = MaterialTheme.colorScheme.primary,
-                                checkedBorderColor = MaterialTheme.colorScheme.primary,
-                            ),
-                        )
-                    },
-                    onClick = { AppSettings.setReduceAnimation(!reduceAnimation) },
-                )
-            }
-            val reduceDynamicBlurTitle = stringResource(R.string.reduce_dynamic_blur)
-            row(reduceDynamicBlurTitle, "blur", "performance", "تاری", "تاری پویا", "کاهش تاری", "بلر", "عملکرد") {
-                SettingsRow(
-                    icon = Icons.Rounded.BlurOff,
-                    title = reduceDynamicBlurTitle,
-                    subtitle = stringResource(R.string.reduce_dynamic_blur_subtitle),
-                    trailing = {
-                        Switch(
-                            checked = reduceDynamicBlur,
-                            onCheckedChange = AppSettings::setReduceDynamicBlur,
-                            colors = SwitchDefaults.colors(
-                                checkedTrackColor = MaterialTheme.colorScheme.primary,
-                                checkedBorderColor = MaterialTheme.colorScheme.primary,
-                            ),
-                        )
-                    },
-                    onClick = { AppSettings.setReduceDynamicBlur(!reduceDynamicBlur) },
-                )
-            }
-            val liquidGlassTitle = stringResource(R.string.liquid_glass)
-            row(liquidGlassTitle, "glass", "blur", "شیشه", "شیشه شفاف", "افکت شیشه", "تاری") {
-                SettingsRow(
-                    icon = Icons.Rounded.AutoAwesome,
-                    title = liquidGlassTitle,
-                    subtitle = stringResource(
-                        if (liquidGlassSupported) {
-                            R.string.liquid_glass_subtitle
-                        } else {
-                            R.string.liquid_glass_unavailable
-                        },
-                    ),
-                    enabled = liquidGlassSupported,
-                    trailing = {
-                        Switch(
-                            checked = liquidGlass,
-                            onCheckedChange = AppSettings::setLiquidGlass,
-                            enabled = liquidGlassSupported,
-                            colors = SwitchDefaults.colors(
-                                checkedTrackColor = MaterialTheme.colorScheme.primary,
-                                checkedBorderColor = MaterialTheme.colorScheme.primary,
-                            ),
-                        )
-                    },
-                    onClick = { AppSettings.setLiquidGlass(!liquidGlass) },
-                )
-            }
-            // Left out where the player won't honour it: a window too wide for
-            // the player to fill and too narrow to stand a page beside it keeps
-            // the sleeve either way. A docked pane is a phone's width, so it does
-            // honour it — see [fullBleedArtworkAvailable].
-            if (fullBleedArtworkAvailable(windowWidth)) {
-                val fullScreenCoverArtTitle = stringResource(R.string.full_screen_cover_art)
-                row(fullScreenCoverArtTitle, "artwork", "player", "کاور", "تمامصفحه", "کاور تمامصفحه", "پخشکننده", "تصویر آلبوم") {
+            SearchableSettingsGroup(search, header = stringResource(R.string.playback)) {
+                val outputPrecisionTitle = stringResource(R.string.output_precision)
+                row(outputPrecisionTitle, "pcm", "bit depth", "sample rate", "dac", "دقت خروجی", "خروجی", "عمق بیت", "نرخ نمونهبرداری", "داک") {
                     SettingsRow(
-                        icon = Icons.Rounded.Fullscreen,
-                        title = fullScreenCoverArtTitle,
-                        subtitle = stringResource(R.string.full_screen_cover_art_subtitle),
-                        trailing = {
-                            Switch(
-                                checked = fullBleedArtwork,
-                                onCheckedChange = AppSettings::setFullBleedArtwork,
-                                colors = SwitchDefaults.colors(
-                                    checkedTrackColor = MaterialTheme.colorScheme.primary,
-                                    checkedBorderColor = MaterialTheme.colorScheme.primary,
-                                    ),
-                            )
+                        icon = Icons.Rounded.GraphicEq,
+                        title = outputPrecisionTitle,
+                        subtitle = buildString {
+                            append(outputStatus.sink)
+                            append(" · ")
+                            append(outputStatus.deviceName)
+                            (outputStatus.actualSampleRateHz ?: outputStatus.sampleRatesHz.firstOrNull())
+                                ?.let { append(" · ${it / 1000.0} kHz") }
+                            append(" · ")
+                            append(AudioOutputStatus.encodingLabel(outputStatus))
                         },
-                        onClick = { AppSettings.setFullBleedArtwork(!fullBleedArtwork) },
+                    )
+                    SegmentedControl(
+                        options = OutputPcmMode.entries.map(OutputPcmMode::label),
+                        selectedIndex = OutputPcmMode.entries.indexOf(outputPcmMode),
+                        onSelect = { AppSettings.setOutputPcmMode(OutputPcmMode.entries[it]) },
+                        modifier = Modifier.padding(start = TEXT_INSET, end = ROW_INSET, bottom = 14.dp),
                     )
                 }
-            }
-            val syncedLyricsTitle = stringResource(R.string.synced_lyrics)
-            // Same reasoning as Animated cover art above: the lyrics source and
-            // translation rows are only here while this is on.
-            row(syncedLyricsTitle, "lyrics", "translation", "lrclib", "musixmatch", "متن آهنگ", "ترجمه", "متن ترانه", "همگام") {
-                SettingsRow(
-                    icon = Icons.AutoMirrored.Rounded.Notes,
-                    title = syncedLyricsTitle,
-                    subtitle = stringResource(R.string.synced_lyrics_subtitle),
-                    trailing = {
-                        Switch(
-                            checked = syncedLyrics,
-                            onCheckedChange = AppSettings::setSyncedLyrics,
-                            colors = SwitchDefaults.colors(
-                                checkedTrackColor = MaterialTheme.colorScheme.primary,
-                                checkedBorderColor = MaterialTheme.colorScheme.primary,
-                            ),
-                        )
-                    },
-                    onClick = { AppSettings.setSyncedLyrics(!syncedLyrics) },
-                )
-            }
-            // Nothing to choose between while the feature is off, and the
-            // sources are third-party services being reached on the user's
-            // connection — which is the part worth being able to narrow.
-            if (syncedLyrics) {
-                val lyricsBlurTitle = stringResource(R.string.blur_unfocused_lyrics)
-                row(lyricsBlurTitle, "lyrics", "blur", "متن آهنگ", "تاری", "محو کردن متن", "تاری متن") {
+                val preferUsbDacTitle = stringResource(R.string.prefer_usb_dac)
+                row(preferUsbDacTitle, "headphone", "output", "هدفون", "خروجی", "یو اس بی", "داک", "داک یو اس بی") {
+                    SettingsSubRow(
+                        title = preferUsbDacTitle,
+                        checked = preferUsbDac,
+                        onCheckedChange = AppSettings::setPreferUsbDac,
+                        badge = stringResource(R.string.connected).takeIf { outputStatus.isUsb },
+                    )
+                }
+                val loudnessTitle = stringResource(R.string.loudness_normalization)
+                row(loudnessTitle, "loudness", "volume", "normalize", "replaygain", "lufs", "نرمالسازی بلندی", "بلندی صدا", "نرمالسازی", "صدا", "گین ریپلی", "یکنواخت سازی") {
                     SettingsRow(
-                        icon = Icons.Rounded.BlurOn,
-                        title = lyricsBlurTitle,
-                        subtitle = stringResource(R.string.blur_unfocused_lyrics_subtitle),
+                        icon = Icons.Rounded.VolumeUp,
+                        title = loudnessTitle,
+                        subtitle = stringResource(R.string.loudness_normalization_subtitle),
                         trailing = {
                             Switch(
-                                checked = lyricsBlur,
-                                onCheckedChange = AppSettings::setLyricsBlur,
+                                checked = loudnessNormalization,
+                                onCheckedChange = AppSettings::setLoudnessNormalization,
                                 colors = SwitchDefaults.colors(
                                     checkedTrackColor = MaterialTheme.colorScheme.primary,
                                     checkedBorderColor = MaterialTheme.colorScheme.primary,
                                 ),
                             )
                         },
-                        onClick = { AppSettings.setLyricsBlur(!lyricsBlur) },
+                        onClick = { AppSettings.setLoudnessNormalization(!loudnessNormalization) },
                     )
                 }
-                val lyricsSourcesTitle = stringResource(R.string.lyrics_sources)
-                row(lyricsSourcesTitle, "lyrics", "lrclib", "musixmatch", "متن آهنگ", "منابع متن آهنگ", "منابع متن") {
-                    SettingsRow(
-                        icon = Icons.Rounded.Language,
-                        title = lyricsSourcesTitle,
-                        subtitle = lyricsSources
-                            .sortedBy { it.ordinal }
-                            .joinToString(", ") { it.label }
-                            .ifEmpty { stringResource(R.string.no_lyrics_sources_enabled) },
-                        trailing = { Chevron() },
-                        onClick = onLyricsSources,
-                    )
+                // Automix decides its own length from each pair of tracks —
+                // tempo, key, structure — so it replaces the manual slider rather
+                // than needing it set to anything first.
+                if (!smartFade) {
+                    val crossfadeTitle = stringResource(R.string.crossfade)
+                    row(crossfadeTitle, "fade", "gapless", "کراسفید", "محو شدن", "پیوسته", "تداخل") {
+                        SliderRow(
+                            icon = Icons.Rounded.Waves,
+                            title = crossfadeTitle,
+                            subtitle = stringResource(R.string.crossfade_subtitle),
+                            value = if (crossfade == 0) stringResource(R.string.off) else "${crossfade}s",
+                            sliderValue = crossfade.toFloat(),
+                            onSliderValue = { AppSettings.setCrossfadeSeconds(it.roundToInt()) },
+                            valueRange = 0f..12f,
+                            steps = 11,
+                        )
+                    }
                 }
-                val translationLanguageTitle = stringResource(R.string.translation_language)
-                row(translationLanguageTitle, "lyrics", "translate", "متن آهنگ", "ترجمه", "زبان ترجمه") {
+                val automixTitle = stringResource(R.string.automix)
+                row(automixTitle, "crossfade", "smart fade", "mix", "اتومیکس", "میکس", "کراسفید", "محو هوشمند", "میکس خودکار") {
                     SettingsRow(
-                        icon = Icons.Rounded.Translate,
-                        title = translationLanguageTitle,
-                        subtitle = if (translationLanguage.isBlank()) {
-                            stringResource(R.string.translation_language_subtitle)
+                        icon = Icons.Rounded.AutoAwesome,
+                        title = automixTitle,
+                        subtitle = if (smartFade) {
+                            stringResource(R.string.automix_enabled_subtitle)
                         } else {
-                            translationLanguageName(
-                                translationLanguage,
-                                AppCompatDelegate.getApplicationLocales().get(0) ?: Locale.getDefault(),
+                            stringResource(R.string.automix_disabled_subtitle)
+                        },
+                        trailing = {
+                            Switch(
+                                checked = smartFade,
+                                onCheckedChange = AppSettings::setSmartFadeEnabled,
+                                colors = SwitchDefaults.colors(
+                                    checkedTrackColor = MaterialTheme.colorScheme.primary,
+                                    checkedBorderColor = MaterialTheme.colorScheme.primary,
+                                ),
                             )
                         },
-                        trailing = { Chevron() },
-                        onClick = onTranslationLanguage,
+                        onClick = { AppSettings.setSmartFadeEnabled(!smartFade) },
+                    )
+                }
+                val automixPerformanceTitle = stringResource(R.string.automix_performance)
+                row(automixPerformanceTitle, "cpu", "battery", "عملکرد", "پردازنده", "باتری", "مصرف باتری") {
+                    SettingsRow(
+                        icon = Icons.Rounded.Tune,
+                        title = automixPerformanceTitle,
+                        subtitle = stringResource(R.string.automix_performance_subtitle),
+                        value = automixPerformance.localizedLabel(),
+                        onClick = { pickingAutomixPerformance = true },
+                    )
+                }
+                val skipSilenceTitle = stringResource(R.string.skip_silence)
+                row(skipSilenceTitle, "silence", "رد کردن سکوت", "سکوت", "حذف سکوت") {
+                    SettingsRow(
+                        icon = Icons.AutoMirrored.Rounded.VolumeOff,
+                        title = skipSilenceTitle,
+                        // Silence skipping is Media3's own processor, and
+                        // `DefaultAudioSink.configure` appends that processor list
+                        // only on its 16-bit branch — the float branch gets the
+                        // format converter and nothing else. So on a float track
+                        // this switch really does nothing, and the row says so
+                        // rather than letting someone toggle it and wonder. The
+                        // equaliser is unaffected: it runs upstream of that sink.
+                        subtitle = if (outputStatus.actualEncoding == AudioFormat.ENCODING_PCM_FLOAT) {
+                            stringResource(R.string.skip_silence_float_subtitle)
+                        } else {
+                            stringResource(R.string.skip_silence_subtitle)
+                        },
+                        trailing = {
+                            Switch(
+                                checked = skipSilence,
+                                onCheckedChange = AppSettings::setSkipSilence,
+                                colors = SwitchDefaults.colors(
+                                    checkedTrackColor = MaterialTheme.colorScheme.primary,
+                                    checkedBorderColor = MaterialTheme.colorScheme.primary,
+                                ),
+                            )
+                        },
+                        onClick = { AppSettings.setSkipSilence(!skipSilence) },
+                    )
+                }
+                val spatialAudioTitle = stringResource(R.string.spatial_audio)
+                row(spatialAudioTitle, "surround", "3d", "صدای فضایی", "سه بعدی", "فراگیر", "فضایی", "سوراند") {
+                    SettingsRow(
+                        icon = Icons.Rounded.SurroundSound,
+                        title = spatialAudioTitle,
+                        // Widening a JOC stream would fight the object-based mix
+                        // Dolby has already spatialized, so the service holds this
+                        // off for the duration of an Atmos track — see
+                        // `PlaybackService.applySpatialAudioEnabled`. Said on the
+                        // row because the switch stays where the listener left it,
+                        // and a switch reading "on" over an effect that is not
+                        // running is the same silent lie the equaliser screen used
+                        // to tell.
+                        subtitle = if (playingDolbyAtmos) {
+                            stringResource(R.string.spatial_audio_atmos_subtitle)
+                        } else {
+                            stringResource(R.string.spatial_audio_subtitle)
+                        },
+                        trailing = {
+                            Switch(
+                                checked = spatialAudio,
+                                onCheckedChange = AppSettings::setSpatialAudio,
+                                colors = SwitchDefaults.colors(
+                                    checkedTrackColor = MaterialTheme.colorScheme.primary,
+                                    checkedBorderColor = MaterialTheme.colorScheme.primary,
+                                ),
+                            )
+                        },
+                        onClick = { AppSettings.setSpatialAudio(!spatialAudio) },
+                    )
+                }
+                // The system panel is not listed here as well. A device with a
+                // Dolby or Dirac panel has something Extrumz cannot reproduce and
+                // keeps its row — but one level in, at the foot of the equaliser
+                // screen, rather than as a second equaliser entry alongside ours.
+                val equalizerTitle = stringResource(R.string.equalizer)
+                row(equalizerTitle, "eq", "bass", "treble", "اکولایزر", "بیس", "تریبل", "تنظیم صدا") {
+                    SettingsRow(
+                        icon = Icons.Rounded.Tune,
+                        title = equalizerTitle,
+                        subtitle = stringResource(R.string.equalizer_subtitle),
+                        onClick = onEqualizer,
                     )
                 }
             }
-        }
 
-        SearchableSettingsGroup(search, header = stringResource(R.string.language)) {
-            val appLanguageTitle = stringResource(R.string.app_language)
-            row(appLanguageTitle, "locale", "translate", "persian", "english", "فارسی", "زبان برنامه", "زبان", "انگلیسی", "ترجمه") {
-                val selectedLanguage = AppCompatDelegate.getApplicationLocales().get(0)?.language
-                    ?: java.util.Locale.getDefault().language
-                SettingsRow(
-                    icon = Icons.Rounded.Language,
-                    title = appLanguageTitle,
-                    subtitle = stringResource(languageDisplayNameRes(selectedLanguage)),
-                    onClick = onAppLanguage,
-                )
-            }
-        }
-
-        SearchableSettingsGroup(search, header = stringResource(R.string.performance)) {
-            val highPerformanceModeTitle = stringResource(R.string.high_performance_mode)
-            row(highPerformanceModeTitle, "frame rate", "refresh rate", "hz", "battery", "smooth", "عملکرد بالا", "نرخ نوسازی", "نرخ فریم", "روان", "باتری", "هرتز") {
-                SettingsRow(
-                    icon = ExtrumzIcons.Performance,
-                    title = highPerformanceModeTitle,
-                    subtitle = if (highPerformanceMode) {
-                        stringResource(R.string.high_performance_active, selectedPerformanceRefreshRate)
-                    } else {
-                        stringResource(R.string.high_performance_subtitle)
-                    },
-                    trailing = {
-                        Switch(
-                            checked = highPerformanceMode,
-                            onCheckedChange = { enabled ->
-                                if (enabled) {
-                                    showPerformanceWarning = true
-                                } else {
-                                    AppSettings.setHighPerformanceMode(false)
-                                }
+            SearchableSettingsGroup(search, header = stringResource(R.string.appearance)) {
+                val themeTitle = stringResource(R.string.theme)
+                row(themeTitle, "dark mode", "light mode", "پوسته", "تم", "حالت تیره", "حالت روشن", "دارک مود") {
+                    SettingsRow(icon = Icons.Rounded.Brightness4, title = themeTitle)
+                    SegmentedControl(
+                        options = ThemeMode.entries.map { it.localizedLabel() },
+                        selectedIndex = ThemeMode.entries.indexOf(theme),
+                        onSelect = { AppSettings.setThemeMode(ThemeMode.entries[it]) },
+                        modifier = Modifier.padding(start = ROW_INSET, end = ROW_INSET, bottom = 14.dp),
+                    )
+                }
+                val reduceAnimationTitle = stringResource(R.string.reduce_animation)
+                row(reduceAnimationTitle, "motion", "پویانمایی", "کاهش پویانمایی", "انیمیشن", "کاهش انیمیشن", "حرکت") {
+                    SettingsRow(
+                        icon = Icons.Rounded.MotionPhotosOff,
+                        title = reduceAnimationTitle,
+                        subtitle = stringResource(R.string.reduce_animation_subtitle),
+                        trailing = {
+                            Switch(
+                                checked = reduceAnimation,
+                                onCheckedChange = AppSettings::setReduceAnimation,
+                                colors = SwitchDefaults.colors(
+                                    checkedTrackColor = MaterialTheme.colorScheme.primary,
+                                    checkedBorderColor = MaterialTheme.colorScheme.primary,
+                                ),
+                            )
+                        },
+                        onClick = { AppSettings.setReduceAnimation(!reduceAnimation) },
+                    )
+                }
+                val reduceDynamicBlurTitle = stringResource(R.string.reduce_dynamic_blur)
+                row(reduceDynamicBlurTitle, "blur", "performance", "تاری", "تاری پویا", "کاهش تاری", "بلر", "عملکرد") {
+                    SettingsRow(
+                        icon = Icons.Rounded.BlurOff,
+                        title = reduceDynamicBlurTitle,
+                        subtitle = stringResource(R.string.reduce_dynamic_blur_subtitle),
+                        trailing = {
+                            Switch(
+                                checked = reduceDynamicBlur,
+                                onCheckedChange = AppSettings::setReduceDynamicBlur,
+                                colors = SwitchDefaults.colors(
+                                    checkedTrackColor = MaterialTheme.colorScheme.primary,
+                                    checkedBorderColor = MaterialTheme.colorScheme.primary,
+                                ),
+                            )
+                        },
+                        onClick = { AppSettings.setReduceDynamicBlur(!reduceDynamicBlur) },
+                    )
+                }
+                val liquidGlassTitle = stringResource(R.string.liquid_glass)
+                row(liquidGlassTitle, "glass", "blur", "شیشه", "شیشه شفاف", "افکت شیشه", "تاری") {
+                    SettingsRow(
+                        icon = Icons.Rounded.AutoAwesome,
+                        title = liquidGlassTitle,
+                        subtitle = stringResource(
+                            if (liquidGlassSupported) {
+                                R.string.liquid_glass_subtitle
+                            } else {
+                                R.string.liquid_glass_unavailable
                             },
-                            colors = SwitchDefaults.colors(
-                                checkedTrackColor = MaterialTheme.colorScheme.primary,
-                                checkedBorderColor = MaterialTheme.colorScheme.primary,
+                        ),
+                        enabled = liquidGlassSupported,
+                        trailing = {
+                            Switch(
+                                checked = liquidGlass,
+                                onCheckedChange = AppSettings::setLiquidGlass,
+                                enabled = liquidGlassSupported,
+                                colors = SwitchDefaults.colors(
+                                    checkedTrackColor = MaterialTheme.colorScheme.primary,
+                                    checkedBorderColor = MaterialTheme.colorScheme.primary,
+                                ),
+                            )
+                        },
+                        onClick = { AppSettings.setLiquidGlass(!liquidGlass) },
+                    )
+                }
+                // Left out where the player won't honour it: a window too wide for
+                // the player to fill and too narrow to stand a page beside it keeps
+                // the sleeve either way. A docked pane is a phone's width, so it does
+                // honour it — see [fullBleedArtworkAvailable].
+                if (fullBleedArtworkAvailable(windowWidth)) {
+                    val fullScreenCoverArtTitle = stringResource(R.string.full_screen_cover_art)
+                    row(fullScreenCoverArtTitle, "artwork", "player", "کاور", "تمامصفحه", "کاور تمامصفحه", "پخشکننده", "تصویر آلبوم") {
+                        SettingsRow(
+                            icon = Icons.Rounded.Fullscreen,
+                            title = fullScreenCoverArtTitle,
+                            subtitle = stringResource(R.string.full_screen_cover_art_subtitle),
+                            trailing = {
+                                Switch(
+                                    checked = fullBleedArtwork,
+                                    onCheckedChange = AppSettings::setFullBleedArtwork,
+                                    colors = SwitchDefaults.colors(
+                                        checkedTrackColor = MaterialTheme.colorScheme.primary,
+                                        checkedBorderColor = MaterialTheme.colorScheme.primary,
+                                        ),
+                                )
+                            },
+                            onClick = { AppSettings.setFullBleedArtwork(!fullBleedArtwork) },
+                        )
+                    }
+                }
+                val syncedLyricsTitle = stringResource(R.string.synced_lyrics)
+                // Same reasoning as Animated cover art above: the lyrics source and
+                // translation rows are only here while this is on.
+                row(syncedLyricsTitle, "lyrics", "translation", "lrclib", "musixmatch", "متن آهنگ", "ترجمه", "متن ترانه", "همگام") {
+                    SettingsRow(
+                        icon = Icons.AutoMirrored.Rounded.Notes,
+                        title = syncedLyricsTitle,
+                        subtitle = stringResource(R.string.synced_lyrics_subtitle),
+                        trailing = {
+                            Switch(
+                                checked = syncedLyrics,
+                                onCheckedChange = AppSettings::setSyncedLyrics,
+                                colors = SwitchDefaults.colors(
+                                    checkedTrackColor = MaterialTheme.colorScheme.primary,
+                                    checkedBorderColor = MaterialTheme.colorScheme.primary,
+                                ),
+                            )
+                        },
+                        onClick = { AppSettings.setSyncedLyrics(!syncedLyrics) },
+                    )
+                }
+                // Nothing to choose between while the feature is off, and the
+                // sources are third-party services being reached on the user's
+                // connection — which is the part worth being able to narrow.
+                if (syncedLyrics) {
+                    val lyricsBlurTitle = stringResource(R.string.blur_unfocused_lyrics)
+                    row(lyricsBlurTitle, "lyrics", "blur", "متن آهنگ", "تاری", "محو کردن متن", "تاری متن") {
+                        SettingsRow(
+                            icon = Icons.Rounded.BlurOn,
+                            title = lyricsBlurTitle,
+                            subtitle = stringResource(R.string.blur_unfocused_lyrics_subtitle),
+                            trailing = {
+                                Switch(
+                                    checked = lyricsBlur,
+                                    onCheckedChange = AppSettings::setLyricsBlur,
+                                    colors = SwitchDefaults.colors(
+                                        checkedTrackColor = MaterialTheme.colorScheme.primary,
+                                        checkedBorderColor = MaterialTheme.colorScheme.primary,
+                                    ),
+                                )
+                            },
+                            onClick = { AppSettings.setLyricsBlur(!lyricsBlur) },
+                        )
+                    }
+                    val lyricsSourcesTitle = stringResource(R.string.lyrics_sources)
+                    row(lyricsSourcesTitle, "lyrics", "lrclib", "musixmatch", "متن آهنگ", "منابع متن آهنگ", "منابع متن") {
+                        SettingsRow(
+                            icon = Icons.Rounded.Language,
+                            title = lyricsSourcesTitle,
+                            subtitle = lyricsSources
+                                .sortedBy { it.ordinal }
+                                .joinToString(", ") { it.label }
+                                .ifEmpty { stringResource(R.string.no_lyrics_sources_enabled) },
+                            trailing = { Chevron() },
+                            onClick = onLyricsSources,
+                        )
+                    }
+                    val translationLanguageTitle = stringResource(R.string.translation_language)
+                    row(translationLanguageTitle, "lyrics", "translate", "متن آهنگ", "ترجمه", "زبان ترجمه") {
+                        SettingsRow(
+                            icon = Icons.Rounded.Translate,
+                            title = translationLanguageTitle,
+                            subtitle = if (translationLanguage.isBlank()) {
+                                stringResource(R.string.translation_language_subtitle)
+                            } else {
+                                translationLanguageName(
+                                    translationLanguage,
+                                    AppCompatDelegate.getApplicationLocales().get(0) ?: Locale.getDefault(),
+                                )
+                            },
+                            trailing = { Chevron() },
+                            onClick = onTranslationLanguage,
+                        )
+                    }
+                }
+            }
+
+            SearchableSettingsGroup(search, header = stringResource(R.string.language)) {
+                val appLanguageTitle = stringResource(R.string.app_language)
+                row(appLanguageTitle, "locale", "translate", "persian", "english", "فارسی", "زبان برنامه", "زبان", "انگلیسی", "ترجمه") {
+                    val selectedLanguage = AppCompatDelegate.getApplicationLocales().get(0)?.language
+                        ?: java.util.Locale.getDefault().language
+                    SettingsRow(
+                        icon = Icons.Rounded.Language,
+                        title = appLanguageTitle,
+                        subtitle = stringResource(languageDisplayNameRes(selectedLanguage)),
+                        onClick = onAppLanguage,
+                    )
+                }
+            }
+
+            SearchableSettingsGroup(search, header = stringResource(R.string.performance)) {
+                val highPerformanceModeTitle = stringResource(R.string.high_performance_mode)
+                row(highPerformanceModeTitle, "frame rate", "refresh rate", "hz", "battery", "smooth", "عملکرد بالا", "نرخ نوسازی", "نرخ فریم", "روان", "باتری", "هرتز") {
+                    SettingsRow(
+                        icon = ExtrumzIcons.Performance,
+                        title = highPerformanceModeTitle,
+                        subtitle = if (highPerformanceMode) {
+                            stringResource(R.string.high_performance_active, selectedPerformanceRefreshRate)
+                        } else {
+                            stringResource(R.string.high_performance_subtitle)
+                        },
+                        trailing = {
+                            Switch(
+                                checked = highPerformanceMode,
+                                onCheckedChange = { enabled ->
+                                    if (enabled) {
+                                        showPerformanceWarning = true
+                                    } else {
+                                        AppSettings.setHighPerformanceMode(false)
+                                    }
+                                },
+                                colors = SwitchDefaults.colors(
+                                    checkedTrackColor = MaterialTheme.colorScheme.primary,
+                                    checkedBorderColor = MaterialTheme.colorScheme.primary,
+                                ),
+                            )
+                        },
+                        onClick = {
+                            if (highPerformanceMode) {
+                                AppSettings.setHighPerformanceMode(false)
+                            } else {
+                                showPerformanceWarning = true
+                            }
+                        },
+                    )
+                }
+                if (highPerformanceMode) {
+                    val refreshRateTitle = stringResource(R.string.refresh_rate)
+                    row(refreshRateTitle, "hz", "frame rate", "نرخ نوسازی", "نرخ فریم", "هرتز") {
+                        SettingsRow(
+                            icon = ExtrumzIcons.FrameRate,
+                            title = refreshRateTitle,
+                        )
+                        SegmentedControl(
+                            options = supportedRefreshRates.map { "$it Hz" },
+                            selectedIndex = supportedRefreshRates.indexOf(selectedPerformanceRefreshRate),
+                            onSelect = { index ->
+                                AppSettings.setPerformanceRefreshRate(supportedRefreshRates[index])
+                            },
+                            modifier = Modifier.padding(
+                                start = TEXT_INSET,
+                                end = ROW_INSET,
+                                bottom = 14.dp,
                             ),
                         )
-                    },
-                    onClick = {
-                        if (highPerformanceMode) {
-                            AppSettings.setHighPerformanceMode(false)
-                        } else {
-                            showPerformanceWarning = true
-                        }
-                    },
-                )
+                    }
+                }
             }
-            if (highPerformanceMode) {
-                val refreshRateTitle = stringResource(R.string.refresh_rate)
-                row(refreshRateTitle, "hz", "frame rate", "نرخ نوسازی", "نرخ فریم", "هرتز") {
+
+            SearchableSettingsGroup(search, header = stringResource(R.string.local_music)) {
+                val localMusicFolderTitle = stringResource(R.string.local_music_folder)
+                row(localMusicFolderTitle, "folder", "offline", "files", "پوشه", "موسیقی محلی", "آهنگ محلی", "پوشه آهنگ", "فایلها", "آفلاین") {
                     SettingsRow(
-                        icon = ExtrumzIcons.FrameRate,
-                        title = refreshRateTitle,
+                        icon = Icons.Rounded.Folder,
+                        title = localMusicFolderTitle,
+                        subtitle = LocalMediaRepository.selectedFolderLabel(localMusicFolderUri)
+                            ?: stringResource(R.string.all_audio_folders),
+                        onClick = { localMusicFolderPicker.launch(null) },
                     )
-                    SegmentedControl(
-                        options = supportedRefreshRates.map { "$it Hz" },
-                        selectedIndex = supportedRefreshRates.indexOf(selectedPerformanceRefreshRate),
-                        onSelect = { index ->
-                            AppSettings.setPerformanceRefreshRate(supportedRefreshRates[index])
+                }
+                // Always drawn, never gated on a folder already being picked: behind
+                // that gate the row was invisible on a fresh install, which read as
+                // the app having no such option at all. It is greyed instead — there
+                // is nothing to go back from when every folder is already in use.
+                val useAllAudioFoldersTitle = stringResource(R.string.use_all_audio_folders)
+                row(useAllAudioFoldersTitle, "folder", "پوشه", "همهٔ پوشههای صوتی", "پوشههای صوتی", "همه پوشهها") {
+                    SettingsRow(
+                        icon = Icons.Rounded.LibraryMusic,
+                        title = useAllAudioFoldersTitle,
+                        subtitle = stringResource(R.string.use_all_audio_folders_subtitle),
+                        enabled = localMusicFolderUri.isNotBlank(),
+                        onClick = { AppSettings.setLocalMusicFolderUri("") },
+                    )
+                }
+                val filterNonMusicAudioTitle = stringResource(R.string.filter_non_music_audio)
+                row(filterNonMusicAudioTitle, "podcast", "recording", "فیلتر", "پادکست", "ضبط صدا", "فایلهای صوتی غیرموسیقی", "غیر موسیقی") {
+                    SettingsRow(
+                        icon = Icons.Rounded.FilterAlt,
+                        title = filterNonMusicAudioTitle,
+                        subtitle = stringResource(R.string.filter_non_music_audio_subtitle),
+                        trailing = {
+                            Switch(
+                                checked = filterNonMusicAudio,
+                                onCheckedChange = AppSettings::setFilterNonMusicAudio,
+                                colors = SwitchDefaults.colors(
+                                    checkedTrackColor = MaterialTheme.colorScheme.primary,
+                                    checkedBorderColor = MaterialTheme.colorScheme.primary,
+                                ),
+                            )
                         },
-                        modifier = Modifier.padding(
-                            start = TEXT_INSET,
-                            end = ROW_INSET,
-                            bottom = 14.dp,
+                        onClick = { AppSettings.setFilterNonMusicAudio(!filterNonMusicAudio) },
+                    )
+                }
+            }
+
+            val cacheLimitMb = (cacheLimitBytes / (1024 * 1024)).toInt()
+            SearchableSettingsGroup(search, header = stringResource(R.string.storage)) {
+                val songCacheLimitTitle = stringResource(R.string.song_cache_limit)
+                row(songCacheLimitTitle, "cache", "space", "کش", "کش آهنگ", "محدودیت کش", "حافظه", "فضا", "حافظه کش") {
+                    SliderRow(
+                        icon = Icons.Rounded.Storage,
+                        title = songCacheLimitTitle,
+                        subtitle = if (cacheLimitMb > CACHE_WARNING_MB) {
+                            stringResource(R.string.song_cache_large_subtitle, formatCacheSize(cacheLimitMb))
+                        } else {
+                            stringResource(R.string.song_cache_limit_subtitle)
+                        },
+                        value = formatCacheSize(cacheLimitMb),
+                        sliderValue = cacheLimitMb.toFloat(),
+                        onSliderValue = {
+                            AppSettings.setAudioCacheLimitBytes(it.roundToInt().toLong() * 1024 * 1024)
+                        },
+                        valueRange = (AppSettings.DEFAULT_CACHE_LIMIT_BYTES / (1024 * 1024)).toFloat()..
+                            (AppSettings.MAX_CACHE_LIMIT_BYTES / (1024 * 1024)).toFloat(),
+                        steps = 18,
+                    )
+                }
+                val clearSongCacheTitle = stringResource(R.string.clear_song_cache)
+                row(clearSongCacheTitle, "cache", "free space", "کش", "پاک کردن کش", "حذف کش", "فضای خالی", "کش آهنگ") {
+                    SettingsRow(
+                        icon = Icons.Rounded.DeleteSweep,
+                        title = clearSongCacheTitle,
+                        subtitle = stringResource(R.string.clear_song_cache_subtitle),
+                        onClick = {
+                            AudioCache.clear {
+                                Toast.makeText(context, context.getString(R.string.song_cache_cleared), Toast.LENGTH_SHORT).show()
+                            }
+                        },
+                    )
+                }
+                val clearImageCacheTitle = stringResource(R.string.clear_image_cache)
+                row(clearImageCacheTitle, "cache", "artwork", "free space", "کش", "کاور", "کش تصاویر", "پاک کردن کش", "تصاویر آلبوم") {
+                    SettingsRow(
+                        icon = Icons.Rounded.DeleteSweep,
+                        title = clearImageCacheTitle,
+                        subtitle = stringResource(R.string.clear_image_cache_subtitle),
+                        onClick = {
+                            val loader = SingletonImageLoader.get(context)
+                            loader.memoryCache?.clear()
+                            loader.diskCache?.clear()
+                            Toast.makeText(context, context.getString(R.string.image_cache_cleared), Toast.LENGTH_SHORT).show()
+                        },
+                    )
+                }
+            }
+
+            SearchableSettingsGroup(search, header = stringResource(R.string.your_data)) {
+                val replayTitle = stringResource(R.string.replay)
+                row(replayTitle, "stats", "history", "wrapped", "آمار", "تاریخچه", "ریپلی", "مرور", "آمار شنیدن") {
+                    SettingsRow(
+                        icon = Icons.Rounded.BarChart,
+                        title = replayTitle,
+                        subtitle = stringResource(R.string.replay_subtitle),
+                        onClick = onOpenReplay,
+                    )
+                }
+                val exportDataTitle = stringResource(R.string.export_data)
+                row(exportDataTitle, "backup", "پشتیبان", "پشتیبانگیری", "بکاپ", "خروجی", "خروجی دادهها", "استخراج") {
+                    SettingsRow(
+                        icon = Icons.Rounded.FileUpload,
+                        title = exportDataTitle,
+                        subtitle = exportStatus ?: stringResource(R.string.export_data_subtitle),
+                        onClick = { exportPicker.launch(Backup.suggestedName()) },
+                    )
+                }
+                val importDataTitle = stringResource(R.string.import_data)
+                row(importDataTitle, "backup", "restore", "پشتیبان", "بازیابی", "بکاپ", "وارد کردن دادهها", "ریستور") {
+                    SettingsRow(
+                        icon = Icons.Rounded.FileDownload,
+                        title = importDataTitle,
+                        subtitle = importStatus ?: stringResource(R.string.import_data_subtitle),
+                        onClick = { confirmImport = true },
+                    )
+                }
+            }
+
+            // No footer: it only restated the stop-on-close row's own subtitle,
+            // which sits four rows above it and says the same thing in fewer words.
+            SearchableSettingsGroup(search, header = stringResource(R.string.miscellaneous)) {
+                val playNextOnSwipeTitle = stringResource(R.string.play_next_on_swipe)
+                row(playNextOnSwipeTitle, "swipe", "queue", "سوایپ", "کشیدن", "صف پخش", "پخش بعدی") {
+                    SettingsRow(
+                        icon = Icons.Rounded.PlaylistPlay,
+                        title = playNextOnSwipeTitle,
+                        subtitle = if (swipeToPlayNext) {
+                            stringResource(R.string.swipe_plays_next)
+                        } else {
+                            stringResource(R.string.swipe_adds_to_queue)
+                        },
+                        trailing = {
+                            Switch(
+                                checked = swipeToPlayNext,
+                                onCheckedChange = AppSettings::setSwipeToPlayNext,
+                                colors = SwitchDefaults.colors(
+                                    checkedTrackColor = MaterialTheme.colorScheme.primary,
+                                    checkedBorderColor = MaterialTheme.colorScheme.primary,
+                                ),
+                            )
+                        },
+                        onClick = { AppSettings.setSwipeToPlayNext(!swipeToPlayNext) },
+                    )
+                }
+                val dontRepeatSongsTitle = stringResource(R.string.dont_repeat_songs)
+                row(dontRepeatSongsTitle, "radio", "suggestions", "رادیو", "پیشنهادات", "تکرار", "عدم تکرار", "پیشنهادها") {
+                    SettingsRow(
+                        icon = Icons.Rounded.History,
+                        title = dontRepeatSongsTitle,
+                        subtitle = stringResource(R.string.dont_repeat_songs_subtitle),
+                        trailing = {
+                            Switch(
+                                checked = dontRepeatSuggestions,
+                                onCheckedChange = AppSettings::setDontRepeatSuggestions,
+                                colors = SwitchDefaults.colors(
+                                    checkedTrackColor = MaterialTheme.colorScheme.primary,
+                                    checkedBorderColor = MaterialTheme.colorScheme.primary,
+                                ),
+                            )
+                        },
+                        onClick = { AppSettings.setDontRepeatSuggestions(!dontRepeatSuggestions) },
+                    )
+                }
+                val stopMusicOnCloseTitle = stringResource(R.string.stop_music_on_close)
+                row(stopMusicOnCloseTitle, "notification", "background", "اعلان", "پسزمینه", "توقف پخش", "بستن", "بستن برنامه") {
+                    SettingsRow(
+                        icon = Icons.Rounded.MusicOff,
+                        title = stopMusicOnCloseTitle,
+                        subtitle = stringResource(R.string.stop_music_on_close_subtitle),
+                        trailing = {
+                            Switch(
+                                checked = stopOnTaskRemoved,
+                                onCheckedChange = AppSettings::setStopOnTaskRemoved,
+                                colors = SwitchDefaults.colors(
+                                    checkedTrackColor = MaterialTheme.colorScheme.primary,
+                                    checkedBorderColor = MaterialTheme.colorScheme.primary,
+                                ),
+                            )
+                        },
+                        onClick = { AppSettings.setStopOnTaskRemoved(!stopOnTaskRemoved) },
+                    )
+                }
+                val hideVolumeBarTitle = stringResource(R.string.hide_volume_bar)
+                row(hideVolumeBarTitle, "volume", "player", "صدا", "میزان صدا", "ولوم", "نوار صدا", "پخشکننده") {
+                    SettingsRow(
+                        icon = Icons.Rounded.VolumeOff,
+                        title = hideVolumeBarTitle,
+                        subtitle = stringResource(R.string.hide_volume_bar_subtitle),
+                        trailing = {
+                            Switch(
+                                checked = hideVolumeBar,
+                                onCheckedChange = AppSettings::setHideVolumeBar,
+                                colors = SwitchDefaults.colors(
+                                    checkedTrackColor = MaterialTheme.colorScheme.primary,
+                                    checkedBorderColor = MaterialTheme.colorScheme.primary,
+                                ),
+                            )
+                        },
+                        onClick = { AppSettings.setHideVolumeBar(!hideVolumeBar) },
+                    )
+                }
+                val hideSongStatusTitle = stringResource(R.string.hide_song_status)
+                row(hideSongStatusTitle, "player", "playing from", "played by", "وضعیت آهنگ", "پخشکننده", "در حال پخش از", "پخش شده توسط") {
+                    SettingsRow(
+                        icon = Icons.Rounded.VisibilityOff,
+                        title = hideSongStatusTitle,
+                        subtitle = stringResource(R.string.hide_song_status_subtitle),
+                        trailing = {
+                            Switch(
+                                checked = hideSongStatus,
+                                onCheckedChange = AppSettings::setHideSongStatus,
+                                colors = SwitchDefaults.colors(
+                                    checkedTrackColor = MaterialTheme.colorScheme.primary,
+                                    checkedBorderColor = MaterialTheme.colorScheme.primary,
+                                ),
+                            )
+                        },
+                        onClick = { AppSettings.setHideSongStatus(!hideSongStatus) },
+                    )
+                }
+            }
+
+            SearchableSettingsGroup(search, header = stringResource(R.string.advanced_options)) {
+                val smartAlignmentTitle = stringResource(R.string.smart_version_alignment)
+                row(smartAlignmentTitle, "alignment", "sync", "waveform", "video", "audio", "skit", "intro", "همگامسازی", "هماهنگسازی", "شکل موج", "ویدیو", "صوت", "مقدمه") {
+                    SettingsRow(
+                        icon = Icons.Rounded.GraphicEq,
+                        title = smartAlignmentTitle,
+                        subtitle = stringResource(R.string.smart_version_alignment_subtitle),
+                        trailing = {
+                            Switch(
+                                checked = smartVersionAlignment,
+                                onCheckedChange = AppSettings::setSmartVersionAlignment,
+                                colors = SwitchDefaults.colors(
+                                    checkedTrackColor = MaterialTheme.colorScheme.primary,
+                                    checkedBorderColor = MaterialTheme.colorScheme.primary,
+                                ),
+                            )
+                        },
+                        onClick = { AppSettings.setSmartVersionAlignment(!smartVersionAlignment) },
+                    )
+                }
+                val showNerdStatsTitle = stringResource(R.string.show_nerd_stats)
+                row(showNerdStatsTitle, "debug", "bitrate", "codec", "دیباگ", "بیت ریت", "کدک", "آمار تخصصی", "اطلاعات فنی") {
+                    SettingsRow(
+                        icon = Icons.Rounded.BarChart,
+                        title = showNerdStatsTitle,
+                        subtitle = stringResource(R.string.show_nerd_stats_subtitle),
+                        trailing = {
+                            Switch(
+                                checked = nerdStats,
+                                onCheckedChange = AppSettings::setShowNerdStats,
+                                colors = SwitchDefaults.colors(
+                                    checkedTrackColor = MaterialTheme.colorScheme.primary,
+                                    checkedBorderColor = MaterialTheme.colorScheme.primary,
+                                ),
+                            )
+                        },
+                        onClick = { AppSettings.setShowNerdStats(!nerdStats) },
+                    )
+                }
+            }
+
+            // Read after every group above has had its turn at the query, which is
+            // what makes this an accurate "nothing here" rather than a guess.
+            if (!search.anyMatch) {
+                MessageState(stringResource(R.string.settings_search_empty, searchQuery))
+            }
+
+            // The version line is the page's colophon, not a setting: it belongs to
+            // the whole list, so it goes when the list is narrowed to a few rows.
+            if (searchQuery.isBlank()) {
+            Text(
+                text = buildAnnotatedString {
+                    append("Extrumz $version  ")
+                    val linkStyles = TextLinkStyles(
+                        style = SpanStyle(
+                            color = MaterialTheme.colorScheme.primary,
+                            textDecoration = TextDecoration.Underline,
                         ),
                     )
-                }
+                    withLink(LinkAnnotation.Url("https://github.com/kushagrasinghx/Extrumz", linkStyles)) {
+                        append("GitHub")
+                    }
+                    append("  ")
+                    withLink(LinkAnnotation.Url("https://github.com/kushagrasinghx", linkStyles)) {
+                        append("Developer")
+                    }
+                    append("  ")
+                    withLink(LinkAnnotation.Url("https://extrumz.kushagrasingh.in/", linkStyles)) {
+                        append("Website")
+                    }
+                    append("\n~Telegram Music Backend")
+                },
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 24.dp, bottom = 8.dp),
+            )
             }
         }
 
-        SearchableSettingsGroup(search, header = stringResource(R.string.local_music)) {
-            val localMusicFolderTitle = stringResource(R.string.local_music_folder)
-            row(localMusicFolderTitle, "folder", "offline", "files", "پوشه", "موسیقی محلی", "آهنگ محلی", "پوشه آهنگ", "فایلها", "آفلاین") {
-                SettingsRow(
-                    icon = Icons.Rounded.Folder,
-                    title = localMusicFolderTitle,
-                    subtitle = LocalMediaRepository.selectedFolderLabel(localMusicFolderUri)
-                        ?: stringResource(R.string.all_audio_folders),
-                    onClick = { localMusicFolderPicker.launch(null) },
-                )
-            }
-            // Always drawn, never gated on a folder already being picked: behind
-            // that gate the row was invisible on a fresh install, which read as
-            // the app having no such option at all. It is greyed instead — there
-            // is nothing to go back from when every folder is already in use.
-            val useAllAudioFoldersTitle = stringResource(R.string.use_all_audio_folders)
-            row(useAllAudioFoldersTitle, "folder", "پوشه", "همهٔ پوشههای صوتی", "پوشههای صوتی", "همه پوشهها") {
-                SettingsRow(
-                    icon = Icons.Rounded.LibraryMusic,
-                    title = useAllAudioFoldersTitle,
-                    subtitle = stringResource(R.string.use_all_audio_folders_subtitle),
-                    enabled = localMusicFolderUri.isNotBlank(),
-                    onClick = { AppSettings.setLocalMusicFolderUri("") },
-                )
-            }
-            val filterNonMusicAudioTitle = stringResource(R.string.filter_non_music_audio)
-            row(filterNonMusicAudioTitle, "podcast", "recording", "فیلتر", "پادکست", "ضبط صدا", "فایلهای صوتی غیرموسیقی", "غیر موسیقی") {
-                SettingsRow(
-                    icon = Icons.Rounded.FilterAlt,
-                    title = filterNonMusicAudioTitle,
-                    subtitle = stringResource(R.string.filter_non_music_audio_subtitle),
-                    trailing = {
-                        Switch(
-                            checked = filterNonMusicAudio,
-                            onCheckedChange = AppSettings::setFilterNonMusicAudio,
-                            colors = SwitchDefaults.colors(
-                                checkedTrackColor = MaterialTheme.colorScheme.primary,
-                                checkedBorderColor = MaterialTheme.colorScheme.primary,
-                            ),
-                        )
-                    },
-                    onClick = { AppSettings.setFilterNonMusicAudio(!filterNonMusicAudio) },
-                )
-            }
-        }
-
-        val cacheLimitMb = (cacheLimitBytes / (1024 * 1024)).toInt()
-        SearchableSettingsGroup(search, header = stringResource(R.string.storage)) {
-            val songCacheLimitTitle = stringResource(R.string.song_cache_limit)
-            row(songCacheLimitTitle, "cache", "space", "کش", "کش آهنگ", "محدودیت کش", "حافظه", "فضا", "حافظه کش") {
-                SliderRow(
-                    icon = Icons.Rounded.Storage,
-                    title = songCacheLimitTitle,
-                    subtitle = if (cacheLimitMb > CACHE_WARNING_MB) {
-                        stringResource(R.string.song_cache_large_subtitle, formatCacheSize(cacheLimitMb))
-                    } else {
-                        stringResource(R.string.song_cache_limit_subtitle)
-                    },
-                    value = formatCacheSize(cacheLimitMb),
-                    sliderValue = cacheLimitMb.toFloat(),
-                    onSliderValue = {
-                        AppSettings.setAudioCacheLimitBytes(it.roundToInt().toLong() * 1024 * 1024)
-                    },
-                    valueRange = (AppSettings.DEFAULT_CACHE_LIMIT_BYTES / (1024 * 1024)).toFloat()..
-                        (AppSettings.MAX_CACHE_LIMIT_BYTES / (1024 * 1024)).toFloat(),
-                    steps = 18,
-                )
-            }
-            val clearSongCacheTitle = stringResource(R.string.clear_song_cache)
-            row(clearSongCacheTitle, "cache", "free space", "کش", "پاک کردن کش", "حذف کش", "فضای خالی", "کش آهنگ") {
-                SettingsRow(
-                    icon = Icons.Rounded.DeleteSweep,
-                    title = clearSongCacheTitle,
-                    subtitle = stringResource(R.string.clear_song_cache_subtitle),
-                    onClick = {
-                        AudioCache.clear {
-                            Toast.makeText(context, context.getString(R.string.song_cache_cleared), Toast.LENGTH_SHORT).show()
-                        }
-                    },
-                )
-            }
-            val clearImageCacheTitle = stringResource(R.string.clear_image_cache)
-            row(clearImageCacheTitle, "cache", "artwork", "free space", "کش", "کاور", "کش تصاویر", "پاک کردن کش", "تصاویر آلبوم") {
-                SettingsRow(
-                    icon = Icons.Rounded.DeleteSweep,
-                    title = clearImageCacheTitle,
-                    subtitle = stringResource(R.string.clear_image_cache_subtitle),
-                    onClick = {
-                        val loader = SingletonImageLoader.get(context)
-                        loader.memoryCache?.clear()
-                        loader.diskCache?.clear()
-                        Toast.makeText(context, context.getString(R.string.image_cache_cleared), Toast.LENGTH_SHORT).show()
+        if (pickingAutomixPerformance) {
+            ModalBottomSheet(
+                onDismissRequest = { pickingAutomixPerformance = false },
+                containerColor = MaterialTheme.colorScheme.background,
+            ) {
+                AutomixPerformanceSheet(
+                    selected = automixPerformance,
+                    onSelect = { mode ->
+                        AppSettings.setAutomixPerformanceMode(mode)
+                        pickingAutomixPerformance = false
                     },
                 )
             }
         }
 
-        SearchableSettingsGroup(search, header = stringResource(R.string.your_data)) {
-            val replayTitle = stringResource(R.string.replay)
-            row(replayTitle, "stats", "history", "wrapped", "آمار", "تاریخچه", "ریپلی", "مرور", "آمار شنیدن") {
-                SettingsRow(
-                    icon = Icons.Rounded.BarChart,
-                    title = replayTitle,
-                    subtitle = stringResource(R.string.replay_subtitle),
-                    onClick = onOpenReplay,
-                )
-            }
-            val exportDataTitle = stringResource(R.string.export_data)
-            row(exportDataTitle, "backup", "پشتیبان", "پشتیبانگیری", "بکاپ", "خروجی", "خروجی دادهها", "استخراج") {
-                SettingsRow(
-                    icon = Icons.Rounded.FileUpload,
-                    title = exportDataTitle,
-                    subtitle = exportStatus ?: stringResource(R.string.export_data_subtitle),
-                    onClick = { exportPicker.launch(Backup.suggestedName()) },
-                )
-            }
-            val importDataTitle = stringResource(R.string.import_data)
-            row(importDataTitle, "backup", "restore", "پشتیبان", "بازیابی", "بکاپ", "وارد کردن دادهها", "ریستور") {
-                SettingsRow(
-                    icon = Icons.Rounded.FileDownload,
-                    title = importDataTitle,
-                    subtitle = importStatus ?: stringResource(R.string.import_data_subtitle),
-                    onClick = { confirmImport = true },
-                )
-            }
-        }
-
-        // No footer: it only restated the stop-on-close row's own subtitle,
-        // which sits four rows above it and says the same thing in fewer words.
-        SearchableSettingsGroup(search, header = stringResource(R.string.miscellaneous)) {
-            val playNextOnSwipeTitle = stringResource(R.string.play_next_on_swipe)
-            row(playNextOnSwipeTitle, "swipe", "queue", "سوایپ", "کشیدن", "صف پخش", "پخش بعدی") {
-                SettingsRow(
-                    icon = Icons.Rounded.PlaylistPlay,
-                    title = playNextOnSwipeTitle,
-                    subtitle = if (swipeToPlayNext) {
-                        stringResource(R.string.swipe_plays_next)
-                    } else {
-                        stringResource(R.string.swipe_adds_to_queue)
-                    },
-                    trailing = {
-                        Switch(
-                            checked = swipeToPlayNext,
-                            onCheckedChange = AppSettings::setSwipeToPlayNext,
-                            colors = SwitchDefaults.colors(
-                                checkedTrackColor = MaterialTheme.colorScheme.primary,
-                                checkedBorderColor = MaterialTheme.colorScheme.primary,
-                            ),
-                        )
-                    },
-                    onClick = { AppSettings.setSwipeToPlayNext(!swipeToPlayNext) },
-                )
-            }
-            val dontRepeatSongsTitle = stringResource(R.string.dont_repeat_songs)
-            row(dontRepeatSongsTitle, "radio", "suggestions", "رادیو", "پیشنهادات", "تکرار", "عدم تکرار", "پیشنهادها") {
-                SettingsRow(
-                    icon = Icons.Rounded.History,
-                    title = dontRepeatSongsTitle,
-                    subtitle = stringResource(R.string.dont_repeat_songs_subtitle),
-                    trailing = {
-                        Switch(
-                            checked = dontRepeatSuggestions,
-                            onCheckedChange = AppSettings::setDontRepeatSuggestions,
-                            colors = SwitchDefaults.colors(
-                                checkedTrackColor = MaterialTheme.colorScheme.primary,
-                                checkedBorderColor = MaterialTheme.colorScheme.primary,
-                            ),
-                        )
-                    },
-                    onClick = { AppSettings.setDontRepeatSuggestions(!dontRepeatSuggestions) },
-                )
-            }
-            val stopMusicOnCloseTitle = stringResource(R.string.stop_music_on_close)
-            row(stopMusicOnCloseTitle, "notification", "background", "اعلان", "پسزمینه", "توقف پخش", "بستن", "بستن برنامه") {
-                SettingsRow(
-                    icon = Icons.Rounded.MusicOff,
-                    title = stopMusicOnCloseTitle,
-                    subtitle = stringResource(R.string.stop_music_on_close_subtitle),
-                    trailing = {
-                        Switch(
-                            checked = stopOnTaskRemoved,
-                            onCheckedChange = AppSettings::setStopOnTaskRemoved,
-                            colors = SwitchDefaults.colors(
-                                checkedTrackColor = MaterialTheme.colorScheme.primary,
-                                checkedBorderColor = MaterialTheme.colorScheme.primary,
-                            ),
-                        )
-                    },
-                    onClick = { AppSettings.setStopOnTaskRemoved(!stopOnTaskRemoved) },
-                )
-            }
-            val hideVolumeBarTitle = stringResource(R.string.hide_volume_bar)
-            row(hideVolumeBarTitle, "volume", "player", "صدا", "میزان صدا", "ولوم", "نوار صدا", "پخشکننده") {
-                SettingsRow(
-                    icon = Icons.Rounded.VolumeOff,
-                    title = hideVolumeBarTitle,
-                    subtitle = stringResource(R.string.hide_volume_bar_subtitle),
-                    trailing = {
-                        Switch(
-                            checked = hideVolumeBar,
-                            onCheckedChange = AppSettings::setHideVolumeBar,
-                            colors = SwitchDefaults.colors(
-                                checkedTrackColor = MaterialTheme.colorScheme.primary,
-                                checkedBorderColor = MaterialTheme.colorScheme.primary,
-                            ),
-                        )
-                    },
-                    onClick = { AppSettings.setHideVolumeBar(!hideVolumeBar) },
-                )
-            }
-            val hideSongStatusTitle = stringResource(R.string.hide_song_status)
-            row(hideSongStatusTitle, "player", "playing from", "played by", "وضعیت آهنگ", "پخشکننده", "در حال پخش از", "پخش شده توسط") {
-                SettingsRow(
-                    icon = Icons.Rounded.VisibilityOff,
-                    title = hideSongStatusTitle,
-                    subtitle = stringResource(R.string.hide_song_status_subtitle),
-                    trailing = {
-                        Switch(
-                            checked = hideSongStatus,
-                            onCheckedChange = AppSettings::setHideSongStatus,
-                            colors = SwitchDefaults.colors(
-                                checkedTrackColor = MaterialTheme.colorScheme.primary,
-                                checkedBorderColor = MaterialTheme.colorScheme.primary,
-                            ),
-                        )
-                    },
-                    onClick = { AppSettings.setHideSongStatus(!hideSongStatus) },
-                )
-            }
-        }
-
-        SearchableSettingsGroup(search, header = stringResource(R.string.advanced_options)) {
-            val smartAlignmentTitle = stringResource(R.string.smart_version_alignment)
-            row(smartAlignmentTitle, "alignment", "sync", "waveform", "video", "audio", "skit", "intro", "همگامسازی", "هماهنگسازی", "شکل موج", "ویدیو", "صوت", "مقدمه") {
-                SettingsRow(
-                    icon = Icons.Rounded.GraphicEq,
-                    title = smartAlignmentTitle,
-                    subtitle = stringResource(R.string.smart_version_alignment_subtitle),
-                    trailing = {
-                        Switch(
-                            checked = smartVersionAlignment,
-                            onCheckedChange = AppSettings::setSmartVersionAlignment,
-                            colors = SwitchDefaults.colors(
-                                checkedTrackColor = MaterialTheme.colorScheme.primary,
-                                checkedBorderColor = MaterialTheme.colorScheme.primary,
-                            ),
-                        )
-                    },
-                    onClick = { AppSettings.setSmartVersionAlignment(!smartVersionAlignment) },
-                )
-            }
-            val showNerdStatsTitle = stringResource(R.string.show_nerd_stats)
-            row(showNerdStatsTitle, "debug", "bitrate", "codec", "دیباگ", "بیت ریت", "کدک", "آمار تخصصی", "اطلاعات فنی") {
-                SettingsRow(
-                    icon = Icons.Rounded.BarChart,
-                    title = showNerdStatsTitle,
-                    subtitle = stringResource(R.string.show_nerd_stats_subtitle),
-                    trailing = {
-                        Switch(
-                            checked = nerdStats,
-                            onCheckedChange = AppSettings::setShowNerdStats,
-                            colors = SwitchDefaults.colors(
-                                checkedTrackColor = MaterialTheme.colorScheme.primary,
-                                checkedBorderColor = MaterialTheme.colorScheme.primary,
-                            ),
-                        )
-                    },
-                    onClick = { AppSettings.setShowNerdStats(!nerdStats) },
-                )
-            }
-        }
-
-        // Read after every group above has had its turn at the query, which is
-        // what makes this an accurate "nothing here" rather than a guess.
-        if (!search.anyMatch) {
-            MessageState(stringResource(R.string.settings_search_empty, searchQuery))
-        }
-
-        // The version line is the page's colophon, not a setting: it belongs to
-        // the whole list, so it goes when the list is narrowed to a few rows.
-        if (searchQuery.isBlank()) {
-        Text(
-            text = buildAnnotatedString {
-                append("Extrumz $version  ")
-                val linkStyles = TextLinkStyles(
-                    style = SpanStyle(
-                        color = MaterialTheme.colorScheme.primary,
-                        textDecoration = TextDecoration.Underline,
-                    ),
-                )
-                withLink(LinkAnnotation.Url("https://github.com/kushagrasinghx/Extrumz", linkStyles)) {
-                    append("GitHub")
-                }
-                append("  ")
-                withLink(LinkAnnotation.Url("https://github.com/kushagrasinghx", linkStyles)) {
-                    append("Developer")
-                }
-                append("  ")
-                withLink(LinkAnnotation.Url("https://extrumz.kushagrasingh.in/", linkStyles)) {
-                    append("Website")
-                }
-                append("\n~Telegram Music Backend")
-            },
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 24.dp, bottom = 8.dp),
-        )
-        }
-    }
-
-    if (pickingAutomixPerformance) {
-        ModalBottomSheet(
-            onDismissRequest = { pickingAutomixPerformance = false },
-            containerColor = MaterialTheme.colorScheme.background,
-        ) {
-            AutomixPerformanceSheet(
-                selected = automixPerformance,
-                onSelect = { mode ->
-                    AppSettings.setAutomixPerformanceMode(mode)
-                    pickingAutomixPerformance = false
+        // Asked before the picker opens rather than after a file is chosen: the
+        // thing being confirmed is that this device's own history is about to be
+        // thrown away, and that is true whichever file gets picked.
+        if (confirmImport) {
+            AlertDialog(
+                onDismissRequest = { confirmImport = false },
+                title = { Text(stringResource(R.string.import_backup_title)) },
+                text = {
+                    Text(stringResource(R.string.import_backup_warning))
+                },
+                confirmButton = {
+                    TextButton(onClick = {
+                        confirmImport = false
+                        importPicker.launch(arrayOf("application/json", "text/plain", "*/*"))
+                    }) {
+                        Text(stringResource(R.string.choose_file))
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { confirmImport = false }) {
+                        Text(stringResource(R.string.cancel))
+                    }
                 },
             )
         }
-    }
 
-    // Asked before the picker opens rather than after a file is chosen: the
-    // thing being confirmed is that this device's own history is about to be
-    // thrown away, and that is true whichever file gets picked.
-    if (confirmImport) {
-        AlertDialog(
-            onDismissRequest = { confirmImport = false },
-            title = { Text(stringResource(R.string.import_backup_title)) },
-            text = {
-                Text(stringResource(R.string.import_backup_warning))
-            },
-            confirmButton = {
-                TextButton(onClick = {
-                    confirmImport = false
-                    importPicker.launch(arrayOf("application/json", "text/plain", "*/*"))
-                }) {
-                    Text(stringResource(R.string.choose_file))
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { confirmImport = false }) {
-                    Text(stringResource(R.string.cancel))
-                }
-            },
-        )
-    }
+        if (showPerformanceWarning) {
+            AlertDialog(
+                onDismissRequest = { showPerformanceWarning = false },
+                title = { Text(stringResource(R.string.high_performance_before_enabling)) },
+                text = { Text(stringResource(R.string.high_performance_battery_warning)) },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            showPerformanceWarning = false
+                            val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                                data = Uri.fromParts("package", context.packageName, null)
+                            }
+                            val settingsIntent = intent.takeIf {
+                                it.resolveActivity(context.packageManager) != null
+                            } ?: Intent(Settings.ACTION_SETTINGS)
+                            batterySettingsLauncher.launch(settingsIntent)
+                        },
+                    ) {
+                        Text(stringResource(R.string.open_battery_settings))
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showPerformanceWarning = false }) {
+                        Text(stringResource(R.string.cancel))
+                    }
+                },
+            )
+        }
 
-    if (showPerformanceWarning) {
-        AlertDialog(
-            onDismissRequest = { showPerformanceWarning = false },
-            title = { Text(stringResource(R.string.high_performance_before_enabling)) },
-            text = { Text(stringResource(R.string.high_performance_battery_warning)) },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        showPerformanceWarning = false
-                        val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-                            data = Uri.fromParts("package", context.packageName, null)
-                        }
-                        val settingsIntent = intent.takeIf {
-                            it.resolveActivity(context.packageManager) != null
-                        } ?: Intent(Settings.ACTION_SETTINGS)
-                        batterySettingsLauncher.launch(settingsIntent)
-                    },
-                ) {
-                    Text(stringResource(R.string.open_battery_settings))
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showPerformanceWarning = false }) {
-                    Text(stringResource(R.string.cancel))
-                }
-            },
-        )
-    }
+        if (showPerformanceConfirmation) {
+            AlertDialog(
+                onDismissRequest = { showPerformanceConfirmation = false },
+                title = { Text(stringResource(R.string.enable_high_performance_title)) },
+                text = { Text(stringResource(R.string.enable_high_performance_confirmation)) },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            showPerformanceConfirmation = false
+                            AppSettings.setHighPerformanceMode(true)
+                        },
+                    ) {
+                        Text(stringResource(R.string.enable))
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showPerformanceConfirmation = false }) {
+                        Text(stringResource(R.string.not_yet))
+                    }
+                },
+            )
+        }
 
-    if (showPerformanceConfirmation) {
-        AlertDialog(
-            onDismissRequest = { showPerformanceConfirmation = false },
-            title = { Text(stringResource(R.string.enable_high_performance_title)) },
-            text = { Text(stringResource(R.string.enable_high_performance_confirmation)) },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        showPerformanceConfirmation = false
-                        AppSettings.setHighPerformanceMode(true)
-                    },
-                ) {
-                    Text(stringResource(R.string.enable))
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showPerformanceConfirmation = false }) {
-                    Text(stringResource(R.string.not_yet))
-                }
-            },
-        )
-    }
 
-}
+    }}
 
 /** "3 months of listening" — the unit a backup is actually measured in. */
 private fun Context.countOfMonths(months: Int): String = if (months == 0) {

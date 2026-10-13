@@ -116,11 +116,12 @@ fun SongsScreen(
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            // The connection line sits at the right edge, where a status line
-            // in a Persian UI belongs, rather than trailing the list from the
-            // left. Arrangement.End is direction-aware, so it still lands on
-            // the right whichever way the rest of the app is being read.
-            horizontalArrangement = Arrangement.End,
+            // The connection line sits at the reading edge: the right for a
+            // Persian UI, the left for an English one. `Arrangement.End` would
+            // be direction-aware on its own, but this window is pinned to LTR —
+            // `supportsRtl` is off and stays off — so the edge is picked here
+            // from the locale instead of inherited from the view.
+            horizontalArrangement = if (isRtlReading) Arrangement.End else Arrangement.Start,
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 8.dp),

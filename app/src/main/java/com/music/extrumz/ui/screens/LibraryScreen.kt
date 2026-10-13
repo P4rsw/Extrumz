@@ -60,6 +60,7 @@ import com.extrumz.app.ui.replay.ReplayStoryPage
 import java.util.Locale
 import com.extrumz.app.ui.components.forLanguage
 import com.extrumz.app.ui.components.mirroredForReading
+import com.extrumz.app.ui.util.ProvideLocaleDirection
 
 /**
  * The signed-in library: the saved collections, as shelves of cards.
@@ -111,128 +112,130 @@ fun LibraryScreen(
      */
     downloadedPlaylists: List<SavedCollection> = emptyList(),
 ) {
-    val onDevice = stringResource(R.string.on_device)
-    val channelsShelfTitle = stringResource(R.string.tab_channels)
-    // Live: a scan finishing while Library is open fills the shelf without a
-    // recomposition of anything else — same source ChannelsScreen reads.
-    val chats by TelegramDb.chatDao.observeAllByTrackCount()
-        .collectAsState(initial = emptyList())
-    LazyColumn(
-        state = listState,
-        modifier = modifier.fillMaxSize(),
-        contentPadding = contentPadding,
-    ) {
-        item {
-            // fillMaxWidth before the padding, same as the channel-shelf fix:
-            // without a fixed width Compose closes the line at the intrinsic
-            // width, shaped Persian is wider than that, and the last letter is
-            // sent to a second line that never draws — «کتابخان» over «ه».
-            Text(
-                text = stringResource(R.string.library),
-                style = MaterialTheme.typography.displayLarge,
-                color = MaterialTheme.colorScheme.onBackground,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = PAGE_GUTTER, vertical = 8.dp),
-            )
-        }
-        // Drawn whether or not anything has been played: with nothing behind
-        // it the page still has to say the feature exists, or the only way
-        // to discover it is to have already used it.
-        item(key = "replay") {
-            if (replayCards.isEmpty()) {
-                // Keep Replay discoverable before there is enough listening
-                // data to deal the personalised cards.
-                ReplayBanner(null) { onOpenReplay(ReplayStoryPage.INTRO) }
-            } else {
-                ReplayCardRow(
-                    cards = replayCards,
-                    holder = replayHolder,
-                    memberSince = replayMemberSince,
-                    onCardClick = onOpenReplay,
-                    modifier = Modifier.padding(vertical = 6.dp),
-                    contentPadding = PaddingValues(horizontal = PAGE_GUTTER),
+    ProvideLocaleDirection {
+        val onDevice = stringResource(R.string.on_device)
+        val channelsShelfTitle = stringResource(R.string.tab_channels)
+        // Live: a scan finishing while Library is open fills the shelf without a
+        // recomposition of anything else — same source ChannelsScreen reads.
+        val chats by TelegramDb.chatDao.observeAllByTrackCount()
+            .collectAsState(initial = emptyList())
+        LazyColumn(
+            state = listState,
+            modifier = modifier.fillMaxSize(),
+            contentPadding = contentPadding,
+        ) {
+            item {
+                // fillMaxWidth before the padding, same as the channel-shelf fix:
+                // without a fixed width Compose closes the line at the intrinsic
+                // width, shaped Persian is wider than that, and the last letter is
+                // sent to a second line that never draws — «کتابخان» over «ه».
+                Text(
+                    text = stringResource(R.string.library),
+                    style = MaterialTheme.typography.displayLarge,
+                    color = MaterialTheme.colorScheme.onBackground,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = PAGE_GUTTER, vertical = 8.dp),
+                )
+            }
+            // Drawn whether or not anything has been played: with nothing behind
+            // it the page still has to say the feature exists, or the only way
+            // to discover it is to have already used it.
+            item(key = "replay") {
+                if (replayCards.isEmpty()) {
+                    // Keep Replay discoverable before there is enough listening
+                    // data to deal the personalised cards.
+                    ReplayBanner(null) { onOpenReplay(ReplayStoryPage.INTRO) }
+                } else {
+                    ReplayCardRow(
+                        cards = replayCards,
+                        holder = replayHolder,
+                        memberSince = replayMemberSince,
+                        onCardClick = onOpenReplay,
+                        modifier = Modifier.padding(vertical = 6.dp),
+                        contentPadding = PaddingValues(horizontal = PAGE_GUTTER),
+                    )
+                }
+            }
+            // The Telegram side of the library: the manage entry first, then every
+            // scanned channel as its own card — tapping either runs the same
+            // selection the Channels screen would (see [onLibraryItemClick]).
+            item(key = "shelf:$channelsShelfTitle") {
+                val channelsShelf = HomeShelf(
+                    title = channelsShelfTitle,
+                    items = listOf(
+                        ShelfItem(
+                            title = stringResource(R.string.tg_manage_channels),
+                            subtitle = "",
+                            thumbnailUrl = null,
+                            videoId = null,
+                            browseId = "tg:channels",
+                        ),
+                    ) + chats.map { chat ->
+                        ShelfItem(
+                            title = chat.title,
+                            subtitle = "${chat.trackCount} آهنگ",
+                            thumbnailUrl = chat.photoUrl,
+                            videoId = null,
+                            browseId = "tg:chat:${chat.chatId}",
+                        )
+                    },
+                )
+                LibraryGridShelf(
+                    shelf = channelsShelf,
+                    onItemClick = onShelfItemClick,
+                    onItemLongPress = onShelfItemLongPress,
+                    onShowAll = { onShowAll(channelsShelf) },
+                )
+            }
+            item(key = "shelf:$onDevice") {
+                val onDeviceShelf = HomeShelf(
+                    title = onDevice,
+                    items = listOf(
+                        ShelfItem(
+                            title = stringResource(R.string.downloads),
+                            subtitle = stringResource(R.string.downloaded_songs),
+                            thumbnailUrl = null,
+                            videoId = null,
+                            browseId = "local:downloads",
+                        ),
+                        ShelfItem(
+                            title = stringResource(R.string.local_music),
+                            subtitle = stringResource(R.string.audio_files_on_device),
+                            thumbnailUrl = null,
+                            videoId = null,
+                            browseId = "local:all",
+                        ),
+                    ) + downloadedPlaylists.map { playlist ->
+                        ShelfItem(
+                            title = playlist.title,
+                            // The credit the playlist was downloaded with,
+                            // because this is also what the page it opens
+                            // bills itself by — see `headerLines`, which
+                            // reads the kind and the owner back out of it.
+                            // Saying "Downloaded playlist" here instead would
+                            // make that header read "Downloaded playlist" over
+                            // "PLAYLIST • 12 SONGS", and the shelf this card
+                            // is on already says where it lives.
+                            subtitle = playlist.subtitle.ifBlank {
+                                stringResource(R.string.downloaded_playlist)
+                            },
+                            thumbnailUrl = playlist.thumbnailUrl,
+                            videoId = null,
+                            browseId = Downloads.pageIdFor(playlist.id),
+                        )
+                    },
+                )
+                LibraryGridShelf(
+                    shelf = onDeviceShelf,
+                    onItemClick = onShelfItemClick,
+                    onItemLongPress = onShelfItemLongPress,
+                    onShowAll = { onShowAll(onDeviceShelf) },
                 )
             }
         }
-        // The Telegram side of the library: the manage entry first, then every
-        // scanned channel as its own card — tapping either runs the same
-        // selection the Channels screen would (see [onLibraryItemClick]).
-        item(key = "shelf:$channelsShelfTitle") {
-            val channelsShelf = HomeShelf(
-                title = channelsShelfTitle,
-                items = listOf(
-                    ShelfItem(
-                        title = stringResource(R.string.tg_manage_channels),
-                        subtitle = "",
-                        thumbnailUrl = null,
-                        videoId = null,
-                        browseId = "tg:channels",
-                    ),
-                ) + chats.map { chat ->
-                    ShelfItem(
-                        title = chat.title,
-                        subtitle = "${chat.trackCount} آهنگ",
-                        thumbnailUrl = chat.photoUrl,
-                        videoId = null,
-                        browseId = "tg:chat:${chat.chatId}",
-                    )
-                },
-            )
-            LibraryGridShelf(
-                shelf = channelsShelf,
-                onItemClick = onShelfItemClick,
-                onItemLongPress = onShelfItemLongPress,
-                onShowAll = { onShowAll(channelsShelf) },
-            )
-        }
-        item(key = "shelf:$onDevice") {
-            val onDeviceShelf = HomeShelf(
-                title = onDevice,
-                items = listOf(
-                    ShelfItem(
-                        title = stringResource(R.string.downloads),
-                        subtitle = stringResource(R.string.downloaded_songs),
-                        thumbnailUrl = null,
-                        videoId = null,
-                        browseId = "local:downloads",
-                    ),
-                    ShelfItem(
-                        title = stringResource(R.string.local_music),
-                        subtitle = stringResource(R.string.audio_files_on_device),
-                        thumbnailUrl = null,
-                        videoId = null,
-                        browseId = "local:all",
-                    ),
-                ) + downloadedPlaylists.map { playlist ->
-                    ShelfItem(
-                        title = playlist.title,
-                        // The credit the playlist was downloaded with,
-                        // because this is also what the page it opens
-                        // bills itself by — see `headerLines`, which
-                        // reads the kind and the owner back out of it.
-                        // Saying "Downloaded playlist" here instead would
-                        // make that header read "Downloaded playlist" over
-                        // "PLAYLIST • 12 SONGS", and the shelf this card
-                        // is on already says where it lives.
-                        subtitle = playlist.subtitle.ifBlank {
-                            stringResource(R.string.downloaded_playlist)
-                        },
-                        thumbnailUrl = playlist.thumbnailUrl,
-                        videoId = null,
-                        browseId = Downloads.pageIdFor(playlist.id),
-                    )
-                },
-            )
-            LibraryGridShelf(
-                shelf = onDeviceShelf,
-                onItemClick = onShelfItemClick,
-                onItemLongPress = onShelfItemLongPress,
-                onShowAll = { onShowAll(onDeviceShelf) },
-            )
-        }
-    }
-}
+
+    }}
 
 /**
  * The way in to Replay, at the top of the page.

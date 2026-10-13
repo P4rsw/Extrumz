@@ -80,6 +80,7 @@ import com.extrumz.app.ui.components.songListSkeleton
 import com.extrumz.app.ui.haptics.Haptic
 import com.extrumz.app.ui.haptics.rememberHaptics
 import java.util.Locale
+import com.extrumz.app.ui.util.isRtlReading
 
 @Composable
 fun SearchScreen(
@@ -794,11 +795,10 @@ private fun ChannelFilterPill(
     onClear: () -> Unit,
 ) {
     Row(
-        // The channel filter is one chip on an empty row, so the row may as
-        // well put it where a Persian reader looks for it. It scrolls too —
-        // with a name long enough to need it, the overflow still trails the
-        // chip rather than leading it.
-        horizontalArrangement = Arrangement.End,
+        // One chip on an empty row, so it sits at the reading edge: the right
+        // for Persian, the left for English. It scrolls too — with a name long
+        // enough to need it, the overflow trails the chip rather than leading.
+        horizontalArrangement = if (isRtlReading) Arrangement.End else Arrangement.Start,
         modifier = Modifier
             .fillMaxWidth()
             .horizontalScroll(rememberScrollState())
