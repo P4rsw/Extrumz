@@ -19,7 +19,7 @@ Commits: `c0f4f93` (bug 1), `1f78583` (bug 2).
    `asset` resolve locally through `DefaultDataSource`, everything else falls
    through to the bounded-range OkHttp fetch. The scheme decision now happens
    *after* the substitution; the outer chain (cache → Smb routing → outer
-   `DefaultDataSource`) is unchanged and still only ever sees `bitchord://`.
+   `DefaultDataSource`) is unchanged and still only ever sees `extrumz://`.
 
 2. **Resolve logging (same block, `.also { resolved -> … }`):** every
    resolution now writes a `TrackLog.d` line

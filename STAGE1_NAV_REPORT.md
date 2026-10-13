@@ -27,7 +27,7 @@ Each sub-step was gated on a green `:app:assembleProdDebug` **and** both test ta
   - `PlaybackSourceType.EXPLORE` restore: first mapped to `TAB_HOME`, upgraded in ب to `showChannels = true`
     (spec line 14's "better" option). The enum value itself is kept (data/history); nothing sets it any more.
   - The idle-list-state comment (formerly "Songs and Channels tabs") rewritten for the new layout.
-- `GlassNavBar.kt:115` — the stale "Search is the odd one out… last tab in BitChord's order" comment replaced:
+- `GlassNavBar.kt:115` — the stale "Search is the odd one out… last tab in Extrumz's order" comment replaced:
   with the owner's chosen order the standalone **circle is Library**, drawn through the existing icon-only slot
   (`GlassNavBar.kt:205-216`).
 - `BarPreviews.kt` (debug preview) — fake tab list updated to the production 3 tabs.
@@ -42,7 +42,7 @@ and ChannelsScreen is now reached from the Library shelf and the Search pill (ب
 
 ### Circle icon decision
 
-Kept `BitChordIcons.Library` for the circle — it is the app's own library glyph, legible at 25 dp icon-only,
+Kept `ExtrumzIcons.Library` for the circle — it is the app's own library glyph, legible at 25 dp icon-only,
 and it now marks the tab the shape was always reserved for (the last one). No icon swap was needed; only the
 comment changed.
 
@@ -55,7 +55,7 @@ comment changed.
     `TelegramDb.chatDao.observeAllByTrackCount()` collected live — the shelf fills as a scan finishes.
   - `onShowAll` wires the shelf into the existing grid page, so "Show all" works like every other shelf.
 - `Shelves.kt` — `ShelfCard` got a `tg:` branch: the shared Telegram blue mesh (`ServiceCard`,
-  `BitChordIcons.Explore` glyph) instead of a grey artwork placeholder (channel photos are not indexed yet —
+  `ExtrumzIcons.Explore` glyph) instead of a grey artwork placeholder (channel photos are not indexed yet —
   MASTER_LIST م۲, stage 3). The `when` was converted to subject-less form for that branch.
 - `MainActivity.kt`
   - `var showChannels` + `var channelsReturnToSongs`, following the `showHistory`/`showReplay` pattern:
@@ -174,7 +174,7 @@ Device verification of U-1 / G-2 / G-3 pending phone reconnection.
 6. Library: «کانال‌ها» shelf with Show all + «مدیریت کانال‌ها» card + per-channel cards (🌪 1823 آهنگ…). ✓
 7. «مدیریت کانال‌ها» → picker opens; BACK → returns to Library (no crash). ✓
 8. Channel card tap → lands on Songs with the «✕ 🌪» chip. ✓
-9. `logcat`: no FATAL / no com.music.bitchord crash during the whole session. ✓
+9. `logcat`: no FATAL / no com.extrumz.app crash during the whole session. ✓
 
 **Findings:** none blocking. Note (stage 5): shelf subtitle `"${chat.trackCount} آهنگ"` is an inline hardcoded string, consistent with the codebase's existing convention (SourceKind/TelegramSource health strings) — fold into the `values-fa`/string-resource cleanup in stage 5.
 

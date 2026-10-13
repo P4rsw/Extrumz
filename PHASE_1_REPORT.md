@@ -7,10 +7,10 @@ Branch `phase1-telegram-source` · gate: `./gradlew assembleDebug` **GREEN** (4m
 | Spec item | Status | Where |
 |---|---|---|
 | TDLib + Room + KSP dependencies | done | root/app `build.gradle.kts` — `com.github.tdlibx:td:1.8.56`, Room 2.8.5, `sqlite-bundled` 2.7.1 (FTS5 below API 30), KSP 2.3.11 |
-| Room schema from old project (v3, FTS5) | done | `data/db/` — entities, `TeleMusicDatabase`, `Fts5Callbacks`, migrations, `TelegramDb` provider (keeps DB name `telemusic.db` so existing installs upgrade cleanly) |
+| Room schema from old project (v3, FTS5) | done | `data/db/` — entities, `ExtrumzDatabase`, `Fts5Callbacks`, migrations, `TelegramDb` provider (keeps DB name `telemusic.db` so existing installs upgrade cleanly) |
 | TDLib client + session + proxy | done | `data/telegram/` — `AndroidMusicTelegramClient`, `TelegramSessionStarter`, `Telegram` holder; socks5 proxy auto-configured from `local.properties` (`PROXY_HOST/PORT`); session persisted under `context.filesDir/telemusic` (spec) |
 | Auth: QR + phone/code/password + `tg://login` deep link | done | `TelegramAuthController`, `TelegramAuthDialog` (Persian, states ported from old `LoginScreen` minus the api_id/api_hash fields), `TelegramLoginLink`, manifest intent-filter `tg://login` |
-| Scanner (`TelegramLibraryScanner` equivalent) | done | `LibraryScanner` — chat enumeration → audio/document messages → Room upsert, FTS5, progress flow; **auto-scan fires the moment authorization becomes Ready** (also on cold start via `BitChordApplication`) |
+| Scanner (`TelegramLibraryScanner` equivalent) | done | `LibraryScanner` — chat enumeration → audio/document messages → Room upsert, FTS5, progress flow; **auto-scan fires the moment authorization becomes Ready** (also on cold start via `ExtrumzApplication`) |
 | UI: 2 Persian tabs | done | `SongsScreen` (search + offline dot + scan banner «دارم آهنگ‌هاتو جمع می‌کنم…» + empty hint), `ChannelsScreen` (chats list → tap filters the songs tab) |
 | `TelegramSource : MusicSource` | done | FTS5 → LIKE → TDLib network search; `stream()` Tier 1 MediaStore `/Telegram/` else Tier 3 `file://`; ids `tg_<chatId>_<messageId>`; `health()` = Rejected until authorized; `SourceKind.TELEGRAM` rank 1, **default enabled** (`enabled = kind != JIOSAAVN`) |
 | Auth entry on SourcesScreen | done | authorize button «ورود به تلگرام» directly on the Telegram source row (also the empty-state button on both tabs) |
@@ -22,8 +22,8 @@ manual «شروع اسکن» re-scan button, connection dot in the songs header.
 
 - `./gradlew help`, `:app:dependencies`, then per-feature `:app:compileProdDebugKotlin`
   gates (proxy + `sdkDownload=false` template), final `./gradlew assembleDebug` green.
-- APK artifacts verified with aapt2: label **TeleMusic** (prod) / TeleMusic Dev (dev),
-  package `com.music.bitchord`, 8 APKs (dev+prod × arm64/armeabi/x86_64/universal).
+- APK artifacts verified with aapt2: label **Extrumz** (prod) / Extrumz Dev (dev),
+  package `com.extrumz.app`, 8 APKs (dev+prod × arm64/armeabi/x86_64/universal).
 - Shipped manifest verified in the APK: `scheme=tg host=login` filter present.
 - `lib/arm64-v8a/libtdjni.so` confirmed inside the APK.
 - TDLib 1.8.56 signatures verified against the real AAR (`javap`) before porting —

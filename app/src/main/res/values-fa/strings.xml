@@ -34,7 +34,7 @@
     <string name="auto_recents">آهنگ‌های اخیر</string>
     <string name="auto_liked">آهنگ‌های محبوب</string>
     <string name="auto_login_title">روی گوشی وارد تلگرام شو</string>
-    <string name="auto_login_subtitle">برای ورود، TeleMusic را روی گوشی باز کن</string>
+    <string name="auto_login_subtitle">برای ورود، اکسترامز را روی گوشی باز کن</string>
     <string name="auto_empty_recents_title">هنوز آهنگی پخش نکردی</string>
     <string name="auto_empty_recents_subtitle">هر آهنگی که گوش بدی، اینجا نشون داده می‌شه</string>
     <string name="auto_empty_quick_picks_title">پیشنهادی پیدا نشد</string>
@@ -126,7 +126,7 @@
     <string name="top_genres">سبک‌های برتر</string>
     <string name="cancel_all">لغو همه</string>
     <string name="language">زبان</string>
-    <string name="app_language_description">زبانی که می‌خوای TeleMusic باهاش نمایش داده بشه رو انتخاب کن.</string>
+    <string name="app_language_description">زبانی که می‌خوای اکسترامز باهاش نمایش داده بشه رو انتخاب کن.</string>
     <string name="show_all">نمایش همه</string>
     <string name="switch_to_grid_view">نمایش شبکه‌ای</string>
     <string name="switch_to_list_view">نمایش لیستی</string>
@@ -156,7 +156,7 @@
     <string name="smart_version_alignment_subtitle">تحلیل شکل‌موج صدا برای تطبیق دقیق لحظه پخش بین موزیک و ویدیو</string>
     <string name="equalizer">اکولایزر</string>
     <string name="equalizer_subtitle">تن صدا، ۷ باند و بالانس چپ و راست</string>
-    <string name="equalizer_footer">صدا رو قبل از رسیدن به اسپیکر یا هدفون، درون TeleMusic تنظیم می‌کنه.</string>
+    <string name="equalizer_footer">صدا رو قبل از رسیدن به اسپیکر یا هدفون، درون اکسترامز تنظیم می‌کنه.</string>
     <string name="equalizer_dynamic">پویا</string>
     <string name="equalizer_manual">دستی</string>
     <string name="equalizer_tone">تن</string>
@@ -346,9 +346,9 @@
     <string name="playing_radio">در حال پخش رادیوی %1$s</string>
     <string name="playing_from">در حال پخش از %1$s</string>
     <string name="radio_started">رادیوی %1$s شروع شد</string>
-    <!-- پوشهٔ روی دیسک هنوز Music/BitChord است (DownloadStore.FOLDER)؛
+    <!-- پوشهٔ روی دیسک هنوز Music/Extrumz است (DownloadStore.FOLDER)؛
          تغییر نام آن باعث بی‌استفاده شدن دانلودهای نسخه‌های نصب‌شده فعلی می‌شود. -->
-    <string name="saved_to_bitchord_folder">توی پوشه Music/BitChord ذخیره شد</string>
+    <string name="saved_to_extrumz_folder">توی پوشه Music/Extrumz ذخیره شد</string>
     <string name="nothing_downloading">در حال حاضر دانلودی در جریان نیست</string>
     <string name="history_empty">هنوز آهنگی پخش نکردی</string>
     <string name="no_results">چیزی پیدا نشد</string>
@@ -425,7 +425,7 @@
     <string name="biggest_day_note">%1$s شلوغ‌ترین روزت بود؛ %2$s تمام پای آهنگ‌ها نشستی.</string>
     <string name="close_replay">بستن ریپلی</string>
     <string name="couldnt_draw_picture">ساختن تصویر با خطا مواجه شد</string>
-    <string name="default_replay_holder">شنونده TeleMusic</string>
+    <string name="default_replay_holder">شنونده اکسترامز</string>
     <string name="different_albums">آلبوم‌های متنوع</string>
     <string name="hour_am">%1$d صبح</string>
     <string name="hour_pm">%1$d عصر</string>
@@ -457,7 +457,7 @@
     <string name="replay_artist_end">" بیشتر از همه تکرار شد."</string>
     <string name="replay_artist_focus">یک هنرمند</string>
     <string name="replay_artist_start">"توی کل این ماه، "</string>
-    <string name="replay_empty_description">کمی بیشتر آهنگ گوش کن تا TeleMusic ریپلی اختصاصیت رو بسازه.</string>
+    <string name="replay_empty_description">کمی بیشتر آهنگ گوش کن تا اکسترامز ریپلی اختصاصیت رو بسازه.</string>
     <string name="replay_genre_end">" دنیای موسیقیت رو ساختن."</string>
     <string name="replay_genre_focus">این سبک‌ها</string>
     <string name="replay_genre_start">"روی هم رفته، "</string>
@@ -547,7 +547,7 @@
     </plurals>
     <string name="no_local_albums">هنوز آلبوم یا پلی‌لیست کاملی دانلود نکردی. یکی رو کامل بگیر تا اینجا نمایش داده بشه.</string>
     <string name="play_your_replay">پخش آهنگ‌های ریپلی</string>
-    <string name="counted_on_device_with_bitchord">محاسبه‌شده روی همین گوشی با TeleMusic</string>
+    <string name="counted_on_device_with_extrumz">محاسبه‌شده روی همین گوشی با اکسترامز</string>
     <string name="this_month">این ماه</string>
     <string name="this_year">امسال</string>
     <string name="all_time">همیشه (کل زمان)</string>
@@ -629,7 +629,7 @@
     <string name="card_views_format">%1$s بازدید</string>
     <string name="card_plays_format">%1$s بار پخش</string>
     <string name="card_songs_format">%1$s آهنگ</string>
-    <!-- تلگرام (TeleMusic) -->
+    <!-- تلگرام (اکسترامز) -->
     <string name="tab_songs">آهنگ‌ها</string>
     <string name="tab_channels">کانال‌ها</string>
     <string name="tab_search">جستجو</string>

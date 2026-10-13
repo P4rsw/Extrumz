@@ -21,7 +21,7 @@ in `data/telegram/TelegramAuthController.kt` the remaining silent
 `confirmLoginLink` — gained `.onFailure { TrackLog.w }` too.
 
 **Scenario simulated (code-path walkthrough, no device in this environment):**
-`pm clear` → launch → `BitChordApplication` calls `ensureStarted()` →
+`pm clear` → launch → `ExtrumzApplication` calls `ensureStarted()` →
 `start()` → `client.start(credentials)` → authState walks
 `Initializing → WaitingForPhoneNumber (t≈0s) → …user types number/code/2FA…
 → Ready (t≈90s)`. Old code: `withTimeoutOrNull` returned null at t=60s,
@@ -67,12 +67,12 @@ file) instead of `cacheDs`, and `SimpleCache` never gets the second copy.
 Read-ahead was already excluded (`prefetchQueue` drops source-backed keys via
 `SourceRegistry.parseTrackKey`), so this closes the last doubling path.
 
-**Scenario simulated:** queue item `bitchord://source?…&t=tg_6773656102_…` →
+**Scenario simulated:** queue item `extrumz://source?…&t=tg_6773656102_…` →
 `AudioCache.playbackFactory.open()` → `isTelegramTrack == true` →
 `upstreamDs.open()` → resolving chain serves `file:///data/user/0/…/file.mp3`
 from the TDLib dir → zero bytes written to `SimpleCache` (disk usage per
 Telegram track: 1× instead of 2×). **Offline/airplane replay:** replay hits
-the same `bitchord://` item → resolver runs again → `TelegramSource.stream()`
+the same `extrumz://` item → resolver runs again → `TelegramSource.stream()`
 → tier 1 (`/Telegram/` file) or tier 3 (`getStreamPath` returns the already
 downloaded local path — no network needed) → plays. The old safety net (cache
 serving bytes without resolving) is not needed because the "cache" *is* the
@@ -87,10 +87,10 @@ TDLib file itself, which never leaves the disk.
 2. Silent `runCatching`s logged — see bug 1 list above (starter + controller).
 3. `PlaybackService.kt`: both `DefaultDataSource.Factory(this, …)` →
    `applicationContext` (lines ~1500, ~1528).
-4. `res/values/strings.xml`: all 20 `BitChord` values rebranded to `TeleMusic`
-   **except one**: `saved_to_bitchord_folder` still says
-   «Saved to Music/BitChord», because the real on-disk folder is still
-   `Music/BitChord` (`DownloadStore.FOLDER`) — renaming the string would lie,
+4. `res/values/strings.xml`: all 20 `Extrumz` values rebranded to `Extrumz`
+   **except one**: `saved_to_extrumz_folder` still says
+   «Saved to Music/Extrumz», because the real on-disk folder is still
+   `Music/Extrumz` (`DownloadStore.FOLDER`) — renaming the string would lie,
    renaming the folder would orphan existing downloads. XML comment added at
    the string. (Locale files untouched, as specified: only base `values/`.)
 5. `LibraryScanner.incrementalScan` **removed** (grep: zero callers; its
@@ -104,7 +104,7 @@ TDLib file itself, which never leaves the disk.
 ## Verified in the APK
 
 `aapt2 dump`: `string/tg_scan_attempt` + `string/tg_scan_failed` present;
-«TeleMusic listener» (rebrand) present; «Saved to Music/BitChord» intact.
+«Extrumz listener» (rebrand) present; «Saved to Music/Extrumz» intact.
 
 ## Not verifiable here
 

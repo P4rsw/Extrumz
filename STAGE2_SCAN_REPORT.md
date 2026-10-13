@@ -58,7 +58,7 @@ Each batch was gated on green `:app:assembleProdDebug` + `:app:testDevDebugUnitT
 ### `data/telegram/TelegramConfig.kt`
 - **س۶** `MAX_TOP_CHATS` `200` → `500` (decision 6).
 
-### `app/src/test/java/com/music/bitchord/LibraryScannerSpeedTest.kt` (new)
+### `app/src/test/java/com/extrumz/app/LibraryScannerSpeedTest.kt` (new)
 Hand-written fakes (no mockk — not on the classpath): `FakeChatDao`, `FakeTrackDao`
 (models INSERT IGNORE with `-1` row ids, and yields *after* each `getByIds` read to open a
 deterministic read-before-write window), `FakeTelegramClient` (newest-first paging where the
@@ -83,7 +83,7 @@ owner (spec line 97 puts real timing/counting on the device session; unit side i
 ## Acceptance (spec lines 99–106)
 
 - [x] **س۱..س۶ implemented and committed** — commit table above.
-- [x] `grep -rn GetSupergroup app/src/main/java/com/music/bitchord/data/telegram` ⇒ **0**;
+- [x] `grep -rn GetSupergroup app/src/main/java/com/extrumz/app/data/telegram` ⇒ **0**;
       `MAX_TOP_CHATS == 500`; `LoadChats` precedes `GetChats`; `CHATS_RETRY_DELAY_MS == 1_000L`
       — all greps run against the final tree.
 - [x] **Resume proven by tests**: second run asks for fewer pages (3 → 1), nothing at/below

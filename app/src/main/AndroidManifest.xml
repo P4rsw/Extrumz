@@ -41,7 +41,7 @@
         android:maxSdkVersion="28" />
 
     <application
-        android:name=".BitChordApplication"
+        android:name=".ExtrumzApplication"
         android:allowBackup="true"
         android:appCategory="audio"
         android:usesCleartextTraffic="false"
@@ -52,7 +52,7 @@
         android:localeConfig="@xml/locales_config"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="false"
-        android:theme="@style/Theme.BitChord"
+        android:theme="@style/Theme.Extrumz"
         tools:targetApi="34">
 
         <!--
@@ -101,7 +101,7 @@
             android:exported="true"
             android:launchMode="singleTask"
             android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden"
-            android:theme="@style/Theme.BitChord">
+            android:theme="@style/Theme.Extrumz">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -110,7 +110,7 @@
                   the assistant, Android Auto's media list and the OEM pickers
                   that put up "Complete action using" all ask for
                   MAIN/APP_MUSIC by name and list whoever answers — a launcher
-                  entry alone is not enough, which is why BitChord was missing
+                  entry alone is not enough, which is why Extrumz was missing
                   from that dialog while every other player on the device was in
                   it.
                 -->
@@ -155,7 +155,7 @@
             </intent-filter>
 
             <!--
-              Share → BitChord, from anywhere a link can be sent. The text is
+              Share → Extrumz, from anywhere a link can be sent. The text is
               whatever the sending app
               wrote around the URL, so the URL is picked out of it rather than
               parsed whole.

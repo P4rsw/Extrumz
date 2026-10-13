@@ -1,4 +1,4 @@
-# Phase 2 Report — TeleMusic goes Telegram-only
+# Phase 2 Report — Extrumz goes Telegram-only
 
 Branch: `phase1-telegram-source` · Base: `daeb914` (PATCH_3 / R3) · Result: `HEAD`
 Scope: `OPENCODE_PROMPT_PHASE2.md` — strip every external-platform integration while keeping Telegram playback (online + offline), auto-scan, FTS5 search, Telegram login and the Persian two-tab UI green.
@@ -36,7 +36,7 @@ Scope: `OPENCODE_PROMPT_PHASE2.md` — strip every external-platform integration
 ### Stage A — safe disable (before any deletion)
 | Commit | Change |
 |---|---|
-| `e9be06a` | `BitChordApplication`: removed `InnerTubeXResolver.init()` and `Innertube.ensureSessionScope()/cookie/selectChannel` (no more YouTube network at startup, no `PoTokenGenerator` in logs). |
+| `e9be06a` | `ExtrumzApplication`: removed `InnerTubeXResolver.init()` and `Innertube.ensureSessionScope()/cookie/selectChannel` (no more YouTube network at startup, no `PoTokenGenerator` in logs). |
 | `54bc055` | `SourceRegistry`: no `SourceKind.YOUTUBE` seed on first run — registry knows `TelegramSource` only. |
 | `7dabe2f` | Search pipeline: no fan-out to non-Telegram sources — `MainViewModel.runSearch` = Telegram FTS5 + on-device music only (incl. typeahead). |
 | `e5443f3` | Playback fallback: deleted `playback/PlaybackFallback.kt` and the YouTube dimension of `QualityUpgrade` — a Telegram track is one resolve, failure = clean error. |
@@ -44,7 +44,7 @@ Scope: `OPENCODE_PROMPT_PHASE2.md` — strip every external-platform integration
 ### Stage B — removal
 | Commit | Change |
 |---|---|
-| `0969b98` **B1 Listen Together** | 16 files (`data/listentogether/**`, `PartySync`, `PartyPersonalQueueStash`, `ListenTogetherScreen/Sheets`, `PartyServerEditor`, `ListenTogetherMembersSheet`, party tests) + party parameters (`controlsLocked`/`playedBy`/`onListenTogether`/`inParty`) stripped from PlayerControls/NowPlaying/Queue/MiniPlayer/GlassNavBar/Drawer/PlayerConnection/QueueCoordinator/Crossfade/TrackAnalyzer/Autoplay + manifest invite/`bitchord://party` filters + `LISTEN_TOGETHER_SERVER` buildConfig field. |
+| `0969b98` **B1 Listen Together** | 16 files (`data/listentogether/**`, `PartySync`, `PartyPersonalQueueStash`, `ListenTogetherScreen/Sheets`, `PartyServerEditor`, `ListenTogetherMembersSheet`, party tests) + party parameters (`controlsLocked`/`playedBy`/`onListenTogether`/`inParty`) stripped from PlayerControls/NowPlaying/Queue/MiniPlayer/GlassNavBar/Drawer/PlayerConnection/QueueCoordinator/Crossfade/TrackAnalyzer/Autoplay + manifest invite/`extrumz://party` filters + `LISTEN_TOGETHER_SERVER` buildConfig field. |
 | `951756e` **B2 Discord** | 26 files (`data/discord/**`, entire `com/my/kizzy/**` (19), `DiscordScreen` incl. dialogs, `DiscordLoginScreen`, `DiscordAudioQualityTest`, `ic_discord`) + MainActivity/PlaybackService (~281 lines)/settings surgery; dep `io.ktor:ktor-client-websockets` removed. |
 | `67fbfba` **B3 scrobbling/Last.fm** | `data/scrobbling/**`, `AccountAndScrobblingScreen`, `PrimaryArtistTest` deleted; PlaybackService scrobbler + Last.fm bridge removed (listening history/`ListeningRecorder` kept); `ArtistFacts.fetchGenres` + `replayGenres` setting removed; `LASTFM_API_KEY/SECRET` gradle fields and localProps reads removed. |
 | `d9fbb31` **B4 WebDAV/SMB** | 18 files (`data/smb/**`, `data/webdav/**`, `data/remote/**`, `SmbDataSource`, `RemoteArtwork.kt`, 3 tests); `rememberRemoteArtworkUrl(x)` → `x?.thumbnailUrl` across 7 UI files; PlaybackService `SmbDataSource.RoutingFactory` unwound (**file/content routing kept**); `ServerEditorAlert` renamed `EditorAlert`; dep `com.hierynomus:smbj` removed. |
@@ -55,7 +55,7 @@ Scope: `OPENCODE_PROMPT_PHASE2.md` — strip every external-platform integration
 | `4e858dc` **B7c innertube stack** | 15 files: `data/innertube/**` (6 incl. `InnerTubeXResolver`, `StreamResolver`, `PlayerClient`, `PlaybackTracker`) + `data/innertube/potoken/**` (5), `data/YtMusicRepository.kt`, `data/sources/YouTubeSource.kt`, `data/lyrics/YouTubeLyrics.kt`, NewPipe `Utils.java`; `SourceKind` = TELEGRAM only; `SourceResolver` YouTube helpers (`substituteForYouTube`, `youtubeFallback`, `beatsYouTubeAac`, …) removed; manifest YouTube intent filters (`music.youtube.com`, `youtu.be`) and proguard keeps removed; deps `innertubex`, stripped NewPipeExtractor jar task, `nanojson`, `rhino`+`rhino-engine`, `quickjs-kt`, ktor (`core`/`okhttp`/`content-negotiation`/`serialization`) removed. |
 | `106ef4a` **F1 leftovers** | 6 files deleted: `playback/OriginalVersion.kt` (revert-to-YouTube-original), `auth/AuthStore.kt` (Google cookie sessions only), `auth/AccountSessions.kt` (`YouTubeProfile`s), `ui/components/AccountChannelDialog.kt` (no callers), 2 tests; +20 files: revert rows/notification button/session command removed, `SignInBanner` (only `sign_in_youtube_music` user) removed, YT charts shelf branch removed, `youtubeDownloadBadge` → `formatBadge`, `isCanonicalYouTubeRendition` → `isCanonicalRendition`, Google account state removed from MainViewModel, About text reworded. |
 | `f41bc2c` **F2 strings** | 387 dead keys removed from `values/strings.xml` + all 15 locales (verified zero code refs across main/test/androidTest/resources/manifest); orphan locale keys cleaned; 25 Telegram login/tab keys translated into all 15 locales (fixes `LocaleStringsTest`); `GeniusTest` live-scraping test now `Assume`-skips when the internet is unreachable. |
-| `09ac5ce` **F3 wording/branding** | `auto_login_title` → "Sign in to Telegram…" (16 files), `search_empty` → Telegram/on-device wording (16 files), `BitChord` → `TeleMusic` in every user-visible string of all 15 locales (except the truthful `Music/BitChord` folder path), stale `<!-- Listen together -->` section comments removed, Settings colophon now `TeleMusic <version>` / `~Telegram Music Backend`, YouTube test-fixture names neutralized. |
+| `09ac5ce` **F3 wording/branding** | `auto_login_title` → "Sign in to Telegram…" (16 files), `search_empty` → Telegram/on-device wording (16 files), `Extrumz` → `Extrumz` in every user-visible string of all 15 locales (except the truthful `Music/Extrumz` folder path), stale `<!-- Listen together -->` section comments removed, Settings colophon now `Extrumz <version>` / `~Telegram Music Backend`, YouTube test-fixture names neutralized. |
 
 ### Dependencies removed (15)
 
@@ -80,10 +80,10 @@ Scope: `OPENCODE_PROMPT_PHASE2.md` — strip every external-platform integration
 - `AuthStore` — held Google cookie sessions only (`sessions/activeSession/channel*`), no Telegram members; `signedIn` now derives from `Telegram.client.authState is TelegramAuthState.Ready` → deleted in F1.
 - `DeviceCodecs` — kept (used by `SourceResolver`, `AudioCache`, `SettingsSheet`).
 - `FileProvider` — kept (ReplayShareSheet export).
-- `saved_to_bitchord_folder` — kept: `DownloadStore.FOLDER = "BitChord"`, so "Saved to Music/BitChord" is factually true on disk.
+- `saved_to_extrumz_folder` — kept: `DownloadStore.FOLDER = "Extrumz"`, so "Saved to Music/Extrumz" is factually true on disk.
 - `SourceResolver` rank/race machinery — kept: still meaningful for multiple Telegram configs (rank decides who is asked; `worthSwapping`/`upgradeFor`/`rankedAbove` are source-agnostic).
 - Bare `watch?v=…` URIs — kept a **clean failure path** (`UnservableTrackException`) instead of a timeout, since no source is keyed by a video id anymore.
-- Log tags `TAG = "BitChord"` and `Theme.BitChord` — kept (internal identifiers, not user-visible; package is `com.music.bitchord`).
+- Log tags `TAG = "Extrumz"` and `Theme.Extrumz` — kept (internal identifiers, not user-visible; package is `com.extrumz.app`).
 
 ---
 
@@ -118,13 +118,13 @@ No adb device is attached to this machine, so **on-device acceptance could not b
 - **Library tab**: Replay + on-device cards only (YT playlists/library/subscriptions gone); Home/Explore screens gone (two-tab Songs/Channels structure unchanged).
 - **Quality UI**: "revert to original"/version-switch rows removed; the upgrade row simplified; `youtubeDownloadBadge` renamed `formatBadge` (labels unchanged, still "OPUS · 160 kbps" style).
 - **Stats-for-nerds labels**: unnamed streams now report `Direct` instead of `YouTube`; the legacy 11-char video-id label branch was removed.
-- **Settings**: Sources / Discord / scrobbling / updater / Listen Together rows removed; About colophon reads `TeleMusic <version>` + `~Telegram Music Backend`.
-- **Launcher name** is now `TeleMusic` in every locale (15 locales previously showed `BitChord`).
-- `saved_to_bitchord_folder` intentionally still says **"Saved to Music/BitChord"** — that is the real on-disk folder (`DownloadStore.FOLDER = "BitChord"`).
+- **Settings**: Sources / Discord / scrobbling / updater / Listen Together rows removed; About colophon reads `Extrumz <version>` + `~Telegram Music Backend`.
+- **Launcher name** is now `Extrumz` in every locale (15 locales previously showed `Extrumz`).
+- `saved_to_extrumz_folder` intentionally still says **"Saved to Music/Extrumz"** — that is the real on-disk folder (`DownloadStore.FOLDER = "Extrumz"`).
 
 ---
 
 ## 6. Logs
 
-Build/test logs for this phase: `/run/media/parsa/4EE0F882E0F87197/Agents/Hermes/TeleMusic/.sdks/p2-*.log`
+Build/test logs for this phase: `/run/media/parsa/4EE0F882E0F87197/Agents/Hermes/Extrumz/.sdks/p2-*.log`
 (p2-b1…p2-b7c-verify, p2-f1/f2/f3-tests, p2-final-assemble).

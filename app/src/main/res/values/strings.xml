@@ -50,7 +50,7 @@
     <string name="auto_recents">Recent</string>
     <string name="auto_liked">Liked songs</string>
     <string name="auto_login_title">Sign in to Telegram on your phone</string>
-    <string name="auto_login_subtitle">Open TeleMusic on your phone to sign in</string>
+    <string name="auto_login_subtitle">Open Extrumz on your phone to sign in</string>
     <string name="auto_empty_recents_title">No recent songs</string>
     <string name="auto_empty_recents_subtitle">Songs you play will appear here</string>
     <string name="auto_empty_quick_picks_title">No suggestions</string>
@@ -204,7 +204,7 @@
     <string name="top_genres">Top genres</string>
     <string name="cancel_all">Cancel all</string>
     <string name="language">Language</string>
-    <string name="app_language_description">Choose the language used by TeleMusic.</string>
+    <string name="app_language_description">Choose the language used by Extrumz.</string>
     <string name="show_all">Show all</string>
     
     
@@ -237,7 +237,7 @@
     <string name="smart_version_alignment_subtitle">Analyze audio waveforms to match the exact corresponding playback moment</string>
     <string name="equalizer">Equalizer</string>
     <string name="equalizer_subtitle">Tone, seven bands and balance</string>
-    <string name="equalizer_footer">Shapes the sound inside TeleMusic, before it reaches the system.</string>
+    <string name="equalizer_footer">Shapes the sound inside Extrumz, before it reaches the system.</string>
     <string name="equalizer_dynamic">Dynamic</string>
     <string name="equalizer_manual">Manual</string>
     <string name="equalizer_tone">Tone</string>
@@ -260,7 +260,7 @@
     <string name="equalizer_bitstream_footer">The equaliser works on decoded audio. This track is passed through as a bitstream for your device to decode, so there are no samples here to filter.</string>
     <string name="system_equalizer">System equalizer</string>
     <string name="system_equalizer_subtitle">Your device\'s own panel</string>
-    <string name="system_equalizer_footer">Runs after TeleMusic\'s, on the whole audio session. Using both applies both.</string>
+    <string name="system_equalizer_footer">Runs after Extrumz\'s, on the whole audio session. Using both applies both.</string>
     <string name="eq_preset_flat">Flat</string>
     <string name="eq_preset_acoustic">Acoustic</string>
     <string name="eq_preset_bass_boost">Bass boost</string>
@@ -322,10 +322,10 @@
     
     <string name="refresh_rate">Refresh rate</string>
     <string name="high_performance_before_enabling">Before enabling</string>
-    <string name="high_performance_battery_warning">First set TeleMusic\'s battery usage to Unrestricted. Higher refresh rates use more battery, CPU and GPU, and may warm your device.</string>
+    <string name="high_performance_battery_warning">First set Extrumz\'s battery usage to Unrestricted. Higher refresh rates use more battery, CPU and GPU, and may warm your device.</string>
     <string name="open_battery_settings">Open battery settings</string>
     <string name="enable_high_performance_title">Enable high performance mode?</string>
-    <string name="enable_high_performance_confirmation">Enable only if TeleMusic\'s battery use is set to Unrestricted. Android can still limit the refresh rate when the device is hot or low on power.</string>
+    <string name="enable_high_performance_confirmation">Enable only if Extrumz\'s battery use is set to Unrestricted. Android can still limit the refresh rate when the device is hot or low on power.</string>
     <string name="enable">Enable</string>
     <string name="not_yet">Not yet</string>
     
@@ -471,9 +471,9 @@
     
     
     <string name="radio_started">%1$s radio started</string>
-    <!-- The on-disk folder is still Music/BitChord (DownloadStore.FOLDER);
+    <!-- The on-disk folder is still Music/Extrumz (DownloadStore.FOLDER);
          renaming it would orphan downloads on existing installs. -->
-    <string name="saved_to_bitchord_folder">Saved to Music/BitChord</string>
+    <string name="saved_to_extrumz_folder">Saved to Music/Extrumz</string>
     <string name="nothing_downloading">Nothing downloading</string>
     
     
@@ -643,7 +643,7 @@
     <string name="biggest_day_note">Your biggest day was %1$s with %2$s of listening.</string>
     <string name="close_replay">Close Replay</string>
     <string name="couldnt_draw_picture">Could not create the picture</string>
-    <string name="default_replay_holder">TeleMusic listener</string>
+    <string name="default_replay_holder">Extrumz listener</string>
     <string name="different_albums">Different albums</string>
     
     <string name="hour_am">%1$d AM</string>
@@ -676,7 +676,7 @@
     <string name="replay_artist_end">" kept coming back."</string>
     <string name="replay_artist_focus">One artist</string>
     <string name="replay_artist_start">"All month, "</string>
-    <string name="replay_empty_description">Listen a little more and TeleMusic will turn your history into a Replay.</string>
+    <string name="replay_empty_description">Listen a little more and Extrumz will turn your history into a Replay.</string>
     <string name="replay_genre_end">" shaped your sound."</string>
     <string name="replay_genre_focus">Your genres</string>
     <string name="replay_genre_start">"Together, "</string>
@@ -811,7 +811,7 @@
     </plurals>
     <string name="no_local_albums">Nothing here belongs to an album or playlist yet. Download a complete album or playlist and it will appear here.</string>
     <string name="play_your_replay">Play your Replay</string>
-    <string name="counted_on_device_with_bitchord">Counted on this device with TeleMusic</string>
+    <string name="counted_on_device_with_extrumz">Counted on this device with Extrumz</string>
     <string name="this_month">This month</string>
     <string name="this_year">This year</string>
     <string name="all_time">All time</string>
@@ -1102,7 +1102,7 @@
 
     <string name="card_songs_format">%1$s songs</string>
 
-    <!-- Telegram (TeleMusic) -->
+    <!-- Telegram (Extrumz) -->
     <string name="tab_songs">Songs</string>
     <string name="tab_channels">Channels</string>
     <string name="tab_search">Search</string>

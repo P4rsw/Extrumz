@@ -69,12 +69,12 @@ val proxyPort: Int = (
 val betaSuffix = ""
 
 android {
-    namespace = "com.music.bitchord"
+    namespace = "com.extrumz.app"
     // Compiled against 37; targetSdk (runtime behaviour) stays 36.
     compileSdk = 37
 
     defaultConfig {
-        applicationId = "com.music.bitchord"
+        applicationId = "com.extrumz.app"
         // 26 keeps reach wide; real-time blur (RenderEffect) kicks in on API 31+,
         // Haze falls back to a translucent scrim below that.
         minSdk = 26
@@ -114,8 +114,8 @@ android {
     productFlavors {
         create("dev") {
             dimension = "env"
-            applicationId = "com.dev.bitchord"
-            resValue("string", "app_name", "TeleMusic Dev")
+            applicationId = "com.dev.extrumz"
+            resValue("string", "app_name", "Extrumz Dev")
         }
         create("prod") {
             dimension = "env"
@@ -275,7 +275,7 @@ dependencies {
     // a camera scanner and an Activity with it, and nothing here reads a code —
     // a party is joined by tapping somebody else's link or typing six
     // characters. This produces the bit matrix; the drawing is ours, in
-    // [com.music.bitchord.ui.components.QrCode], so the result is styled like
+    // [com.extrumz.app.ui.components.QrCode], so the result is styled like
     // the rest of the app rather than a stock black-and-white bitmap.
     implementation("com.google.zxing:core:3.5.3")
 
@@ -337,10 +337,10 @@ val verifyDevInstall = tasks.register("verifyDevInstall") {
             .drop(1)
             .mapNotNull { line -> line.split('\t').takeIf { it.size == 2 && it[1] == "device" }?.get(0) }
         serials.forEach { serial ->
-            logger.lifecycle("verifyDevInstall: compiling com.dev.bitchord on $serial")
+            logger.lifecycle("verifyDevInstall: compiling com.dev.extrumz on $serial")
             ProcessBuilder(
                 adbPath, "-s", serial, "shell", "cmd", "package", "compile",
-                "-m", "verify", "-f", "com.dev.bitchord",
+                "-m", "verify", "-f", "com.dev.extrumz",
             ).inheritIO().start().waitFor()
         }
     }
