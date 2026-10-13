@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">TeleMusic</string>
+    <string name="app_name">Extrumz</string>
     <string name="app_language">App language</string>
     <string name="english">English</string>
     <string name="persian">فارسی</string>
@@ -662,32 +662,39 @@
     <string name="not_enough_listening">Not enough listening yet</string>
     <string name="not_enough_this_month">Play a few more songs this month to unlock your Replay.</string>
     <string name="pinned">Pinned</string>
-    <string name="replay_across"> across </string>
-    <string name="replay_album_end"> held your attention.</string>
+    <!-- These fragments are joined head-to-tail into one sentence by
+         ReplayModel.headlineRuns, and the spaces at their edges are the word
+         gaps of that sentence. AAPT silently trims whitespace from both ends of
+         an unquoted <string>, so every one of these compiled with its edge
+         spaces gone and the headline rendered with its words touching.
+         Wrapping the value in quotes keeps the spaces in the compiled
+         resource; the text itself is unchanged. -->
+    <string name="replay_across">"across "</string>
+    <string name="replay_album_end">" held your attention."</string>
     <string name="replay_album_focus">One album</string>
-    <string name="replay_album_start">This time, </string>
-    <string name="replay_artist_end"> kept coming back.</string>
+    <string name="replay_album_start">"This time, "</string>
+    <string name="replay_artist_end">" kept coming back."</string>
     <string name="replay_artist_focus">One artist</string>
-    <string name="replay_artist_start">All month, </string>
+    <string name="replay_artist_start">"All month, "</string>
     <string name="replay_empty_description">Listen a little more and TeleMusic will turn your history into a Replay.</string>
-    <string name="replay_genre_end"> shaped your sound.</string>
+    <string name="replay_genre_end">" shaped your sound."</string>
     <string name="replay_genre_focus">Your genres</string>
-    <string name="replay_genre_start">Together, </string>
-    <string name="replay_habits_middle"> from </string>
-    <string name="replay_habits_start">You explored </string>
+    <string name="replay_genre_start">"Together, "</string>
+    <string name="replay_habits_middle">" from "</string>
+    <string name="replay_habits_start">"You explored "</string>
     <string name="replay_hours_across">%1$s hours</string>
-    <string name="replay_intro_end"> is ready.</string>
-    <string name="replay_intro_start">Your </string>
-    <string name="replay_minutes_end"> with music.</string>
-    <string name="replay_minutes_start">You spent </string>
-    <string name="replay_minutes_value">%1$s</string>
+    <string name="replay_intro_end">" is ready."</string>
+    <string name="replay_intro_start">"Your "</string>
+    <string name="replay_minutes_end">" with music."</string>
+    <string name="replay_minutes_start">"You spent "</string>
+    <string name="replay_minutes_value">%1$s minutes</string>
     <string name="replay_mostly_around">, mostly around %1$s.</string>
     <string name="replay_private_counting">Built privately from your listening history on this device</string>
     <string name="replay_share_card_description">A polished card with your main listening highlights.</string>
     <string name="replay_share_summary_description">A full picture with songs, artists, albums, genres, and habits.</string>
-    <string name="replay_songs_end"> filled your month.</string>
-    <string name="replay_songs_start">In total, </string>
-    <string name="replay_summary_start">Your listening had a </string>
+    <string name="replay_songs_end">" filled your month."</string>
+    <string name="replay_songs_start">"In total, "</string>
+    <string name="replay_summary_start">"Your listening had a "</string>
     <string name="saved">Saved</string>
     <string name="share_my_replay">Share my Replay</string>
     <string name="share_your_replay">Share your Replay</string>

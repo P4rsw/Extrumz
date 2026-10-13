@@ -310,6 +310,16 @@ data class ReplayRow(
     val artworkUrl: String?,
     val ms: Long,
     val plays: Int,
+    /**
+     * Whether the artwork on this row belongs to a track.
+     *
+     * Only a track has an id behind it, and only an id unlocks the tiers that
+     * fetch the full-size sleeve. Artist, album and genre rows carry a picture
+     * with nothing behind it — whatever size it arrived at is the size it stays
+     * — so [ReplayStories.Cover] uses this to stop asking and fall back to the
+     * initial tile instead of drawing a 90 px smear at 36 dp.
+     */
+    val artIsTrack: Boolean = true,
 )
 
 fun ReplaySummary.songRows(limit: Int): List<ReplayRow> =
@@ -332,9 +342,13 @@ fun ReplaySummary.artistRows(limit: Int): List<ReplayRow> =
             rank = index + 1,
             title = entry.title,
             subtitle = null,
-            artworkUrl = entry.artworkUrl,
+            // No picture: an artist has no track behind it, so no tier can
+            // enlarge what arrives, and a half-sharp portrait among sharp
+            // ones reads as a fault. The initial tile is the uniform.
+            artworkUrl = null,
             ms = entry.ms,
             plays = entry.plays,
+            artIsTrack = false,
         )
     }
 
@@ -348,6 +362,7 @@ fun ReplaySummary.albumRows(limit: Int): List<ReplayRow> =
             artworkUrl = entry.artworkUrl,
             ms = entry.ms,
             plays = entry.plays,
+            artIsTrack = false,
         )
     }
 
@@ -368,6 +383,7 @@ fun ReplaySummary.genreRows(limit: Int): List<ReplayRow> =
             artworkUrl = null,
             ms = entry.ms,
             plays = entry.plays,
+            artIsTrack = false,
         )
     }
 

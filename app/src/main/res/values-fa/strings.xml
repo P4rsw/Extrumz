@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">TeleMusic</string>
+    <string name="app_name">اکسترامز</string>
     <string name="app_language">زبان برنامه</string>
     <string name="english">English</string>
     <string name="persian">فارسی</string>
@@ -443,32 +443,39 @@
     <string name="not_enough_listening">هنوز آهنگ کافی گوش ندادی</string>
     <string name="not_enough_this_month">این ماه چند تا آهنگ دیگه گوش بده تا ریپلی برات باز بشه.</string>
     <string name="pinned">پین‌شده</string>
-    <string name="replay_across"> در طول </string>
-    <string name="replay_album_end"> بیشتر از همه به دلت نشست.</string>
+    <!-- These fragments are joined head-to-tail into one sentence by
+         ReplayModel.headlineRuns, and the spaces at their edges are the word
+         gaps of that sentence. AAPT silently trims whitespace from both ends of
+         an unquoted <string>, so every one of these compiled with its edge
+         spaces gone and the headline rendered with its words touching.
+         Wrapping the value in quotes keeps the spaces in the compiled
+         resource; the text itself is unchanged. -->
+    <string name="replay_across">"در طول "</string>
+    <string name="replay_album_end">" بیشتر از همه به دلت نشست."</string>
     <string name="replay_album_focus">یک آلبوم</string>
-    <string name="replay_album_start">این بار، </string>
-    <string name="replay_artist_end"> بیشتر از همه تکرار شد.</string>
+    <string name="replay_album_start">"این بار، "</string>
+    <string name="replay_artist_end">" بیشتر از همه تکرار شد."</string>
     <string name="replay_artist_focus">یک هنرمند</string>
-    <string name="replay_artist_start">توی کل این ماه، </string>
+    <string name="replay_artist_start">"توی کل این ماه، "</string>
     <string name="replay_empty_description">کمی بیشتر آهنگ گوش کن تا TeleMusic ریپلی اختصاصیت رو بسازه.</string>
-    <string name="replay_genre_end"> دنیای موسیقیت رو ساختن.</string>
+    <string name="replay_genre_end">" دنیای موسیقیت رو ساختن."</string>
     <string name="replay_genre_focus">این سبک‌ها</string>
-    <string name="replay_genre_start">روی هم رفته، </string>
-    <string name="replay_habits_middle"> از </string>
-    <string name="replay_habits_start">گوش دادی به </string>
+    <string name="replay_genre_start">"روی هم رفته، "</string>
+    <string name="replay_habits_middle">" از "</string>
+    <string name="replay_habits_start">"گوش دادی به "</string>
     <string name="replay_hours_across">%1$s ساعت</string>
-    <string name="replay_intro_end"> آماده است.</string>
-    <string name="replay_intro_start">بخش </string>
-    <string name="replay_minutes_end"> رو با موزیک گذروندی.</string>
-    <string name="replay_minutes_start">در مجموع </string>
-    <string name="replay_minutes_value">%1$s</string>
+    <string name="replay_intro_end">" آماده است."</string>
+    <string name="replay_intro_start">"بخش "</string>
+    <string name="replay_minutes_end">" رو با موزیک گذروندی."</string>
+    <string name="replay_minutes_start">"در مجموع "</string>
+    <string name="replay_minutes_value">%1$s دقیقه</string>
     <string name="replay_mostly_around">، بیشتر دوروبر ساعت %1$s.</string>
     <string name="replay_private_counting">کاملاً محرمانه روی همین گوشی از سابقه شنیدنت ساخته شده</string>
     <string name="replay_share_card_description">یک استوری شیک از خلاصه‌ی سلیقه‌ و آهنگ‌های برترت.</string>
     <string name="replay_share_summary_description">یک تصویر کامل همراه با آهنگ‌ها، هنرمندان، آلبوم‌ها، سبک‌ها و عادت‌ها.</string>
-    <string name="replay_songs_end"> همراه لحظه‌هات بودن.</string>
-    <string name="replay_songs_start">در مجموع، </string>
-    <string name="replay_summary_start">مرور شنیده‌های </string>
+    <string name="replay_songs_end">" همراه لحظه‌هات بودن."</string>
+    <string name="replay_songs_start">"در مجموع، "</string>
+    <string name="replay_summary_start">"مرور شنیده‌های "</string>
     <string name="saved">ذخیره شد</string>
     <string name="share_my_replay">اشتراک‌گذاری ریپلی من</string>
     <string name="share_your_replay">اشتراک‌گذاری ریپلی</string>

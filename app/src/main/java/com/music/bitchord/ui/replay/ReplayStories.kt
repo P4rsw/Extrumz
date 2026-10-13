@@ -67,6 +67,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.platform.LocalDensity
 import androidx.core.graphics.ColorUtils
 import coil3.compose.AsyncImage
 import com.music.bitchord.R
@@ -75,11 +76,13 @@ import com.music.bitchord.data.model.HEADER_ART_PX
 import com.music.bitchord.data.model.ROW_ART_PX
 import com.music.bitchord.data.model.artworkAt
 import com.music.bitchord.data.stats.ReplaySummary
+import com.music.bitchord.data.telegram.Covers
 import com.music.bitchord.ui.components.forLanguage
 import com.music.bitchord.ui.components.thumbnailBorder
 import com.music.bitchord.ui.player.MeshGradientBackground
 import com.music.bitchord.ui.player.MeshPalette
 import com.music.bitchord.ui.player.rememberArtworkColors
+import com.music.bitchord.ui.player.sharpenUpscale
 import com.music.bitchord.ui.theme.AccentRed
 import kotlinx.coroutines.launch
 import com.music.bitchord.ui.components.forLanguageSegments
@@ -576,6 +579,13 @@ private fun ColumnScope.Minutes(summary: ReplaySummary, headline: List<HeadlineR
         text = buildString {
             if (summary.hours >= 1) {
                 append(context.getString(R.string.replay_hours_across, grouped(summary.hours)))
+                // The fragment ends on its unit ("%1$s ساعت") and carries no
+                // space of its own — AAPT trims the edges of an unquoted
+                // string — so the figure that follows glued itself to the
+                // unit: `۲ ساعت۴۲ بار پخش`. The gap between the two segments
+                // belongs to the composer, which is the only place that knows
+                // one segment has ended and another has begun.
+                append(" ")
             } else {
                 append(context.getString(R.string.replay_across))
             }
@@ -618,7 +628,15 @@ private fun ColumnScope.Leaderboard(
     Headline(headline)
     Spacer(Modifier.height(18.dp))
     Row(verticalAlignment = Alignment.CenterVertically) {
-        Cover(lead.artworkUrl, lead.title, 116.dp, shape, HEADER_ART_PX, elevated = true)
+        Cover(
+            lead.artworkUrl, lead.title, 116.dp, shape, HEADER_ART_PX, elevated = true,
+            // Same rule as the rows below: an artist's key is its name, and a
+            // name has no tier behind it. Left non-null this cover would skip
+            // the size floor and draw a 90 px file at 116 dp — which is what the
+            // lead portrait was doing.
+            trackId = lead.key.takeIf { lead.artIsTrack },
+            trackTitle = lead.title, trackArtist = lead.subtitle,
+        )
         Spacer(Modifier.width(16.dp))
         Column(Modifier.weight(1f)) {
             Text(
@@ -665,7 +683,15 @@ private fun ColumnScope.Leaderboard(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             RankBadge(row.rank, AccentRed)
-            Cover(row.artworkUrl, row.title, 36.dp, shape, ROW_ART_PX)
+            Cover(
+                row.artworkUrl, row.title, 36.dp, shape, ROW_ART_PX,
+                // An artist, album or genre row's `key` is its name, and a name
+                // answers nothing: every tier that follows needs a track id, so
+                // asking costs a round trip and returns the same 90 px file.
+                // With no id, [Cover] is free to prefer no picture at all.
+                trackId = row.key.takeIf { row.artIsTrack },
+                trackTitle = row.title, trackArtist = row.subtitle,
+            )
             Spacer(Modifier.width(12.dp))
             Text(
                 text = row.title,
@@ -762,6 +788,15 @@ private fun BigStat(value: String, label: String) {
             style = MaterialTheme.typography.headlineLarge,
             fontWeight = FontWeight.W800,
             color = Color.White,
+            // The width pair every figure on this screen carries. Under a
+            // loose constraint this line is measured at its unshaped intrinsic
+            // width, and Persian shaping is wider than that advance — so both
+            // the date and the hour closed short and pushed their last word to
+            // a second line. A full-width box gives the shaped line somewhere
+            // to land, and one line is all a date or an hour has in it.
+            modifier = Modifier.fillMaxWidth(),
+            maxLines = 1,
+            softWrap = false,
         )
         Text(
             text = label,
@@ -774,13 +809,26 @@ private fun BigStat(value: String, label: String) {
 @Composable
 private fun ColumnScope.Recap(summary: ReplaySummary, headline: List<HeadlineRun>) {
     Headline(headline)
-    Spacer(Modifier.height(20.dp))
-    RecapLine(stringResource(R.string.minutes), formatMinutes(summary.totalMs))
-    summary.songs.firstOrNull()?.let { RecapLine(stringResource(R.string.top_song), it.song.title) }
-    summary.artists.firstOrNull()?.let { RecapLine(stringResource(R.string.top_artist), it.title) }
-    summary.albums.firstOrNull()?.let { RecapLine(stringResource(R.string.top_album), it.title) }
-    summary.genres.firstOrNull()?.let { RecapLine(stringResource(R.string.top_genre), it.title) }
-    Spacer(Modifier.weight(1f))
+    // The rows take the whole middle instead of stacking under the headline
+    // and paying for it with one empty gap: with two or three facts the old
+    // layout ran out of content a third of the way down and left the rest of
+    // the card blank. Spread across the space the same rows read as the
+    // page's subject rather than as what happened to be left over.
+    Column(
+        Modifier.fillMaxWidth().weight(1f),
+        verticalArrangement = Arrangement.SpaceEvenly,
+    ) {
+        // The one figure on this card that was formatted rather than named,
+        // so the only one that still showed Western digits among Persian text.
+        RecapLine(
+            stringResource(R.string.minutes),
+            formatMinutes(summary.totalMs).forLanguage(),
+        )
+        summary.songs.firstOrNull()?.let { RecapLine(stringResource(R.string.top_song), it.song.title) }
+        summary.artists.firstOrNull()?.let { RecapLine(stringResource(R.string.top_artist), it.title) }
+        summary.albums.firstOrNull()?.let { RecapLine(stringResource(R.string.top_album), it.title) }
+        summary.genres.firstOrNull()?.let { RecapLine(stringResource(R.string.top_genre), it.title) }
+    }
     Text(
         text = stringResource(R.string.tap_share_for_picture),
         style = MaterialTheme.typography.bodyLarge,
@@ -802,8 +850,13 @@ private fun RecapLine(label: String, value: String) {
         )
         Text(
             text = value,
+            // Larger and heavier than a chart row's value: with two or three
+            // of these carrying the whole card, the old list-sized figure
+            // read as a detail line under nothing in particular.
             style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.W700,
+            fontSize = 24.sp,
+            lineHeight = 28.sp,
+            fontWeight = FontWeight.W800,
             color = Color.White,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
@@ -823,7 +876,53 @@ private fun Cover(
     px: Int,
     modifier: Modifier = Modifier,
     elevated: Boolean = false,
+    /**
+     * The track this artwork belongs to — id/title/performer, exactly what
+     * [Covers.upgradePlayerCover] asks for. Null for art that belongs to no
+     * track (an artist's picture). A name instead of a Telegram id costs
+     * nothing: `tgIds` answers null inside Covers before any request is made,
+     * so the caller does not have to know which rows carry a track.
+     */
+    trackId: String? = null,
+    trackTitle: String? = null,
+    trackArtist: String? = null,
 ) {
+    // Two facts the artwork itself decides, neither of which the request can:
+    //
+    //  - The source files behind a Replay are the ~90 px Telegram
+    //    minithumbnails saved with the listening record (`covers/hq_*.jpg`),
+    //    so `artworkAt(CARD_ART_PX)` — the same size every shelf card asks
+    //    for — is an upscale of 5–6× whatever it is given. The player fixes
+    //    this with [Covers.upgradePlayerCover], the one tier with a pixel gate
+    //    that replaces art under PLAYER_MIN_PX; this passes the same track
+    //    identity through so a story cover sharpens the same way, once per
+    //    track for the whole app.
+    //  - Whatever lands still has to be *told* it is small: measure the local
+    //    file (bounds-only, no network) and gate the player's unsharp mask on
+    //    it, exactly as [com.music.bitchord.ui.player.NowPlayingScreen] does.
+    //    A cover already at region size pays nothing.
+    var art by remember(url) { mutableStateOf(url) }
+    var needsSharpen by remember(url) { mutableStateOf(false) }
+    LaunchedEffect(url, trackId) {
+        if (trackId != null) {
+            art = Covers.upgradePlayerCover(trackId, url, trackTitle, trackArtist)
+        }
+    }
+    val density = LocalDensity.current
+    var fits by remember(art) { mutableStateOf(true) }
+    LaunchedEffect(art) {
+        val source = Covers.localCoverSize(art)
+        needsSharpen = source != null && minOf(source.first, source.second) < Covers.PLAYER_MIN_PX * 2
+        // Only art with no track behind it is judged. A track has tiers waiting
+        // for it and a soft sleeve still says which release this is; a face or a
+        // logo at 36 dp is 99 px of box holding a 90 px file, which reads as a
+        // broken image rather than as artwork. The app already has a stand-in
+        // for a row with nothing to draw — the initial tile — and that is what
+        // it gets instead. A file that cannot be measured locally is left alone:
+        // refusing a picture that may well be fine is worse than showing one.
+        val wanted = with(density) { size.toPx() }.toInt()
+        fits = trackId != null || source == null || maxOf(source.first, source.second) >= wanted
+    }
     val base = modifier
         .size(size)
         .let { if (elevated) it.shadow(18.dp, shape, clip = false) else it }
@@ -833,9 +932,13 @@ private fun Cover(
         // of its own and reads as a flat patch of the backdrop rather than as a
         // photograph lying on it.
         .thumbnailBorder(shape)
+        // The player's unsharp mask, shared rather than re-derived here: it is
+        // the only thing that makes a source read above its own resolution,
+        // which is what every cover on these cards was failing to do.
+        .sharpenUpscale(needsSharpen)
     when {
-        url != null -> AsyncImage(
-            model = url.artworkAt(px),
+        art != null && fits -> AsyncImage(
+            model = art.artworkAt(px),
             contentDescription = null,
             contentScale = ContentScale.Crop,
             modifier = base,
@@ -857,18 +960,28 @@ private fun Cover(
  *
  * Artists come back as circles and releases as squares, which is the same
  * distinction every music app makes and the only label these need.
+ *
+ * The circles are initials rather than photographs, deliberately. An artist's
+ * picture has no track behind it, so there is no tier that can enlarge it: it
+ * arrives at whatever Telegram saved and stays there. Some come out sharp and
+ * some do not, and a collage where half the circles are soft reads as broken
+ * rather than as inconsistent. One initial for all of them is a look; a mix of
+ * good and bad photographs is a bug.
  */
 @Composable
 private fun ArtworkCollage(summary: ReplaySummary, modifier: Modifier = Modifier) {
     val covers = remember(summary) {
-        summary.songs.mapNotNull { it.song.thumbnailUrl }.distinct().take(3)
+        // The song along with its URL, not just the URL: the cover is drawn at
+        // up to 168 dp and its source is a 90 px minithumbnail, so the square
+        // needs the track's identity to ask [Covers] for the full-size file.
+        summary.songs.mapNotNull { entry ->
+            entry.song.thumbnailUrl?.let { it to entry.song }
+        }.distinctBy { it.first }.take(3)
     }
-    val faces = remember(summary) {
-        summary.artists.mapNotNull { it.artworkUrl }.distinct()
-            .filterNot { it in covers }
-            .take(3)
-    }
-    if (covers.isEmpty() && faces.isEmpty()) return
+    // Names, not URLs: see the note above. No size is measured because no
+    // size is being judged — nothing here can be the wrong size.
+    val circleLabels = remember(summary) { summary.artists.map { it.title }.take(3) }
+    if (covers.isEmpty() && summary.artists.isEmpty()) return
 
     BoxWithConstraints(modifier.fillMaxWidth().height(300.dp)) {
         val w = maxWidth
@@ -887,7 +1000,7 @@ private fun ArtworkCollage(summary: ReplaySummary, modifier: Modifier = Modifier
             Triple(0.70f to 0.34f, 76.dp, 0f),
             Triple(0.44f to 0.78f, 66.dp, 0f),
         )
-        covers.forEachIndexed { index, url ->
+        covers.forEachIndexed { index, (url, song) ->
             val (position, size, angle) = squares[index]
             Cover(
                 url = url,
@@ -899,13 +1012,16 @@ private fun ArtworkCollage(summary: ReplaySummary, modifier: Modifier = Modifier
                     .offset(x = w * position.first, y = h * position.second)
                     .rotate(angle),
                 elevated = true,
+                trackId = song.videoId,
+                trackTitle = song.title,
+                trackArtist = song.artist,
             )
         }
-        faces.forEachIndexed { index, url ->
+        circleLabels.forEachIndexed { index, name ->
             val (position, size, _) = circles[index]
             Cover(
-                url = url,
-                fallbackText = "",
+                url = null,
+                fallbackText = name,
                 size = size,
                 shape = CircleShape,
                 px = CARD_ART_PX,
