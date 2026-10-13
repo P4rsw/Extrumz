@@ -81,6 +81,7 @@ import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 import dev.chrisbanes.haze.materials.HazeMaterials
 import kotlin.math.roundToInt
+import com.extrumz.app.ui.util.isRtlReading
 
 /**
  * The bar's own height, above whatever inset it is sitting under.
@@ -256,7 +257,10 @@ fun FrostedTopBar(
                                 color = MaterialTheme.colorScheme.onSurface,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
-                                textAlign = TextAlign.End,
+                                // Persian reads right-to-left inside a bar that stays
+                                // left-to-right, so the edge is asked for here rather
+                                // than inherited. English is left where it falls.
+                                textAlign = if (isRtlReading) TextAlign.End else TextAlign.Start,
                                 modifier = Modifier.weight(1f, fill = false),
                             )
                         }

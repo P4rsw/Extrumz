@@ -62,6 +62,7 @@ import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
+import com.extrumz.app.ui.util.isRtlReading
 
 /**
  * The offline Telegram library: every track the scanner has indexed in Room,
@@ -161,15 +162,17 @@ fun SongsScreen(
             placeholder = {
                 Text(
                     stringResource(R.string.tg_search_hint),
-                    // Written right-to-left; the field is part of a screen that
-                    // reads left-to-right, so the alignment is asked for
-                    // directly rather than inherited.
-                    textAlign = TextAlign.End,
+                    // Persian reads right-to-left inside a screen that stays
+                    // left-to-right, so the edge is asked for here rather than
+                    // inherited. English is left where it falls.
+                    textAlign = if (isRtlReading) TextAlign.End else TextAlign.Start,
                     modifier = Modifier.fillMaxWidth(),
                 )
             },
             singleLine = true,
-            textStyle = LocalTextStyle.current.copy(textAlign = TextAlign.End),
+            textStyle = LocalTextStyle.current.copy(
+                textAlign = if (isRtlReading) TextAlign.End else TextAlign.Start,
+            ),
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp),

@@ -36,6 +36,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import com.extrumz.app.R
+import com.extrumz.app.ui.util.isRtlReading
 
 /**
  * The pill-shaped search field used at the top of the search page — a
@@ -95,10 +96,10 @@ fun SearchField(
                     text = placeholder,
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    // The hint is Persian and the field sits in a screen that
-                    // reads left-to-right, so it is asked for the right edge
-                    // rather than defaulting to the left.
-                    textAlign = TextAlign.End,
+                    // Persian reads right-to-left inside a screen that stays
+                    // left-to-right, so the edge is asked for here rather than
+                    // inherited. English is left where it falls.
+                    textAlign = if (isRtlReading) TextAlign.End else TextAlign.Start,
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
@@ -108,7 +109,7 @@ fun SearchField(
                 singleLine = true,
                 textStyle = MaterialTheme.typography.bodyLarge.copy(
                     color = MaterialTheme.colorScheme.onBackground,
-                    textAlign = TextAlign.End,
+                    textAlign = if (isRtlReading) TextAlign.End else TextAlign.Start,
                 ),
                 cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
