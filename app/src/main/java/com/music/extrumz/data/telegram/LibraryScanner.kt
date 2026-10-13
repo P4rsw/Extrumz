@@ -414,32 +414,51 @@ class LibraryScanner(
      * Waits for TDLib to finish loading dialogs after authorization: right
      * after Ready, GetChats answers 0 while "Save chat to database…" is still
      * running ([fullScan]'s note), and a scan started against that answers
-     * with nothing. Retries every [CHATS_RETRY_DELAY_MS] until a dialog shows
-     * up or [CHATS_LOAD_TIMEOUT_MS] runs out, then returns the (possibly
-     * empty) list for the caller to surface.
+     * with nothing. Retries every [CHATS_RETRY_DELAY_MS] until the count has
+     * held still for [CHATS_STABLE_POLLS] rounds or [CHATS_LOAD_TIMEOUT_MS]
+     * runs out, then returns the list for the caller to surface.
+     *
+     * Waiting for the count to hold still rather than for a non-empty answer
+     * is the whole point. TDLib hands back the dialogs it has synced SO FAR
+     * and keeps pulling the rest in the background, so the first non-empty
+     * answer on a fresh install is a partial one — and a chat missing from
+     * that first answer is missing for good, because the scan sees only what
+     * this returns and the quiet re-pass retries only chats the scan already
+     * saw. That hole is what silently dropped channels from every scan until
+     * this waited for stability.
+     *
+     * The stability poll is [MusicTelegramClient.countCandidateChatIds] — the
+     * id set only. Asking for the full listing each round would repeat the
+     * per-chat GetChat that dominates its cost, once per second.
      */
     private suspend fun awaitCandidateChats(): List<ChatInfo> {
         val deadline = timeSource() + CHATS_LOAD_TIMEOUT_MS
         var attempt = 0
+        var lastCount = -1
+        var stable = 0
         while (true) {
             attempt++
             // Published so the banners can show "attempt N" during the wait —
             // two minutes with no visible change reads as a hang.
             _progress.update { it.copy(attempts = attempt) }
-            val chats = client.listTrackedCandidateChats()
-            if (chats.isNotEmpty()) {
-                if (attempt > 1) {
-                    TrackLog.d(TAG, "candidate chats loaded after $attempt attempts")
+            val count = client.countCandidateChatIds()
+            if (count > 0 && count == lastCount) stable++ else stable = 0
+            lastCount = count
+            if (stable >= CHATS_STABLE_POLLS) {
+                if (attempt > CHATS_STABLE_POLLS) {
+                    TrackLog.d(TAG, "candidate chats settled at $count after $attempt attempts")
                 }
-                return withShelfExtras(chats)
+                return withShelfExtras(client.listTrackedCandidateChats())
             }
             if (timeSource() >= deadline) {
-                TrackLog.w(TAG, "candidate chats still empty after $attempt attempts")
-                return withShelfExtras(emptyList())
+                TrackLog.w(TAG, "candidate chats never settled ($count after $attempt attempts)")
+                return withShelfExtras(
+                    if (count > 0) client.listTrackedCandidateChats() else emptyList(),
+                )
             }
             TrackLog.d(
                 TAG,
-                "candidate chats not loaded yet (attempt $attempt); " +
+                "candidate chats still loading (attempt $attempt, $count so far); " +
                     "retrying in ${CHATS_RETRY_DELAY_MS}ms",
             )
             delay(CHATS_RETRY_DELAY_MS)
@@ -720,6 +739,13 @@ class LibraryScanner(
 
         /** Pause between GetChats attempts while dialogs are still loading. */
         private const val CHATS_RETRY_DELAY_MS = 1_000L
+
+        /**
+     * Consecutive polls at the same candidate count that count as "TDLib has
+     * finished". Three seconds of stillness: the dialog pull runs in bursts,
+     * so a single unchanged poll could still be a gap between them.
+     */
+    private const val CHATS_STABLE_POLLS = 3
 
         /** Chats scanned at once by [fullScan] (approved range: 4–8). */
         private const val SCAN_PARALLEL_CHATS = 6

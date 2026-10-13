@@ -373,6 +373,25 @@ class AndroidMusicTelegramClient(
         return failure
     }
 
+    /**
+     * The same id set [listTrackedCandidateChats] builds, without the per-chat
+     * GetChat that dominates its cost: LoadChats plus one GetChats per list.
+     *
+     * Lets the scanner poll cheaply while TDLib is still pulling dialogs —
+     * the full listing would repeat ~200 JNI round trips every poll.
+     */
+    override suspend fun countCandidateChatIds(): Int {
+        awaitReady()
+        loadChatList(TdApi.ChatListMain())
+        loadChatList(TdApi.ChatListArchive())
+        val mainIds = send(TdApi.GetChats(TdApi.ChatListMain(), TelegramConfig.MAX_TOP_CHATS)).chatIds
+        val archiveIds = runCatchingCancellable<TdApi.Chats> {
+            send(TdApi.GetChats(TdApi.ChatListArchive(), TelegramConfig.MAX_TOP_CHATS))
+        }.getOrNull()?.chatIds ?: longArrayOf()
+        val seen = mainIds.toHashSet()
+        return mainIds.size + archiveIds.count { seen.add(it) }
+    }
+
     override suspend fun listTrackedCandidateChats(): List<ChatInfo> {
         awaitReady()
         // GetChats only answers with dialogs TDLib has already cached; LoadChats

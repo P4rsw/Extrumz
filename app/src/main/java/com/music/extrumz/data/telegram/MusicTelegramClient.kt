@@ -215,6 +215,8 @@ interface MusicTelegramClient {
      * untracks it.
      */
     suspend fun listTrackedCandidateChats(): List<ChatInfo>
+    /** Same candidate id set, without the per-chat GetChat — for cheap polling. */
+    suspend fun countCandidateChatIds(): Int
 
     /**
      * Local filesystem path of a file, downloading it when needed.
