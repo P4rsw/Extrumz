@@ -7,8 +7,8 @@ Branch `phase1-telegram-source` · gate: `./gradlew assembleDebug` **GREEN** (4m
 | Spec item | Status | Where |
 |---|---|---|
 | TDLib + Room + KSP dependencies | done | root/app `build.gradle.kts` — `com.github.tdlibx:td:1.8.56`, Room 2.8.5, `sqlite-bundled` 2.7.1 (FTS5 below API 30), KSP 2.3.11 |
-| Room schema from old project (v3, FTS5) | done | `data/db/` — entities, `ExtrumzDatabase`, `Fts5Callbacks`, migrations, `TelegramDb` provider (keeps DB name `telemusic.db` so existing installs upgrade cleanly) |
-| TDLib client + session + proxy | done | `data/telegram/` — `AndroidMusicTelegramClient`, `TelegramSessionStarter`, `Telegram` holder; socks5 proxy auto-configured from `local.properties` (`PROXY_HOST/PORT`); session persisted under `context.filesDir/telemusic` (spec) |
+| Room schema from old project (v3, FTS5) | done | `data/db/` — entities, `ExtrumzDatabase`, `Fts5Callbacks`, migrations, `TelegramDb` provider (keeps DB name `extrumz.db` so existing installs upgrade cleanly) |
+| TDLib client + session + proxy | done | `data/telegram/` — `AndroidMusicTelegramClient`, `TelegramSessionStarter`, `Telegram` holder; socks5 proxy auto-configured from `local.properties` (`PROXY_HOST/PORT`); session persisted under `context.filesDir/extrumz` (spec) |
 | Auth: QR + phone/code/password + `tg://login` deep link | done | `TelegramAuthController`, `TelegramAuthDialog` (Persian, states ported from old `LoginScreen` minus the api_id/api_hash fields), `TelegramLoginLink`, manifest intent-filter `tg://login` |
 | Scanner (`TelegramLibraryScanner` equivalent) | done | `LibraryScanner` — chat enumeration → audio/document messages → Room upsert, FTS5, progress flow; **auto-scan fires the moment authorization becomes Ready** (also on cold start via `ExtrumzApplication`) |
 | UI: 2 Persian tabs | done | `SongsScreen` (search + offline dot + scan banner «دارم آهنگ‌هاتو جمع می‌کنم…» + empty hint), `ChannelsScreen` (chats list → tap filters the songs tab) |
