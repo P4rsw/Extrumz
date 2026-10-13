@@ -172,28 +172,33 @@ fun SearchScreen(
         // The FrostedTopBar is visible on this tab (showing "Search"), so we
         // clear it fully — status bar inset + bar height + breathing gap — so
         // the search field sits cleanly below the bar instead of overlapping it.
-        Column(modifier = Modifier.padding(top = topBarContentPadding())) {
-            SearchField(
-                query = query,
-                onQueryChange = onQueryChange,
-                onSubmit = onSubmit,
-                focusRequester = focusRequester,
-                modifier = Modifier.padding(start = PAGE_GUTTER, end = PAGE_GUTTER, bottom = 4.dp),
-            )
-            // The channel filter lives under the field whatever the list is
-            // doing: it narrows the rows below and the typeahead while the
-            // user types, so it is never a part of "is there a result set".
-            ChannelFilterPill(
-                chatId = chatId,
-                chatName = chatName,
-                onOpenPicker = onOpenChannels,
-                onClear = { TelegramUi.selectedChatId.value = null },
-            )
-            // The filters only mean something once there is a result set to narrow;
-            // they stay up for an empty or failed search too, or picking a filter
-            // that finds nothing would take away the control needed to leave it.
-            if (results != null && !suggesting) {
-                SearchFilterTabs(filter = filter, onFilterChange = onFilterChange)
+        // The whole search header mirrors for Persian: the field's hint and
+        // the channel pill both sit at the reading edge, and a provider is
+        // what moves them without touching the tabs below the fold.
+        ProvideLocaleDirection {
+            Column(modifier = Modifier.padding(top = topBarContentPadding())) {
+                SearchField(
+                    query = query,
+                    onQueryChange = onQueryChange,
+                    onSubmit = onSubmit,
+                    focusRequester = focusRequester,
+                    modifier = Modifier.padding(start = PAGE_GUTTER, end = PAGE_GUTTER, bottom = 4.dp),
+                )
+                // The channel filter lives under the field whatever the list is
+                // doing: it narrows the rows below and the typeahead while the
+                // user types, so it is never a part of "is there a result set".
+                ChannelFilterPill(
+                    chatId = chatId,
+                    chatName = chatName,
+                    onOpenPicker = onOpenChannels,
+                    onClear = { TelegramUi.selectedChatId.value = null },
+                )
+                // The filters only mean something once there is a result set to narrow;
+                // they stay up for an empty or failed search too, or picking a filter
+                // that finds nothing would take away the control needed to leave it.
+                if (results != null && !suggesting) {
+                    SearchFilterTabs(filter = filter, onFilterChange = onFilterChange)
+                }
             }
         }
 
