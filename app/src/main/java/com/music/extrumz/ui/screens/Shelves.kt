@@ -48,6 +48,7 @@ import com.extrumz.app.ui.player.MeshGradientBackground
 import com.extrumz.app.ui.player.MeshPalette
 import com.extrumz.app.ui.components.forLanguage
 import androidx.compose.material.icons.rounded.QueueMusic
+import androidx.compose.material.icons.rounded.Favorite
 
 /**
  * Shared by the home feed, Explore and Library so headings line up across tabs.
@@ -331,6 +332,15 @@ internal fun ShelfCard(
             // title with nothing above it while the manage channels card beside
             // it carried the Telegram mesh and a mark — the pair read as one
             // finished card and one unfinished one.
+            // Liked. Same shape as the other two tools so the three read as
+            // one set rather than one finished card beside two bare titles.
+            item.browseId == "liked" -> {
+                ServiceCard(
+                    colors = listOf(Color(0xFFE5397F), Color(0xFFAD1457)),
+                    trackKey = "liked",
+                    icon = Icons.Rounded.Favorite,
+                )
+            }
             item.browseId == "playlists:manage" -> {
                 ServiceCard(
                     colors = listOf(Color(0xFF7C4DFF), Color(0xFF5E35B1)),

@@ -228,6 +228,7 @@ import androidx.compose.runtime.produceState
 import com.extrumz.app.data.db.TelegramDb
 import com.extrumz.app.ui.components.AddToPlaylistSheet
 import com.extrumz.app.data.model.toSong
+import com.extrumz.app.ui.screens.LikedScreen
 
 /** A full first screen of a native YouTube Music radio before AutoPlay tops it up. */
 private const val INITIAL_RADIO_TRACKS = 24
@@ -420,11 +421,14 @@ private fun ExtrumzApp(
     // Library shelf and — with the other landing — from Search's pill.
     var showChannels by rememberSaveable { mutableStateOf(false) }
     var showPlaylists by rememberSaveable { mutableStateOf(false) }
+    var showLiked by rememberSaveable { mutableStateOf(false) }
     val playlistListState = remember { LazyListState() }
+    val likedListState = remember { LazyListState() }
     // Which playlist's own page is open, if any. Null is the list.
     var openPlaylistId by rememberSaveable { mutableStateOf<String?>(null) }
     // The bar's title, read from the same row the page reads. Observation
     // rather than a one-shot so a rename shows up in the bar as well.
+    val likedLabel = stringResource(R.string.liked)
     val openPlaylistTitle by produceState<String?>(null, openPlaylistId) {
         value = openPlaylistId?.let { TelegramDb.playlistDao.getById(it)?.name }
     }
@@ -1086,6 +1090,7 @@ private fun ExtrumzApp(
                 // The manage row. A full page of its own rather than a
                 // subtree, for the same reason the channel picker is one.
                 id == "playlists:manage" -> showPlaylists = true
+                id == "liked" -> showLiked = true
                 // A channel card picks straight away — same toggle the
                 // picker's own rows use — and Songs is where the filter chip
                 // shows the choice. `libraryShowAll` goes with it: the grid's
@@ -1468,6 +1473,7 @@ private fun ExtrumzApp(
                 showHistory = false
                 showChannels = false
                 showPlaylists = false
+                showLiked = false
                 openPlaylistId = null
                 libraryShowAll = null
 
@@ -1553,6 +1559,7 @@ private fun ExtrumzApp(
         BackHandler(enabled = showHistory) { showHistory = false }
         BackHandler(enabled = showChannels) { showChannels = false }
         BackHandler(enabled = openPlaylistId != null) { openPlaylistId = null }
+        BackHandler(enabled = showLiked) { showLiked = false }
         BackHandler(enabled = showPlaylists && openPlaylistId == null) { showPlaylists = false }
         // Disabled while a detail page is open over the grid: that one's own
         // BackHandler below has to close first, or back would skip past it
@@ -1576,6 +1583,7 @@ private fun ExtrumzApp(
                     targetState = when {
                         showHistory -> "history"
                         openPlaylistId != null -> "playlist_detail"
+                        showLiked -> "liked"
                         showPlaylists -> "playlists"
                         showChannels -> "channels"
                         // `&& detail == null`: a card opened from the grid
@@ -1702,6 +1710,18 @@ private fun ExtrumzApp(
                                 onBack = { openPlaylistId = null },
                             )
                         }
+                    } else if (key == "liked") {
+                        LikedScreen(
+                            listState = likedListState,
+                            contentPadding = listPadding,
+                            onPlay = { songs, index ->
+                                playFrom(
+                                    songs,
+                                    index,
+                                    QueueSource(likedLabel, PlaybackSourceType.HOME),
+                                )
+                            },
+                        )
                     } else if (key == "playlists") {
                         val pinnedPlaylists by AppSettings.pinnedPlaylists
                             .collectAsStateWithLifecycle(initialValue = emptyList())
@@ -2212,6 +2232,7 @@ private fun ExtrumzApp(
                         // false, for the same reason as the playlist's own
                         // page: the bar's title is this page's heading, so
                         // there is nothing for it to hand back to.
+                        showLiked -> false
                         showPlaylists -> false
                         showSettings ||
                             showEqualizer ||
@@ -2230,6 +2251,7 @@ private fun ExtrumzApp(
                         showHistory -> ({ showHistory = false })
                         showChannels -> ({ showChannels = false })
                         openPlaylistId != null -> ({ openPlaylistId = null })
+                        showLiked -> ({ showLiked = false })
                         showPlaylists -> ({ showPlaylists = false })
                         libraryShowAll != null && detail == null -> ({ libraryShowAll = null })
                         showEqualizer -> ({ showEqualizer = false })
@@ -2355,6 +2377,7 @@ private fun ExtrumzApp(
                     // the key switch kept showing this page and the bar looked
                     // dead.
                     showPlaylists = false
+                    showLiked = false
                     openPlaylistId = null
                     libraryShowAll = null
                     selectedTab = index

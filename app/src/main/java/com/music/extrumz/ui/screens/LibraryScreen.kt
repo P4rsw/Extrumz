@@ -166,6 +166,16 @@ fun LibraryScreen(
                 val manageShelf = HomeShelf(
                     title = manageShelfTitle,
                     items = listOf(
+                        // Liked leads: it is the one of the three that is
+                        // about the user's own choices rather than about where
+                        // their music came from.
+                        ShelfItem(
+                            title = stringResource(R.string.liked),
+                            subtitle = "",
+                            thumbnailUrl = null,
+                            videoId = null,
+                            browseId = "liked",
+                        ),
                         ShelfItem(
                             title = stringResource(R.string.tg_manage_channels),
                             subtitle = "",

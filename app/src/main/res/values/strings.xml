@@ -1180,4 +1180,7 @@
     <string name="chan_play_all">Play everything in it</string>
     <string name="playlists_pin">Pin to the top</string>
     <string name="playlists_unpin">Unpin</string>
+    <string name="liked">Liked</string>
+    <string name="liked_empty">Nothing liked yet</string>
+    <string name="liked_empty_hint">Hold a song and tap the heart to keep it here.</string>
 </resources>

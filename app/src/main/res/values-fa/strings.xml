@@ -703,4 +703,7 @@
     <string name="chan_play_all">همهٔ آهنگ‌هایش را پخش کن</string>
     <string name="playlists_pin">سنجاق به بالا</string>
     <string name="playlists_unpin">برداشتنِ سنجاق</string>
+    <string name="liked">پسندیده‌ها</string>
+    <string name="liked_empty">هنوز چیزی را نپسندیدی</string>
+    <string name="liked_empty_hint">یک آهنگ را نگه دار و قلب را بزن تا اینجا بماند.</string>
 </resources>

@@ -373,7 +373,13 @@ fun ChannelsScreen(
                         onPlayChannel(songs.map { it.toSong() }, target.title)
                     }
                 },
-                onRescan = { TelegramAuthController.startScan() },
+                onRescan = {
+                    TelegramAuthController.startScan()
+                    // Close, or the scan's banner — which is on the screen
+                    // underneath — is started behind an open sheet and the
+                    // row reads as having done nothing.
+                    holding = null
+                },
             )
         }
 }
