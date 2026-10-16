@@ -52,6 +52,13 @@ import kotlinx.coroutines.launch
 import java.util.UUID
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.material.icons.rounded.Delete
+import androidx.compose.material.icons.rounded.Edit
+import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.PushPin
+import androidx.compose.material.icons.rounded.Shuffle
+import com.extrumz.app.data.model.toSong
 
 /**
  * Every playlist the user has made, with the two things you can do to one.
@@ -68,6 +75,10 @@ import androidx.compose.ui.text.style.TextAlign
 fun PlaylistsScreen(
     contentPadding: PaddingValues,
     listState: LazyListState,
+    /** Hands a playlist's tracks to the player. Only playback needs the caller. */
+    onPlay: (List<com.extrumz.app.data.model.Song>, Int, String) -> Unit,
+    pinned: List<String> = emptyList(),
+    onTogglePin: (String) -> Unit = {},
     onOpenPlaylist: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -81,6 +92,10 @@ fun PlaylistsScreen(
         var naming by remember { mutableStateOf<Playlist?>(null) }
         var creating by remember { mutableStateOf(false) }
         var deleting by remember { mutableStateOf<Playlist?>(null) }
+        // The playlist whose hold-menu is open. A hold on a row is the same
+        // gesture every other list in the app answers, so managing a playlist
+        // does not require leaving for a shelf first.
+        var actingOn by remember { mutableStateOf<Playlist?>(null) }
 
         // No heading in here: the top bar already carries "playlists", and the
         // two used the same string, so the page drew it a second time — under
@@ -152,6 +167,7 @@ fun PlaylistsScreen(
                         PlaylistRow(
                             playlist = playlist,
                             onClick = { onOpenPlaylist(playlist.id) },
+                            onLongPress = { actingOn = playlist },
                             onRename = { naming = playlist },
                             onDelete = { deleting = playlist },
                         )
@@ -192,6 +208,34 @@ fun PlaylistsScreen(
             )
         }
 
+        actingOn?.let { target ->
+            val members by TelegramDb.playlistDao.observeTracks(target.id)
+                .collectAsState(initial = emptyList())
+            PlaylistHoldMenu(
+                playlist = target,
+                trackCount = members.size,
+                pinned = pinned.contains(target.id),
+                onDismiss = { actingOn = null },
+                onPlay = { shuffled ->
+                    val songs = members.map { it.toSong() }
+                    if (songs.isNotEmpty()) {
+                        actingOn = null
+                        onPlay(
+                            songs,
+                            if (shuffled) songs.indices.random() else 0,
+                            target.name,
+                        )
+                    }
+                },
+                onPin = {
+                    onTogglePin(target.id)
+                    actingOn = null
+                },
+                onRename = { actingOn = null; naming = target },
+                onDelete = { actingOn = null; deleting = target },
+            )
+        }
+
         val doomed = deleting
         if (doomed != null) {
             AlertDialog(
@@ -225,6 +269,7 @@ fun PlaylistsScreen(
 private fun PlaylistRow(
     playlist: Playlist,
     onClick: () -> Unit,
+    onLongPress: () -> Unit,
     onRename: () -> Unit,
     onDelete: () -> Unit,
 ) {
@@ -239,7 +284,10 @@ private fun PlaylistRow(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
+            // Held, not only tapped. The row is the playlist; the ⋯ beside it
+            // stays for the two things that change it, and holding it is how
+            // the rest of this app reaches an item's menu.
+            .combinedClickable(onClick = onClick, onLongClick = onLongPress)
             .padding(start = 16.dp, end = 4.dp, top = 12.dp, bottom = 12.dp),
     ) {
         // The letter, as on the channels screen. A playlist has no artwork and
@@ -334,4 +382,81 @@ private fun NameDialog(
             TextButton(onClick = onDismiss) { Text(stringResource(R.string.playlists_cancel)) }
         },
     )
+}
+
+
+/**
+ * The menu behind a held playlist row.
+ *
+ * It deliberately repeats what the ⋯ offers — rename, delete — because the two
+ * gestures are the same question asked two ways, and a hold that offered less
+ * than the button beside it would read as the row being half-wired. Play and
+ * shuffle come from the tracks the caller passes; the row itself shows a count
+ * and never the songs.
+ */
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@Composable
+private fun PlaylistHoldMenu(
+    playlist: Playlist,
+    trackCount: Int,
+    pinned: Boolean,
+    onDismiss: () -> Unit,
+    onPlay: (shuffled: Boolean) -> Unit,
+    onPin: () -> Unit,
+    onRename: () -> Unit,
+    onDelete: () -> Unit,
+) {
+    val sheetState = androidx.compose.material3.rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    androidx.compose.material3.ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+        containerColor = MaterialTheme.colorScheme.surface,
+    ) {
+        ProvideLocaleDirection {
+            Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp)) {
+                Text(
+                    text = playlist.name,
+                    style = MaterialTheme.typography.titleLarge,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+                Text(
+                    text = stringResource(R.string.playlists_count, trackCount),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.height(8.dp))
+            }
+            val hasTracks = trackCount > 0
+            com.extrumz.app.ui.components.ActionRow(
+                icon = Icons.Rounded.PlayArrow,
+                label = stringResource(R.string.playlists_play),
+                enabled = hasTracks,
+                onClick = { onPlay(false) },
+            )
+            com.extrumz.app.ui.components.ActionRow(
+                icon = Icons.Rounded.Shuffle,
+                label = stringResource(R.string.playlists_shuffle),
+                enabled = hasTracks,
+                onClick = { onPlay(true) },
+            )
+            com.extrumz.app.ui.components.ActionRow(
+                icon = Icons.Rounded.PushPin,
+                label = stringResource(
+                    if (pinned) R.string.playlists_unpin else R.string.playlists_pin,
+                ),
+                onClick = onPin,
+            )
+            com.extrumz.app.ui.components.ActionRow(
+                icon = Icons.Rounded.Edit,
+                label = stringResource(R.string.playlists_rename),
+                onClick = onRename,
+            )
+            com.extrumz.app.ui.components.ActionRow(
+                icon = Icons.Rounded.Delete,
+                label = stringResource(R.string.playlists_delete),
+                onClick = onDelete,
+            )
+            Spacer(Modifier.height(12.dp))
+        }
+    }
 }

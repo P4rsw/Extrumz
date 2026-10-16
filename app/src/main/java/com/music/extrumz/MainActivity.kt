@@ -1714,10 +1714,21 @@ private fun ExtrumzApp(
                             )
                         }
                     } else if (key == "playlists") {
+                        val pinnedPlaylists by AppSettings.pinnedPlaylists
+                            .collectAsStateWithLifecycle(initialValue = emptyList())
                         PlaylistsScreen(
                             contentPadding = listPadding,
                             listState = playlistListState,
                             onOpenPlaylist = { id -> openPlaylistId = id },
+                            onPlay = { songs, index, name ->
+                                playFrom(
+                                    songs,
+                                    index,
+                                    QueueSource(name, PlaybackSourceType.BROWSE, "playlist"),
+                                )
+                            },
+                            pinned = pinnedPlaylists,
+                            onTogglePin = { AppSettings.togglePinnedPlaylist(it) },
                         )
                     } else if (key == "channels") {
                         ChannelsScreen(

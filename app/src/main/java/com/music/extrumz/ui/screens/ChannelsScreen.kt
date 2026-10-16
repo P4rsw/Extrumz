@@ -65,6 +65,12 @@ import kotlinx.coroutines.launch
 import org.json.JSONArray
 import java.io.File
 import com.extrumz.app.ui.components.ScanStatusBanner
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.Shuffle
+import androidx.compose.material.icons.rounded.PushPin
+import com.extrumz.app.data.model.toSong
+import androidx.compose.foundation.layout.height
 
 /**
  * The scanned chats/channels, as a full-screen picker. Picking one narrows the
@@ -77,6 +83,8 @@ import com.extrumz.app.ui.components.ScanStatusBanner
 fun ChannelsScreen(
     contentPadding: PaddingValues,
     onChannelSelected: () -> Unit,
+    /** Plays a channel's own tracks. Only playback needs the caller. */
+    onPlayChannel: (List<com.extrumz.app.data.model.Song>, String) -> Unit = { _, _ -> },
     modifier: Modifier = Modifier,
 ) {
     val authState by Telegram.client.authState.collectAsState()
@@ -102,6 +110,10 @@ fun ChannelsScreen(
     val restoreScope = rememberCoroutineScope()
     var restoring by remember { mutableStateOf(false) }
     var restoreStatus by remember { mutableStateOf<String?>(null) }
+    // The channel whose hold-menu is open. Holding a row is the gesture every
+    // other list in this app answers, and it is where a channel's own verbs
+    // live — there is no shelf for them any more.
+    var holding by remember { mutableStateOf<ChatSource?>(null) }
     // The line reports what a restore just did, so it has to go away on its
     // own. Left up it read as current state — a "بازیابی…" still on screen
     // minutes later looks like a restore that hung, and every return to this
@@ -318,6 +330,7 @@ fun ChannelsScreen(
                     ChatRow(
                         chat = chat,
                         isSelected = selected == chat.chatId,
+                        onLongPress = { holding = chat },
                         onClick = {
                             TelegramUi.selectedChatId.value =
                                 if (selected == chat.chatId) null else chat.chatId
@@ -337,6 +350,28 @@ fun ChannelsScreen(
             }
         }
     }
+        holding?.let { target ->
+            val songs by TelegramDb.trackDao.observeByChat(target.chatId)
+                .collectAsState(initial = emptyList())
+            ChannelHoldMenu(
+                chat = target,
+                isSelected = selected == target.chatId,
+                trackCount = songs.size,
+                onDismiss = { holding = null },
+                onFilter = {
+                    TelegramUi.selectedChatId.value =
+                        if (selected == target.chatId) null else target.chatId
+                    holding = null
+                },
+                onPlay = {
+                    if (songs.isNotEmpty()) {
+                        holding = null
+                        onPlayChannel(songs.map { it.toSong() }, target.title)
+                    }
+                },
+                onRescan = { TelegramAuthController.startScan() },
+            )
+        }
 }
 
 /**
@@ -350,17 +385,19 @@ internal fun displayErrorDetail(detail: String?, max: Int = 120): String? {
     return if (text.length > max) text.take(max) + "…" else text
 }
 
+
 @Composable
 private fun ChatRow(
     chat: ChatSource,
     isSelected: Boolean,
     onClick: () -> Unit,
+    onLongPress: () -> Unit,
 ) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
+            .combinedClickable(onClick = onClick, onLongClick = onLongPress)
             .padding(horizontal = 16.dp, vertical = 12.dp),
     ) {
         val photoUrl = chat.photoUrl
@@ -478,4 +515,63 @@ private suspend fun importRestoreList(context: Context, existing: Set<Long>): St
     if (added > 0) TelegramAuthController.startScan()
     val suffix = if (gone > 0) "، $gone تا دیگر وجود ندارد" else ""
     return "بازیابی: $added چت برگشت$suffix"
+}
+
+
+/** The menu behind a held channel row: filter, play, rescan — and no delete. */
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@Composable
+private fun ChannelHoldMenu(
+    chat: ChatSource,
+    isSelected: Boolean,
+    trackCount: Int,
+    onDismiss: () -> Unit,
+    onFilter: () -> Unit,
+    onPlay: () -> Unit,
+    onRescan: () -> Unit,
+) {
+    val sheetState = androidx.compose.material3.rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    androidx.compose.material3.ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+        containerColor = MaterialTheme.colorScheme.surface,
+    ) {
+        com.extrumz.app.ui.util.ProvideLocaleDirection {
+            Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp)) {
+                Text(
+                    text = chat.title,
+                    style = MaterialTheme.typography.titleLarge,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+                Text(
+                    text = stringResource(R.string.playlists_count, trackCount),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.height(8.dp))
+            }
+            com.extrumz.app.ui.components.ActionRow(
+                icon = Icons.Rounded.FilterAlt,
+                label = stringResource(
+                    if (isSelected) R.string.chan_clear_filter else R.string.chan_filter_by,
+                ),
+                onClick = onFilter,
+            )
+            com.extrumz.app.ui.components.ActionRow(
+                icon = Icons.Rounded.PlayArrow,
+                label = stringResource(R.string.chan_play_all),
+                enabled = trackCount > 0,
+                onClick = onPlay,
+            )
+            com.extrumz.app.ui.components.ActionRow(
+                icon = Icons.Rounded.Refresh,
+                label = stringResource(R.string.tg_start_scan),
+                onClick = onRescan,
+            )
+            // No delete, deliberately: rows removed from the channels table
+            // once fed a "Chat not found" cascade that broke scans. The rows
+            // stay and the empty filter hides them instead.
+            Spacer(Modifier.height(12.dp))
+        }
+    }
 }
