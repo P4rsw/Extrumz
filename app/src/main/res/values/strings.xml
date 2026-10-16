@@ -1171,4 +1171,8 @@
     <string name="playlists_move_down">Move down</string>
     <string name="playlists_remove_track">Remove from playlist</string>
     <string name="playlists_back_to_list">Back to playlists</string>
+    <string name="playlists_add_to">Add to playlist</string>
+    <string name="playlists_already">Already in this playlist</string>
+    <string name="playlists_add_unavailable">This song is not in your Telegram library, so it cannot be added to a playlist yet.</string>
+    <string name="playlists_added_to">Added to \u201c%1$s\u201d</string>
 </resources>

@@ -226,6 +226,7 @@ import com.extrumz.app.ui.screens.PlaylistsScreen
 import com.extrumz.app.ui.screens.PlaylistDetailScreen
 import androidx.compose.runtime.produceState
 import com.extrumz.app.data.db.TelegramDb
+import com.extrumz.app.ui.components.AddToPlaylistSheet
 
 /** A full first screen of a native YouTube Music radio before AutoPlay tops it up. */
 private const val INITIAL_RADIO_TRACKS = 24
@@ -448,6 +449,7 @@ private fun ExtrumzApp(
      */
     var showDownloadManager by remember { mutableStateOf(false) }
     var songActions by remember { mutableStateOf<Song?>(null) }
+    var addToPlaylistSong by remember { mutableStateOf<Song?>(null) }
     var showLyricsOffset by remember { mutableStateOf(false) }
     /**
      * Whether the track menu that is up was opened from the player.
@@ -2527,6 +2529,12 @@ private fun ExtrumzApp(
                 SongActionsSheet(
                     song = song,
                     signedIn = signedIn,
+                    onAddToPlaylist = {
+                        addToPlaylistSong = song
+                        songActions = null
+                    }
+
+,
                     likeStatus = likeStatuses[song.videoId] ?: LikeStatus.INDIFFERENT,
                     onPlayNext = { playNext(song); songActions = null },
                     onAddToQueue = { addToQueue(song); songActions = null },
@@ -2621,6 +2629,24 @@ private fun ExtrumzApp(
                 )
             }
         }
+
+            // Add-to-playlist, as its own sheet rather than a page inside the
+            // first one: the song menu closes and this takes its place, so the
+            // list of playlists is never stacked on top of a scrolled list of
+            // actions.
+            addToPlaylistSong?.let { pending ->
+                AddToPlaylistSheet(
+                    song = pending,
+                    onDismiss = { addToPlaylistSong = null },
+                    // Nothing to add it to yet. Hand the user to the page where
+                    // a playlist can be made, rather than creating a nameless
+                    // one on their behalf.
+                    onCreated = {
+                        addToPlaylistSong = null
+                        showPlaylists = true
+                    },
+                )
+            }
 
         // ---- Download manager ----
         // The batch view of what the top-bar indicator is counting. Dismissing

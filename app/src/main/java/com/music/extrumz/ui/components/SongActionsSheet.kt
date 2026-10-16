@@ -85,6 +85,7 @@ import com.extrumz.app.ui.theme.rememberArtworkPalette
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.util.Locale
+import androidx.compose.material.icons.rounded.PlaylistAdd
 
 /**
  * Long-press menu for a track, in the shape music apps normally use.
@@ -123,6 +124,12 @@ fun SongActionsSheet(
     onAddToQueue: () -> Unit,
     onStartRadio: () -> Unit,
     onDownload: () -> Unit,
+    /**
+     * Null hides the row. A song with no row in the tracks table cannot be in
+     * a playlist — playlists store `trackFileUniqueId`, not a `videoId` — so
+     * the caller only passes this when there is something to add.
+     */
+    onAddToPlaylist: (() -> Unit)? = null,
     onToggleLike: () -> Unit,
     onToggleDislike: () -> Unit,
     onOpenAlbum: (String) -> Unit,
@@ -290,6 +297,14 @@ fun SongActionsSheet(
         // completed downloads use the same player lyric clock (including
         // embedded synced lyrics), so they need this control just as much as
         // streamed songs do.
+        onAddToPlaylist?.let {
+            ActionRow(
+                icon = Icons.Rounded.PlaylistAdd,
+                label = stringResource(R.string.playlists_add_to),
+                accent = palette.accent,
+                onClick = it,
+            )
+        }
         onLyricsOffset?.let {
             ActionRow(
                 icon = Icons.Rounded.Tune,

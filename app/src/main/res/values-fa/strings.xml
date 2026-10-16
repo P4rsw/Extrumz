@@ -694,4 +694,8 @@
     <string name="playlists_move_down">یک پله پایین</string>
     <string name="playlists_remove_track">حذف از پلی‌لیست</string>
     <string name="playlists_back_to_list">بازگشت به پلی‌لیست‌ها</string>
+    <string name="playlists_add_to">افزودن به پلی‌لیست</string>
+    <string name="playlists_already">از قبل در این پلی‌لیست است</string>
+    <string name="playlists_add_unavailable">این آهنگ در کتابخانهٔ تلگرام نیست، پس هنوز نمی‌شود به پلی‌لیست اضافه‌اش کرد.</string>
+    <string name="playlists_added_to">به «%1$s» اضافه شد</string>
 </resources>
