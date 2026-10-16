@@ -16,7 +16,7 @@
     <string name="play">پخش</string>
     <string name="explore">کاوش</string>
     <string name="listen_now">شروع شنیدن</string>
-    <string name="downloads">دانلودها</string>
+    <string name="downloads">دانلود‌ها</string>
     <string name="downloaded_songs">آهنگ‌های دانلودشده</string>
     <string name="local_music">آهنگ‌های گوشی</string>
     <string name="audio_files_on_device">فایل‌های صوتی</string>
@@ -30,14 +30,14 @@
     <string name="lyrics_offset_reset">تنظیم مجدد</string>
     <string name="decrease_lyrics_offset">جلو بردن متن آهنگ</string>
     <string name="increase_lyrics_offset">عقب بردن متن آهنگ</string>
-    <string name="auto_quick_picks">پیشنهادهای سریع</string>
+    <string name="auto_quick_picks">پیشنهاد‌های سریع</string>
     <string name="auto_recents">آهنگ‌های اخیر</string>
     <string name="auto_liked">آهنگ‌های محبوب</string>
     <string name="auto_login_title">روی گوشی وارد تلگرام شو</string>
     <string name="auto_login_subtitle">برای ورود، اکسترامز را روی گوشی باز کن</string>
     <string name="auto_empty_recents_title">هنوز آهنگی پخش نکردی</string>
     <string name="auto_empty_recents_subtitle">هر آهنگی که گوش بدی، اینجا نشون داده می‌شه</string>
-    <string name="auto_empty_quick_picks_title">پیشنهادی پیدا نشد</string>
+    <string name="auto_empty_quick_picks_title">پیشنهاد‌ی پیدا نشد</string>
     <string name="auto_empty_quick_picks_subtitle">اتصال اینترنتت رو چک کن و دوباره بزن</string>
     <string name="auto_empty_playlists_title">پلی‌لیستی پیدا نشد</string>
     <string name="auto_empty_playlists_subtitle">اتصال اینترنتت رو بررسی کن و دوباره بزن</string>
@@ -65,13 +65,13 @@
     <string name="artists">هنرمندان</string>
     <string name="albums">آلبوم‌ها</string>
     <string name="search_empty">جستجو بین آهنگ‌های تلگرام و حافظه داخلی گوشی</string>
-    <string name="recent_searches">جستجوهای اخیر</string>
+    <string name="recent_searches">جستجو‌های اخیر</string>
     <string name="clear">پاک کردن</string>
     <string name="search_hint">هنرمندان، آهنگ‌ها، متن آهنگ و بیشتر</string>
     <string name="settings_search_hint">جستجو در تنظیمات</string>
     <string name="settings_search_empty">تنظیمی با «%1$s» پیدا نشد</string>
     <string name="recent_search_edit">ویرایش «%1$s»</string>
-    <string name="recent_search_remove">حذف «%1$s» از جستجوهای اخیر</string>
+    <string name="recent_search_remove">حذف «%1$s» از جستجو‌های اخیر</string>
     <string name="storage_required_save">برای ذخیره آهنگ‌ها، اجازه دسترسی به حافظه لازمه</string>
     <string name="storage_required_read">برای پخش موزیک‌های روی گوشی، دسترسی به حافظه لازمه</string>
     <string name="already_downloaded">قبلاً دانلود شده</string>
@@ -85,7 +85,7 @@
     <string name="selected">انتخاب‌شده</string>
     <string name="select_all">انتخاب همه</string>
     <string name="song_cache_cleared">کش آهنگ‌ها خالی شد</string>
-    <string name="image_cache_cleared">کش کاورها خالی شد</string>
+    <string name="image_cache_cleared">کش کاور‌ها خالی شد</string>
     <string name="no_equalizer">دستگاهت اکولایزر سیستمی نداره</string>
     <string name="try_again">امتحان دوباره</string>
     <string name="play_next">پخش به عنوان بعدی</string>
@@ -167,9 +167,9 @@
     <string name="equalizer_broad_footer">برای صدای گرم‌تر بکش چپ و برای صدای شفاف‌تر بکش راست — فرکانس‌های بم رو نرم و زیر رو تیز می‌کنه. حالت پهن هم‌زمان روی بخش وسیعی از صدا اثر می‌ذاره.</string>
     <string name="equalizer_focused_footer">برای صدای گرم‌تر بکش چپ و برای صدای شفاف‌تر بکش راست — فرکانس‌های بم رو نرم و زیر رو تیز می‌کنه. حالت متمرکز روی بخش باریک‌تری کار می‌کنه و تغییرش دقیق‌تر و ملایم‌تره.</string>
     <string name="equalizer_preset">پریست‌ها (حالت‌های آماده)</string>
-    <string name="equalizer_bands">باندها</string>
+    <string name="equalizer_bands">باند‌ها</string>
     <string name="equalizer_bands_footer">با تغییر هر باند، پریست آماده به اکولایزر شخصی خودت تبدیل می‌شه.</string>
-    <string name="equalizer_reset">ریست همه باندها</string>
+    <string name="equalizer_reset">ریست همه باند‌ها</string>
     <string name="equalizer_balance">بالانس صدا (تعادل چپ و راست)</string>
     <string name="equalizer_balance_left">چپ (L)</string>
     <string name="equalizer_balance_right">راست (R)</string>
@@ -194,7 +194,7 @@
     <string name="eq_preset_hip_hop">هیپ‌هاپ</string>
     <string name="eq_preset_jazz">جاز</string>
     <string name="eq_preset_classical">کلاسیک</string>
-    <string name="eq_preset_small_speakers">اسپیکرهای کوچک</string>
+    <string name="eq_preset_small_speakers">اسپیکر‌های کوچک</string>
     <string name="eq_preset_late_night">آخر شب (آرام)</string>
     <string name="eq_preset_custom">سفارشی</string>
     <string name="show_nerd_stats">اطلاعات فنی و تخصصی</string>
@@ -215,7 +215,7 @@
     <string name="clear_song_cache">خالی کردن کش آهنگ‌ها</string>
     <string name="clear_song_cache_subtitle">حافظه اشغال‌شده توسط کش آهنگ‌ها رو آزاد می‌کنه</string>
     <string name="clear_image_cache">خالی کردن کش تصاویر</string>
-    <string name="clear_image_cache_subtitle">حافظه اشغال‌شده توسط کاورها رو آزاد می‌کنه</string>
+    <string name="clear_image_cache_subtitle">حافظه اشغال‌شده توسط کاور‌ها رو آزاد می‌کنه</string>
     <string name="play_next_on_swipe">پخش بعدی با کشیدن انگشت</string>
     <string name="dont_repeat_songs">عدم تکرار آهنگ‌ها در این دور</string>
     <string name="stop_music_on_close">قطع آهنگ با بستن برنامه از اخیر</string>
@@ -233,7 +233,7 @@
     <string name="full_screen_cover_art_subtitle">کاور آهنگ رو به جای یک مربع، تا لبه‌های صفحه امتداد می‌ده</string>
     <string name="dont_repeat_songs_subtitle">پخش خودکار، آهنگ‌هایی رو که توی این دور گوش دادی دوباره پیشنهاد نمی‌کنه</string>
     <string name="filter_non_music_audio">فیلتر کردن فایل‌های غیرموسیقی</string>
-    <string name="filter_non_music_audio_subtitle">ویس‌ها، صداهای ضبط‌شده، فایل‌های زیر ۳۰ ثانیه و صداهای سیستم رو مخفی می‌کنه</string>
+    <string name="filter_non_music_audio_subtitle">ویس‌ها، صدا‌های ضبط‌شده، فایل‌های زیر ۳۰ ثانیه و صدا‌های سیستم رو مخفی می‌کنه</string>
     <string name="performance">عملکرد و کارایی</string>
     <string name="high_performance_mode">حالت نهایت قدرت</string>
     <string name="high_performance_subtitle">انیمیشن‌ها و بلور کامل رو فعال می‌کنه و رفرش‌ریت صفحه رو بالا می‌بره</string>
@@ -323,7 +323,7 @@
     <string name="pipeline_pcm_format">فرمت صوتی PCM</string>
     <string name="pipeline_eq_preset">پریست اکولایزر</string>
     <string name="pipeline_stereo_expand">گسترش استریو (Stereo Expand)</string>
-    <string name="pipeline_buffers">بافرها</string>
+    <string name="pipeline_buffers">بافر‌ها</string>
     <string name="pipeline_output_api">API خروجی صدا</string>
     <string name="pipeline_device_name">نام دستگاه</string>
     <string name="bit_depth">%1$d بیت</string>
@@ -338,8 +338,8 @@
     <string name="wifi_only_download_refusal">دانلود فقط با وای‌فای مجازه. برای استفاده از اینترنت سیم‌کارت، این گزینه رو توی تنظیمات خاموش کن.</string>
     <string name="pinned_playlist_limit">تنها می‌تونی %1$d پلی‌لیست رو پین کنی</string>
     <string name="downloaded_playlist">پلی‌لیست دانلودشده</string>
-    <string name="downloads_progress">دانلودها · %1$d٪</string>
-    <string name="downloads_finished">دانلودها · تکمیل شد</string>
+    <string name="downloads_progress">دانلود‌ها · %1$d٪</string>
+    <string name="downloads_finished">دانلود‌ها · تکمیل شد</string>
     <string name="downloading_progress">در حال دانلود · %1$d٪</string>
     <string name="starting">در حال شروع</string>
     <string name="start_radio">پخش رادیو</string>
@@ -347,7 +347,7 @@
     <string name="playing_from">در حال پخش از %1$s</string>
     <string name="radio_started">رادیوی %1$s شروع شد</string>
     <!-- پوشهٔ روی دیسک هنوز Music/Extrumz است (DownloadStore.FOLDER)؛
-         تغییر نام آن باعث بی‌استفاده شدن دانلودهای نسخه‌های نصب‌شده فعلی می‌شود. -->
+         تغییر نام آن باعث بی‌استفاده شدن دانلود‌های نسخه‌های نصب‌شده فعلی می‌شود. -->
     <string name="saved_to_extrumz_folder">توی پوشه Music/Extrumz ذخیره شد</string>
     <string name="nothing_downloading">در حال حاضر دانلودی در جریان نیست</string>
     <string name="history_empty">هنوز آهنگی پخش نکردی</string>
@@ -358,7 +358,7 @@
     <string name="something_went_wrong">یه مشکلی پیش اومد</string>
     <string name="unknown_artist">هنرمند ناشناس</string>
     <plurals name="downloads_failed_count">
-        <item quantity="other">دانلودها · %1$d ناموفق</item>
+        <item quantity="other">دانلود‌ها · %1$d ناموفق</item>
     </plurals>
     <plurals name="download_waiting_count">
         <item quantity="other">%1$d در انتظار</item>
@@ -410,7 +410,7 @@
     <string name="remove_from_liked">حذف از آهنگ‌های محبوب</string>
     <string name="remove_from_queue">حذف از صف پخش</string>
     <string name="reset_to_default">بازنشانی به پیش‌فرض</string>
-    <string name="saved_to_downloads">در دانلودها ذخیره شد</string>
+    <string name="saved_to_downloads">در دانلود‌ها ذخیره شد</string>
     <string name="search_this_folder">جستجو در این پوشه</string>
     <string name="search_this_list">جستجو در این لیست</string>
     <string name="share">اشتراک‌گذاری</string>
@@ -523,7 +523,7 @@
     <string name="delete_download_confirmation">«%1$s» از روی حافظه گوشی پاک بشه؟ برای تأیید دوباره بزن.</string>
     <string name="running">در حال اجرا</string>
     <string name="automix_analysis_status">اتومیکس · این آهنگ: %1$s · بعدی: %2$s</string>
-    <string name="automix_not_supported_video">اتومیکس روی موزیک‌ویدیوها کار نمی‌کنه</string>
+    <string name="automix_not_supported_video">اتومیکس روی موزیک‌ویدیو‌ها کار نمی‌کنه</string>
     <string name="analysis_complete">تحلیل شد</string>
     <string name="analysis_refining">تحلیل شد، در حال بهینه‌سازی…</string>
     <string name="analysis_in_progress">در حال تحلیل…</string>
@@ -563,7 +563,7 @@
         <item>اوج آهنگ در راهه</item>
         <item>بذار نفس بکشه</item>
         <item>ورود وکال</item>
-        <item>نتهای اول نواخته شد</item>
+        <item>نت‌های اول نواخته شد</item>
     </string-array>
     <string-array name="lyrics_loading_lines">
         <item>در حال دریافت متن آهنگ</item>
@@ -588,7 +588,7 @@
     <string name="hdmi_output">HDMI</string>
     <string name="personal_phone">گوشی %1$s</string>
     <string name="this_phone">این گوشی</string>
-    <string name="export_compatible_downloads">خروجی استاندارد از دانلودها</string>
+    <string name="export_compatible_downloads">خروجی استاندارد از دانلود‌ها</string>
     <string name="output_precision">دقت خروجی صدا (Bit Precision)</string>
     <string name="prefer_usb_dac">اولویت با داک صوتی USB</string>
     <string name="loudness_normalization">یکسان‌سازی بلندی صدا (نرمالایز)</string>
@@ -603,17 +603,17 @@
     <string name="advanced_options">تنظیمات پیشرفته و آزمایشی</string>
     <string name="shelf_trending_community_playlists">پلی‌لیست‌های داغ کاربران</string>
     <string name="shelf_featured_playlists_for_you">پلی‌لیست‌های گلچین‌شده برای تو</string>
-    <string name="shelf_quick_picks">پیشنهادهای سریع</string>
+    <string name="shelf_quick_picks">پیشنهاد‌های سریع</string>
     <string name="shelf_listen_again">دوباره گوش کن</string>
     <string name="shelf_mixed_for_you">میکس اختصاصی تو</string>
     <string name="shelf_similar_to">مشابه %1$s</string>
     <string name="shelf_forgotten_favorites">محبوب‌های فراموش‌شده</string>
-    <string name="shelf_recommended_music_videos">موزیک‌ویدیوهای پیشنهادی</string>
+    <string name="shelf_recommended_music_videos">موزیک‌ویدیو‌های پیشنهاد‌ی</string>
     <string name="shelf_from_your_library">از آهنگ‌های ذخیره‌شده تو</string>
     <string name="shelf_charts">چارت‌های برتر</string>
     <string name="shelf_new_releases">تازه‌ترین آهنگ‌ها</string>
-    <string name="shelf_top_music_videos">موزیک‌ویدیوهای برتر</string>
-    <string name="shelf_for_you">پیشنهادی برای تو</string>
+    <string name="shelf_top_music_videos">موزیک‌ویدیو‌های برتر</string>
+    <string name="shelf_for_you">پیشنهاد‌ی برای تو</string>
     <string name="shelf_hits_today">آهنگ‌های هیت امروز</string>
     <string name="shelf_artists_on_the_rise">هنرمندان در حال پیشرفت</string>
     <string name="shelf_top_tunes_right_now">داغ‌ترین آهنگ‌های الان</string>
@@ -623,7 +623,7 @@
     <string name="shelf_chart">چارت</string>
     <string name="shelf_song_item">آهنگ</string>
     <string name="shelf_from_the_community">از طرف کاربران</string>
-    <string name="shelf_trending">ترندها</string>
+    <string name="shelf_trending">ترند‌ها</string>
     <string name="shelf_recents">به‌تازگی پخش‌شده</string>
     <string name="subscriptions">اشتراک‌ها</string>
     <string name="card_views_format">%1$s بازدید</string>
