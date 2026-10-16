@@ -47,6 +47,7 @@ import com.extrumz.app.ui.components.thumbnailBorder
 import com.extrumz.app.ui.player.MeshGradientBackground
 import com.extrumz.app.ui.player.MeshPalette
 import com.extrumz.app.ui.components.forLanguage
+import androidx.compose.material.icons.rounded.QueueMusic
 
 /**
  * Shared by the home feed, Explore and Library so headings line up across tabs.
@@ -326,6 +327,17 @@ internal fun ShelfCard(
             // Telegram entries — the manage card and every scanned channel.
             // A channel with an indexed photo shows it; the rest keep the
             // shared blue mesh, which reads as "from Telegram".
+            // The playlists tool. Explicitly, because the fallback drew a bare
+            // title with nothing above it while the manage channels card beside
+            // it carried the Telegram mesh and a mark — the pair read as one
+            // finished card and one unfinished one.
+            item.browseId == "playlists:manage" -> {
+                ServiceCard(
+                    colors = listOf(Color(0xFF7C4DFF), Color(0xFF5E35B1)),
+                    trackKey = "playlists:manage",
+                    icon = Icons.Rounded.QueueMusic,
+                )
+            }
             item.browseId?.startsWith("tg:") == true -> {
                 // F8: every channel card shows its photo. One call fetches
                 // the full-size photo first — CARD_ART_PX is far past the

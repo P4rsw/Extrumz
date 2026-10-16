@@ -378,10 +378,19 @@ internal fun LibraryGridShelf(
             horizontalArrangement = Arrangement.spacedBy(LIBRARY_GRID_SPACING),
         ) {
             items(visibleItems) { item ->
+                // Tools are not content. A long-press menu offers queue
+                // actions on whatever sits behind a card, and nothing sits
+                // behind these two. The manage channels card was already
+                // inert by accident — "tg:channels" is not a browse id
+                // `browseTypeOf` recognises — while "playlists:manage" reads
+                // as a YouTube playlist to it, so that card alone offered to
+                // open itself as one.
+                val isTool = item.browseId == "tg:channels" ||
+                    item.browseId == "playlists:manage"
                 ShelfCard(
                     item = item,
                     onClick = { onItemClick(item) },
-                    onLongPress = { onItemLongPress(item) },
+                    onLongPress = if (isTool) null else { { onItemLongPress(item) } },
                     isPinned = item.browseId != null && item.browseId in pinnedPlaylists,
                 )
             }
