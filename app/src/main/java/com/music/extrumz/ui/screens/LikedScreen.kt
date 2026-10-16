@@ -41,6 +41,12 @@ import com.extrumz.app.data.model.Song
 import com.extrumz.app.data.model.artworkAt
 import com.extrumz.app.data.model.toSong
 import com.extrumz.app.ui.util.ProvideLocaleDirection
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import com.extrumz.app.data.LikeState
+import com.extrumz.app.data.model.LikeStatus
 
 /**
  * Everything the user has liked.
@@ -61,8 +67,22 @@ fun LikedScreen(
     modifier: Modifier = Modifier,
 ) {
     ProvideLocaleDirection {
-        val songs by TelegramDb.trackDao.observeFavorites()
-            .collectAsState(initial = emptyList())
+        // LikeState.overrides, not `tracks.isFavorite`. The heart writes a
+        // rating through LikeState; `isFavorite` is a separate column nothing
+        // in this app ever sets, so reading it returned an empty list no
+        // matter how many songs were liked.
+        //
+        // The rating is held for the session — LikeState is cleared on sign
+        // out — so this list is what has been liked since then. Writing it
+        // through to the tracks column is the next step, and a bigger one.
+        val overrides by LikeState.overrides.collectAsState()
+        val likedIds = remember(overrides) {
+            overrides.filterValues { it == LikeStatus.LIKE }.keys
+        }
+        var songs by remember(likedIds) { mutableStateOf<List<Song>>(emptyList()) }
+        LaunchedEffect(likedIds) {
+            songs = likedIds.mapNotNull { videoId -> songFor(videoId) }
+        }
 
         Column(
             modifier = modifier
@@ -102,14 +122,12 @@ fun LikedScreen(
                         bottom = contentPadding.calculateBottomPadding() + 96.dp,
                     ),
                 ) {
-                    itemsIndexed(songs, key = { _, track -> track.fileUniqueId }) { index, track ->
+                    itemsIndexed(songs, key = { _, song -> song.videoId }) { index, song ->
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clickable {
-                                    onPlay(songs.map { it.toSong() }, index)
-                                }
+                                .clickable { onPlay(songs, index) }
                                 .padding(horizontal = 16.dp, vertical = 10.dp),
                         ) {
                             Box(
@@ -119,10 +137,10 @@ fun LikedScreen(
                                     .background(MaterialTheme.colorScheme.surfaceVariant),
                                 contentAlignment = Alignment.Center,
                             ) {
-                                val cover = track.coverUrl
-                                if (cover.isBlank()) {
+                                val cover = song.thumbnailUrl
+                                if (cover.isNullOrBlank()) {
                                     Text(
-                                        track.title.take(1),
+                                        song.title.take(1),
                                         style = MaterialTheme.typography.titleMedium,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     )
@@ -138,14 +156,14 @@ fun LikedScreen(
                             Spacer(Modifier.width(12.dp))
                             Column(Modifier.weight(1f)) {
                                 Text(
-                                    text = track.title.ifBlank { track.fileId },
+                                    text = song.title,
                                     style = MaterialTheme.typography.bodyLarge,
                                     color = MaterialTheme.colorScheme.onBackground,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis,
                                 )
                                 Text(
-                                    text = track.performer,
+                                    text = song.artist,
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     maxLines = 1,
@@ -158,4 +176,23 @@ fun LikedScreen(
             }
         }
     }
+}
+
+
+/**
+ * The local row behind a rated video id, as a Song.
+ *
+ * A Telegram row's id is `src:<configId>::tg_<chatId>_<messageId>`, so the
+ * pair can be read back out of it. A rating taken on anything not in the
+ * tracks table — a search result, a video — has no row to show and is skipped
+ * rather than rendered as a blank line.
+ */
+private suspend fun songFor(videoId: String): Song? {
+    val tail = videoId.substringAfterLast("::", missingDelimiterValue = "")
+        .ifEmpty { videoId }
+    if (!tail.startsWith("tg_")) return null
+    val parts = tail.removePrefix("tg_").split("_")
+    val chatId = parts.getOrNull(0)?.toLongOrNull() ?: return null
+    val messageId = parts.getOrNull(1)?.toLongOrNull() ?: return null
+    return TelegramDb.trackDao.getByChatAndMessage(chatId, messageId)?.toSong()
 }
