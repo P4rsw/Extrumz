@@ -2126,6 +2126,7 @@ private fun ExtrumzApp(
                                     QueueSource(songsLabel, PlaybackSourceType.HOME),
                                 )
                             },
+                            onSongLongPress = { songActions = it },
                         )
                     }
                 }

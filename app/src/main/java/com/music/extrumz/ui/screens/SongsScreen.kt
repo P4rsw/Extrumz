@@ -66,6 +66,7 @@ import com.extrumz.app.ui.util.isRtlReading
 import com.extrumz.app.ui.util.ProvideLocaleDirection
 import com.extrumz.app.ui.components.ScanStatusBanner
 import com.extrumz.app.data.model.toSong
+import androidx.compose.foundation.combinedClickable
 
 /**
  * The offline Telegram library: every track the scanner has indexed in Room,
@@ -94,6 +95,13 @@ fun SongsScreen(
     contentPadding: PaddingValues,
     currentSong: Song?,
     onSongClick: (List<Song>, Int) -> Unit,
+    /**
+     * A held row. Every other list in the app answers a hold with the song
+     * menu; this one — the main list, the one people actually use — was the
+     * only one that did not, so the menu was unreachable from the screen it
+     * is most wanted on.
+     */
+    onSongLongPress: (Song) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     var query by rememberSaveable { mutableStateOf("") }
@@ -303,6 +311,7 @@ fun SongsScreen(
                         coverUrl = song.thumbnailUrl,
                         isCurrent = currentSong?.videoId == song.videoId,
                         onClick = { onSongClick(songs, index) },
+                        onLongPress = { onSongLongPress(song) },
                     )
                 }
             }
@@ -317,12 +326,13 @@ private fun SongRow(
     coverUrl: String?,
     isCurrent: Boolean,
     onClick: () -> Unit,
+    onLongPress: () -> Unit,
 ) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
+            .combinedClickable(onClick = onClick, onLongClick = onLongPress)
             .padding(horizontal = 16.dp, vertical = 10.dp),
     ) {
         // F8: the cover sits beside the name like a media list should. The
