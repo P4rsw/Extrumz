@@ -78,33 +78,26 @@ fun PlaylistDetailScreen(
 ) {
     ProvideLocaleDirection {
         val dao = TelegramDb.playlistDao
-        val playlist by remember(playlistId) {
-            kotlinx.coroutines.flow.flow { emit(dao.getById(playlistId)) }
-        }.collectAsState(initial = null)
         val tracks by dao.observeTracks(playlistId)
             .collectAsState(initial = emptyList())
         val scope = rememberCoroutineScope()
 
+        // No title in here. The playlist's name is the top bar's title, the
+        // way the channels picker's is, and a second heading under the bar was
+        // both a duplicate and a collision: it started at the status bar, so
+        // the bar sat over it and the name was simply not readable. The bar's
+        // own inset is consumed here instead, so the controls begin below it.
         Column(
             modifier = modifier
                 .fillMaxSize()
-                .windowInsetsPadding(WindowInsets.statusBars),
+                .padding(top = contentPadding.calculateTopPadding()),
         ) {
-            Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp)) {
-                Text(
-                    text = playlist?.name.orEmpty(),
-                    style = MaterialTheme.typography.headlineSmall,
-                    color = MaterialTheme.colorScheme.onBackground,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                Spacer(Modifier.height(2.dp))
-                Text(
-                    text = stringResource(R.string.playlists_count, tracks.size),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
+            Text(
+                text = stringResource(R.string.playlists_count, tracks.size),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp),
+            )
 
             if (tracks.isNotEmpty()) {
                 Row(

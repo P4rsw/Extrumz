@@ -224,6 +224,8 @@ import kotlinx.coroutines.delay
 import java.util.Locale
 import com.extrumz.app.ui.screens.PlaylistsScreen
 import com.extrumz.app.ui.screens.PlaylistDetailScreen
+import androidx.compose.runtime.produceState
+import com.extrumz.app.data.db.TelegramDb
 
 /** A full first screen of a native YouTube Music radio before AutoPlay tops it up. */
 private const val INITIAL_RADIO_TRACKS = 24
@@ -419,6 +421,11 @@ private fun ExtrumzApp(
     val playlistListState = remember { LazyListState() }
     // Which playlist's own page is open, if any. Null is the list.
     var openPlaylistId by rememberSaveable { mutableStateOf<String?>(null) }
+    // The bar's title, read from the same row the page reads. Observation
+    // rather than a one-shot so a rename shows up in the bar as well.
+    val openPlaylistTitle by produceState<String?>(null, openPlaylistId) {
+        value = openPlaylistId?.let { TelegramDb.playlistDao.getById(it)?.name }
+    }
     val playlistDetailListState = remember { LazyListState() }
     // Where closing that picker lands. The Library shelf hands the listener to
     // the filtered Songs tab; the Search pill keeps them where they were so
@@ -2150,7 +2157,8 @@ private fun ExtrumzApp(
                         title = when {
                             showHistory -> stringResource(R.string.history)
                             showChannels -> stringResource(R.string.tab_channels)
-                            openPlaylistId != null -> stringResource(R.string.playlists)
+                            openPlaylistId != null ->
+                                openPlaylistTitle ?: stringResource(R.string.playlists)
                             showPlaylists -> stringResource(R.string.playlists)
                             libraryShowAll != null && detail == null -> libraryShowAll?.title.orEmpty()
                         showEqualizer -> stringResource(R.string.equalizer)
@@ -2174,7 +2182,10 @@ private fun ExtrumzApp(
                         // The picker owns its list; its big title stays up the
                         // way the Channels tab's did when it was a tab.
                         showChannels -> false
-                        openPlaylistId != null -> playlistDetailListState.firstVisibleItemIndex > 0
+                        // false, like the channels picker: the bar's title IS
+                        // the page's heading, so it has nothing to hand back
+                        // to — hiding it on scroll would leave the page nameless.
+                        openPlaylistId != null -> false
                         showPlaylists -> playlistListState.firstVisibleItemIndex > 0
                         showSettings ||
                             showEqualizer ||
