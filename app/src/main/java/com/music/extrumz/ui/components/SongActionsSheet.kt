@@ -232,13 +232,10 @@ fun SongActionsSheet(
                 accent = palette.accent,
                 onClick = onToggleLike,
             )
-            ActionRow(
-                icon = if (disliked) Icons.Rounded.ThumbDown else Icons.Rounded.ThumbDownOffAlt,
-                label = if (disliked) stringResource(R.string.undo_dislike) else stringResource(R.string.dislike),
-                tint = if (disliked) palette.accent else null,
-                accent = palette.accent,
-                onClick = onToggleDislike,
-            )
+            // No dislike row. It wrote a flag nothing in the app ever read
+            // back — no list was filtered by it, no screen counted it — so the
+            // only visible effect of pressing it was the row changing its own
+            // label.
             HorizontalDivider(
                 modifier = Modifier.padding(vertical = 6.dp),
                 thickness = 0.5.dp,
@@ -247,12 +244,9 @@ fun SongActionsSheet(
         }
 
         DownloadRow(song, palette, isOffline, onDownload)
-        ActionRow(
-            icon = Icons.Rounded.Radio,
-            label = stringResource(R.string.start_radio),
-            accent = palette.accent,
-            onClick = onStartRadio,
-        )
+        // No radio row. It seeded a station off the track, and nothing in
+        // this app browses a station afterwards — the rows it produced were
+        // indistinguishable from the queue the user already had.
         ActionRow(
             icon = Icons.AutoMirrored.Rounded.PlaylistPlay,
             label = stringResource(R.string.play_next),

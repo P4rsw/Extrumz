@@ -1732,6 +1732,13 @@ private fun ExtrumzApp(
                                     libraryShowAll = null
                                 }
                             },
+                            onPlayChannel = { songs, title ->
+                                playFrom(
+                                    songs,
+                                    0,
+                                    QueueSource(title, PlaybackSourceType.BROWSE, "tg:channels"),
+                                )
+                            },
                         )
                     } else if (key == "library_show_all") {
                         libraryShowAll?.let { shelf ->

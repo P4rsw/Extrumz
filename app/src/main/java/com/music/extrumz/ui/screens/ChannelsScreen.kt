@@ -362,6 +362,10 @@ fun ChannelsScreen(
                     TelegramUi.selectedChatId.value =
                         if (selected == target.chatId) null else target.chatId
                     holding = null
+                    // And go where the filter shows. Setting it and leaving
+                    // the user on the picker made the row look broken: the
+                    // list it filters is a different screen.
+                    onChannelSelected()
                 },
                 onPlay = {
                     if (songs.isNotEmpty()) {

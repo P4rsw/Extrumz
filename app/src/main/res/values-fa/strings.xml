@@ -657,8 +657,8 @@
     <string name="tg_hide_empty_chats">مخفی کردن چت‌های بدون آهنگ</string>
     <string name="tg_show_empty_chats">نمایش چت‌های بدون آهنگ</string>
     <string name="tg_restore_missing">بازیابی چت‌های دیده‌نشده</string>
-    <string name="tg_manage_channels">مدیریت کانال‌ها</string>
-    <string name="tg_manage_playlists">مدیریت پلی‌لیست‌ها</string>
+    <string name="tg_manage_channels">کانال‌ها</string>
+    <string name="tg_manage_playlists">پلی‌لیست‌ها</string>
     <string name="manage">مدیریت</string>
     <string name="tg_scan_failed">اتصال به تلگرام برقرار نشد و چت‌ها لود نشدن؛ دوباره امتحان کن.</string>
     <string name="tg_retry">تلاش دوباره</string>

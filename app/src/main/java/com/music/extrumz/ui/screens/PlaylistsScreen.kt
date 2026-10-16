@@ -84,7 +84,13 @@ fun PlaylistsScreen(
 ) {
     ProvideLocaleDirection {
         val dao = TelegramDb.playlistDao
-        val playlists by dao.observeAll().collectAsState(initial = emptyList())
+        val playlistsAll by dao.observeAll().collectAsState(initial = emptyList())
+        // Pinned first, the same rule the Library shelves use. Without it the
+        // pin stored a value nothing read — the only reader was the shelf this
+        // page replaced — so pressing it changed its own label and nothing else.
+        val playlists = remember(playlistsAll, pinned) {
+            playlistsAll.sortedByDescending { it.id in pinned }
+        }
         val scope = rememberCoroutineScope()
 
         // Which dialog is open, if any. Held as one value rather than three

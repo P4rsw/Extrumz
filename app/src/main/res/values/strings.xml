@@ -1130,8 +1130,8 @@
     <string name="tg_hide_empty_chats">Filter: chats with no music</string>
     <string name="tg_show_empty_chats">Show chats with no music</string>
     <string name="tg_restore_missing">Restore missing chats</string>
-    <string name="tg_manage_channels">Manage channels</string>
-    <string name="tg_manage_playlists">Manage playlists</string>
+    <string name="tg_manage_channels">Channels</string>
+    <string name="tg_manage_playlists">Playlists</string>
     <string name="manage">Manage</string>
     <string name="tg_scan_failed">Couldn\'t reach Telegram — the chats didn\'t load; try again.</string>
     <string name="tg_retry">Try again</string>
