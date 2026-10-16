@@ -1451,6 +1451,7 @@ private fun ExtrumzApp(
                 showReplay = false
                 showHistory = false
                 showChannels = false
+                showPlaylists = false
                 libraryShowAll = null
 
                 when (sourceType) {
@@ -1527,7 +1528,7 @@ private fun ExtrumzApp(
         }
         BackHandler(
             enabled = detail == null && !showSettings &&
-                !showEqualizer && !showReplay && !showChannels &&
+                !showEqualizer && !showReplay && !showChannels && !showPlaylists &&
                 selectedTab != TAB_HOME,
         ) {
             selectedTab = TAB_HOME
@@ -2122,6 +2123,7 @@ private fun ExtrumzApp(
                         title = when {
                             showHistory -> stringResource(R.string.history)
                             showChannels -> stringResource(R.string.tab_channels)
+                            showPlaylists -> stringResource(R.string.playlists)
                             libraryShowAll != null && detail == null -> libraryShowAll?.title.orEmpty()
                         showEqualizer -> stringResource(R.string.equalizer)
                         showSettings -> stringResource(R.string.settings)
@@ -2144,6 +2146,7 @@ private fun ExtrumzApp(
                         // The picker owns its list; its big title stays up the
                         // way the Channels tab's did when it was a tab.
                         showChannels -> false
+                        showPlaylists -> false
                         showSettings ||
                             showEqualizer ||
                             showHistory ||
@@ -2160,6 +2163,7 @@ private fun ExtrumzApp(
                     onBack = when {
                         showHistory -> ({ showHistory = false })
                         showChannels -> ({ showChannels = false })
+                        showPlaylists -> ({ showPlaylists = false })
                         libraryShowAll != null && detail == null -> ({ libraryShowAll = null })
                         showEqualizer -> ({ showEqualizer = false })
                         showSettings -> ({ showSettings = false })
@@ -2174,7 +2178,7 @@ private fun ExtrumzApp(
                             // Left of the account photo, and only on Library itself:
                             // a history is a record of what was played, which reads
                             // as that tab's business rather than every tab's.
-                            if (!showHistory && !showReplay && !showChannels &&
+                            if (!showHistory && !showReplay && !showChannels && !showPlaylists &&
                                 libraryShowAll == null &&
                                 detail == null && selectedTab == TAB_LIBRARY
                             ) {
@@ -2279,6 +2283,11 @@ private fun ExtrumzApp(
                     showReplay = false
                     showHistory = false
                     showChannels = false
+                    // Without this the route below still outranked the tab:
+                    // tapping Songs changed selectedTab and left this true, so
+                    // the key switch kept showing this page and the bar looked
+                    // dead.
+                    showPlaylists = false
                     libraryShowAll = null
                     selectedTab = index
 
