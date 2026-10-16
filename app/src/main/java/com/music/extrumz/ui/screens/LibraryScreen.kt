@@ -114,11 +114,7 @@ fun LibraryScreen(
 ) {
     ProvideLocaleDirection {
         val onDevice = stringResource(R.string.on_device)
-        val channelsShelfTitle = stringResource(R.string.tab_channels)
-        // Live: a scan finishing while Library is open fills the shelf without a
-        // recomposition of anything else — same source ChannelsScreen reads.
-        val chats by TelegramDb.chatDao.observeAllByTrackCount()
-            .collectAsState(initial = emptyList())
+        val manageShelfTitle = stringResource(R.string.manage)
         LazyColumn(
             state = listState,
             modifier = modifier.fillMaxSize(),
@@ -160,9 +156,15 @@ fun LibraryScreen(
             // The Telegram side of the library: the manage entry first, then every
             // scanned channel as its own card — tapping either runs the same
             // selection the Channels screen would (see [onLibraryItemClick]).
-            item(key = "shelf:$channelsShelfTitle") {
-                val channelsShelf = HomeShelf(
-                    title = channelsShelfTitle,
+            // The tools, together on their own shelf and no longer the first
+            // card of the channel list they operate on. A row called "manage
+            // channels" at the head of the channels reads as a channel, which
+            // is what it used to look like once the list grew past a screenful.
+            // Every source gets the same shape: one shelf of its content, one
+            // row here.
+            item(key = "shelf:$manageShelfTitle") {
+                val manageShelf = HomeShelf(
+                    title = manageShelfTitle,
                     items = listOf(
                         ShelfItem(
                             title = stringResource(R.string.tg_manage_channels),
@@ -171,23 +173,29 @@ fun LibraryScreen(
                             videoId = null,
                             browseId = "tg:channels",
                         ),
-                    ) + chats.map { chat ->
                         ShelfItem(
-                            title = chat.title,
-                            subtitle = "${chat.trackCount} آهنگ",
-                            thumbnailUrl = chat.photoUrl,
+                            title = stringResource(R.string.tg_manage_playlists),
+                            subtitle = "",
+                            thumbnailUrl = null,
                             videoId = null,
-                            browseId = "tg:chat:${chat.chatId}",
-                        )
-                    },
+                            browseId = "playlists:manage",
+                        ),
+                    ),
                 )
                 LibraryGridShelf(
-                    shelf = channelsShelf,
+                    shelf = manageShelf,
                     onItemClick = onShelfItemClick,
                     onItemLongPress = onShelfItemLongPress,
-                    onShowAll = { onShowAll(channelsShelf) },
+                    onShowAll = { onShowAll(manageShelf) },
                 )
             }
+            // No channel shelf here. A channel card and the manage picker both
+            // end at the same place — TelegramUi.selectedChatId, which is the
+            // filter the Songs tab already carries — so the shelf was a second
+            // door to a room that has one, and a five-card row was no way to
+            // browse the ~125 channels this account holds. Channels now have a
+            // single entry, the list under "manage", and one place to be
+            // filtered from.
             item(key = "shelf:$onDevice") {
                 val onDeviceShelf = HomeShelf(
                     title = onDevice,
