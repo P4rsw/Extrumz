@@ -1152,4 +1152,15 @@
     <string name="scan_stage_finished">Library up to date \u00b7 %1$d tracks</string>
     <string name="scan_dismiss">Hide</string>
     <string name="scan_retry">Try again</string>
+    <string name="playlists_new">New playlist</string>
+    <string name="playlists_empty">No playlists yet</string>
+    <string name="playlists_empty_hint">Select songs from your library and add them to a playlist.</string>
+    <string name="playlists_count">%1$d songs</string>
+    <string name="playlists_rename">Rename</string>
+    <string name="playlists_delete">Delete</string>
+    <string name="playlists_delete_confirm">Delete \u201c%1$s\u201d? The songs it points at are not removed.</string>
+    <string name="playlists_name_hint">Playlist name</string>
+    <string name="playlists_create">Create</string>
+    <string name="playlists_cancel">Cancel</string>
+    <string name="playlists_delete_title">Delete playlist</string>
 </resources>

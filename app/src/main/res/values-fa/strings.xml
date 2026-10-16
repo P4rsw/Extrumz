@@ -675,4 +675,15 @@
     <string name="scan_stage_finished">کتابخانه به‌روز است · %1$d آهنگ</string>
     <string name="scan_dismiss">پنهان کن</string>
     <string name="scan_retry">تلاش دوباره</string>
+    <string name="playlists_new">پلی‌لیست جدید</string>
+    <string name="playlists_empty">هنوز پلی‌لیستی نداری</string>
+    <string name="playlists_empty_hint">از کتابخانه آهنگ انتخاب کن و به یک پلی‌لیست اضافه کن.</string>
+    <string name="playlists_count">%1$d آهنگ</string>
+    <string name="playlists_rename">تغییر نام</string>
+    <string name="playlists_delete">حذف</string>
+    <string name="playlists_delete_confirm">«%1$s» حذف شود؟ خودِ آهنگ‌ها پاک نمی‌شوند.</string>
+    <string name="playlists_name_hint">نام پلی‌لیست</string>
+    <string name="playlists_create">ساخت</string>
+    <string name="playlists_cancel">انصراف</string>
+    <string name="playlists_delete_title">حذف پلی‌لیست</string>
 </resources>

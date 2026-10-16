@@ -222,6 +222,7 @@ import dev.chrisbanes.haze.materials.HazeMaterials
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
 import java.util.Locale
+import com.extrumz.app.ui.screens.PlaylistsScreen
 
 /** A full first screen of a native YouTube Music radio before AutoPlay tops it up. */
 private const val INITIAL_RADIO_TRACKS = 24
@@ -413,6 +414,7 @@ private fun ExtrumzApp(
     // The full-screen channel picker (see [ChannelsScreen]), reached from the
     // Library shelf and — with the other landing — from Search's pill.
     var showChannels by rememberSaveable { mutableStateOf(false) }
+    var showPlaylists by rememberSaveable { mutableStateOf(false) }
     // Where closing that picker lands. The Library shelf hands the listener to
     // the filtered Songs tab; the Search pill keeps them where they were so
     // the results re-filter in place.
@@ -1065,6 +1067,9 @@ private fun ExtrumzApp(
                     channelsReturnToSongs = true
                     showChannels = true
                 }
+                // The manage row. A full page of its own rather than a
+                // subtree, for the same reason the channel picker is one.
+                id == "playlists:manage" -> showPlaylists = true
                 // A channel card picks straight away — same toggle the
                 // picker's own rows use — and Songs is where the filter chip
                 // shows the choice. `libraryShowAll` goes with it: the grid's
@@ -1529,6 +1534,7 @@ private fun ExtrumzApp(
         }
         BackHandler(enabled = showHistory) { showHistory = false }
         BackHandler(enabled = showChannels) { showChannels = false }
+        BackHandler(enabled = showPlaylists) { showPlaylists = false }
         // Disabled while a detail page is open over the grid: that one's own
         // BackHandler below has to close first, or back would skip past it
         // straight to Library. See [onLibraryItemClick].
@@ -1550,6 +1556,7 @@ private fun ExtrumzApp(
                 AnimatedContent(
                     targetState = when {
                         showHistory -> "history"
+                        showPlaylists -> "playlists"
                         showChannels -> "channels"
                         // `&& detail == null`: a card opened from the grid
                         // stacks a detail page over it exactly as one opened
@@ -1654,6 +1661,13 @@ private fun ExtrumzApp(
                             onSongSwipe = onSongSwipe,
                             onRetry = viewModel::loadHistory,
                             contentPadding = listPadding,
+                        )
+                    } else if (key == "playlists") {
+                        PlaylistsScreen(
+                            contentPadding = listPadding,
+                            // The playlist's own page is the next pass; until
+                            // then a row has nowhere to go.
+                            onOpenPlaylist = { showPlaylists = false },
                         )
                     } else if (key == "channels") {
                         ChannelsScreen(
