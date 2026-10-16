@@ -228,6 +228,7 @@ import androidx.compose.runtime.produceState
 import com.extrumz.app.data.db.TelegramDb
 import com.extrumz.app.ui.components.AddToPlaylistSheet
 import com.extrumz.app.ui.components.LibraryItemActionsSheet
+import com.extrumz.app.data.model.toSong
 
 /** A full first screen of a native YouTube Music radio before AutoPlay tops it up. */
 private const val INITIAL_RADIO_TRACKS = 24
@@ -1094,6 +1095,8 @@ private fun ExtrumzApp(
                 // The manage row. A full page of its own rather than a
                 // subtree, for the same reason the channel picker is one.
                 id == "playlists:manage" -> showPlaylists = true
+                // A playlist card opens the playlist itself, not the list.
+                id.startsWith("playlist:") -> openPlaylistId = id.removePrefix("playlist:")
                 // A channel card picks straight away — same toggle the
                 // picker's own rows use — and Songs is where the filter chip
                 // shows the choice. `libraryShowAll` goes with it: the grid's
@@ -2087,6 +2090,12 @@ private fun ExtrumzApp(
                         TAB_LIBRARY -> CompositionLocalProvider(
                             LocalLayoutDirection provides LayoutDirection.Rtl,
                         ) {
+                            // Cards are built here rather than in the screen:
+                            // the screen renders cards and knows nothing about
+                            // the DAO — the same split `downloadedPlaylists`
+                            // already uses.
+                            val userPlaylists by TelegramDb.playlistDao.observeAll()
+                                .collectAsStateWithLifecycle(initialValue = emptyList())
                             LibraryScreen(
                                 listState = libraryListState,
                                 onShelfItemClick = onLibraryItemClick,
@@ -2104,6 +2113,15 @@ private fun ExtrumzApp(
                                 },
                                 contentPadding = listPadding,
                                 downloadedPlaylists = downloadedPlaylists,
+                                userPlaylists = userPlaylists.map { playlist ->
+                                    ShelfItem(
+                                        title = playlist.name,
+                                        subtitle = "",
+                                        thumbnailUrl = null,
+                                        videoId = null,
+                                        browseId = "playlist:${playlist.id}",
+                                    )
+                                },
                             )
                         }
                         // [TAB_HOME] itself, and any stray value a tab key
