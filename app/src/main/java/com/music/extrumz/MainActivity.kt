@@ -223,6 +223,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
 import java.util.Locale
 import com.extrumz.app.ui.screens.PlaylistsScreen
+import com.extrumz.app.ui.screens.PlaylistDetailScreen
 
 /** A full first screen of a native YouTube Music radio before AutoPlay tops it up. */
 private const val INITIAL_RADIO_TRACKS = 24
@@ -416,6 +417,9 @@ private fun ExtrumzApp(
     var showChannels by rememberSaveable { mutableStateOf(false) }
     var showPlaylists by rememberSaveable { mutableStateOf(false) }
     val playlistListState = remember { LazyListState() }
+    // Which playlist's own page is open, if any. Null is the list.
+    var openPlaylistId by rememberSaveable { mutableStateOf<String?>(null) }
+    val playlistDetailListState = remember { LazyListState() }
     // Where closing that picker lands. The Library shelf hands the listener to
     // the filtered Songs tab; the Search pill keeps them where they were so
     // the results re-filter in place.
@@ -1453,6 +1457,7 @@ private fun ExtrumzApp(
                 showHistory = false
                 showChannels = false
                 showPlaylists = false
+                openPlaylistId = null
                 libraryShowAll = null
 
                 when (sourceType) {
@@ -1536,7 +1541,8 @@ private fun ExtrumzApp(
         }
         BackHandler(enabled = showHistory) { showHistory = false }
         BackHandler(enabled = showChannels) { showChannels = false }
-        BackHandler(enabled = showPlaylists) { showPlaylists = false }
+        BackHandler(enabled = openPlaylistId != null) { openPlaylistId = null }
+        BackHandler(enabled = showPlaylists && openPlaylistId == null) { showPlaylists = false }
         // Disabled while a detail page is open over the grid: that one's own
         // BackHandler below has to close first, or back would skip past it
         // straight to Library. See [onLibraryItemClick].
@@ -1558,6 +1564,7 @@ private fun ExtrumzApp(
                 AnimatedContent(
                     targetState = when {
                         showHistory -> "history"
+                        openPlaylistId != null -> "playlist_detail"
                         showPlaylists -> "playlists"
                         showChannels -> "channels"
                         // `&& detail == null`: a card opened from the grid
@@ -1664,13 +1671,31 @@ private fun ExtrumzApp(
                             onRetry = viewModel::loadHistory,
                             contentPadding = listPadding,
                         )
+                    } else if (key == "playlist_detail") {
+                        openPlaylistId?.let { playlistId ->
+                            PlaylistDetailScreen(
+                                playlistId = playlistId,
+                                listState = playlistDetailListState,
+                                contentPadding = listPadding,
+                                onPlay = { songs, index ->
+                                    playFrom(
+                                        songs,
+                                        index,
+                                        QueueSource(
+                                            "پلی‌لیست",
+                                            PlaybackSourceType.BROWSE,
+                                            "playlist:$playlistId",
+                                        ),
+                                    )
+                                },
+                                onBack = { openPlaylistId = null },
+                            )
+                        }
                     } else if (key == "playlists") {
                         PlaylistsScreen(
                             contentPadding = listPadding,
                             listState = playlistListState,
-                            // The playlist's own page is the next pass; until
-                            // then a row has nowhere to go.
-                            onOpenPlaylist = { showPlaylists = false },
+                            onOpenPlaylist = { id -> openPlaylistId = id },
                         )
                     } else if (key == "channels") {
                         ChannelsScreen(
@@ -2125,6 +2150,7 @@ private fun ExtrumzApp(
                         title = when {
                             showHistory -> stringResource(R.string.history)
                             showChannels -> stringResource(R.string.tab_channels)
+                            openPlaylistId != null -> stringResource(R.string.playlists)
                             showPlaylists -> stringResource(R.string.playlists)
                             libraryShowAll != null && detail == null -> libraryShowAll?.title.orEmpty()
                         showEqualizer -> stringResource(R.string.equalizer)
@@ -2148,6 +2174,7 @@ private fun ExtrumzApp(
                         // The picker owns its list; its big title stays up the
                         // way the Channels tab's did when it was a tab.
                         showChannels -> false
+                        openPlaylistId != null -> playlistDetailListState.firstVisibleItemIndex > 0
                         showPlaylists -> playlistListState.firstVisibleItemIndex > 0
                         showSettings ||
                             showEqualizer ||
@@ -2165,6 +2192,7 @@ private fun ExtrumzApp(
                     onBack = when {
                         showHistory -> ({ showHistory = false })
                         showChannels -> ({ showChannels = false })
+                        openPlaylistId != null -> ({ openPlaylistId = null })
                         showPlaylists -> ({ showPlaylists = false })
                         libraryShowAll != null && detail == null -> ({ libraryShowAll = null })
                         showEqualizer -> ({ showEqualizer = false })
@@ -2290,6 +2318,7 @@ private fun ExtrumzApp(
                     // the key switch kept showing this page and the bar looked
                     // dead.
                     showPlaylists = false
+                    openPlaylistId = null
                     libraryShowAll = null
                     selectedTab = index
 

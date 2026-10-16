@@ -1163,4 +1163,12 @@
     <string name="playlists_create">Create</string>
     <string name="playlists_cancel">Cancel</string>
     <string name="playlists_delete_title">Delete playlist</string>
+    <string name="playlists_play">Play</string>
+    <string name="playlists_shuffle">Shuffle</string>
+    <string name="playlists_no_tracks">No songs yet</string>
+    <string name="playlists_no_tracks_hint">Open a song\u2019s menu and add it to this playlist.</string>
+    <string name="playlists_move_up">Move up</string>
+    <string name="playlists_move_down">Move down</string>
+    <string name="playlists_remove_track">Remove from playlist</string>
+    <string name="playlists_back_to_list">Back to playlists</string>
 </resources>

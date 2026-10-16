@@ -686,4 +686,12 @@
     <string name="playlists_create">ساخت</string>
     <string name="playlists_cancel">انصراف</string>
     <string name="playlists_delete_title">حذف پلی‌لیست</string>
+    <string name="playlists_play">پخش</string>
+    <string name="playlists_shuffle">تصادفی</string>
+    <string name="playlists_no_tracks">هنوز آهنگی ندارد</string>
+    <string name="playlists_no_tracks_hint">منوی یک آهنگ را باز کن و به این پلی‌لیست اضافه کن.</string>
+    <string name="playlists_move_up">یک پله بالا</string>
+    <string name="playlists_move_down">یک پله پایین</string>
+    <string name="playlists_remove_track">حذف از پلی‌لیست</string>
+    <string name="playlists_back_to_list">بازگشت به پلی‌لیست‌ها</string>
 </resources>
