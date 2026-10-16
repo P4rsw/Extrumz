@@ -7,6 +7,7 @@ import com.extrumz.app.data.db.dao.TrackDao
 import com.extrumz.app.data.db.entity.ChatSource
 import com.extrumz.app.data.db.entity.ChatType
 import com.extrumz.app.data.db.entity.Track
+import com.extrumz.app.data.db.entity.TrackSource
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.sync.Mutex
@@ -21,11 +22,51 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.joinAll
+import java.util.Collections
 import java.io.File
+
+/**
+ * Which of the four sub-systems the scan is inside right now.
+ *
+ * A scan is not one operation. It talks to TDLib's dialog list, then resolves
+ * candidate chats over the network, then paginates audio per chat, then
+ * finishes. Treating that as one flat counter is what left the screen reading
+ * "Attempt 4" while nothing at all was happening — the label counted a poll
+ * that finishes early and then never reset.
+ */
+enum class ScanStage {
+    IDLE,
+    /** TDLib is still pulling dialogs; the count is settling. */
+    SYNCING_DIALOGS,
+    /** Candidate chats are being resolved (audio search, contacts, profiles). */
+    RESOLVING_SOURCES,
+    /** Audio is being paginated per chat and indexed. */
+    INDEXING_TRACKS,
+    FINISHED,
+}
 
 data class ScanProgress(
     val isRunning: Boolean = false,
+    val stage: ScanStage = ScanStage.IDLE,
+    /** The stable chat count the dialog poll settled on, 0 until it does. */
+    val detectedChats: Int = 0,
+    /** Resolved candidates over total discovered — RESOLVING_SOURCES. */
+    val resolvedChats: Int = 0,
     val chatsScanned: Int = 0,
+    /**
+     * How far along the WALK actually is, 0f..1f, counting a chat's pages as
+     * it fetches them instead of only when it finishes.
+     *
+     * [chatsScanned] moves in steps because it only ticks on completion: a
+     * chat holding 2,000 tracks pages for ~20 network round trips and reports
+     * nothing at all during that time, so the counter freezes. The freeze is
+     * indistinguishable from a stall and it lands on the same values every
+     * scan, because the heavy chats are the same chats. This advances on
+     * every page, so the bar moves while the work is being done.
+     */
+    val workFraction: Float = 0f,
     val totalChats: Int = 0,
     val tracksIndexed: Int = 0,
     /** GetChats attempts spent waiting for dialogs to load (0 = not waiting). */
@@ -106,17 +147,50 @@ class LibraryScanner(
 
     // --- F7: one row per song ------------------------------------------------
 
-    /** Post-merge fingerprint: exactly what lands in the tracks row. */
-    private data class Fingerprint(val performer: String, val title: String, val duration: Int)
+    /**
+     * The dedupe key, delegated to [TrackFingerprinter] so both this file's
+     * insert-time check and its whole-table pass agree on what counts as the
+     * same song. See that object for why the raw strings were not enough.
+     */
+    private typealias Fingerprint = TrackFingerprinter.Fingerprint
 
     @Volatile
+    /** Convergence runs once per process; see [convergeLeftoverDuplicates]. */
+    private var convergedOnce = false
+
     private var fingerprintIndex: MutableMap<Fingerprint, String>? = null
 
     /** Serializes fp → keeper decisions: six chats scan in parallel. */
     private val fingerprintLock = Mutex()
 
-    private fun fingerprintOf(track: Track) =
-        Fingerprint(track.performer.lowercase(), track.title.lowercase(), track.duration)
+    /**
+     * In-flight work in thousandths of a chat, so the running total stays an
+     * integer and needs no lock. Completed chats add 1000 outright; a chat
+     * mid-walk adds its page fraction and then the remainder when it settles.
+     * Monotonic by construction: every contribution is positive and none is
+     * ever subtracted, so the bar cannot travel backwards.
+     */
+    private val workMilli = java.util.concurrent.atomic.AtomicLong(0)
+
+    /** Chats this scan intends to walk; the denominator for [workFraction]. */
+    private var scanChatTotal = 0
+
+    /**
+     * Publish [ScanProgress.workFraction]. Called on every page and on every
+     * completion, so the value moves continuously instead of in steps.
+     */
+    private fun publishWork() {
+        val total = scanChatTotal
+        if (total <= 0) return
+        val fraction = (workMilli.get() / 1000f) / total
+        _progress.update { it.copy(workFraction = fraction.coerceIn(0f, 1f)) }
+    }
+
+    private fun fingerprintOf(track: Track): Fingerprint =
+        TrackFingerprinter.fingerprintOf(track)
+
+    private fun fingerprintOf(row: com.extrumz.app.data.db.dao.FingerprintRow): Fingerprint =
+        TrackFingerprinter.fingerprintOf(row.performer, row.title, row.duration)
 
     /**
      * One whole-table load per process: collapses every pre-existing
@@ -132,13 +206,30 @@ class LibraryScanner(
      */
     private suspend fun fingerprintIndex(): MutableMap<Fingerprint, String> {
         fingerprintIndex?.let { return it }
-        val rows = trackDao.loadAllTracks()
-        val index = HashMap<Fingerprint, String>(rows.size)
+        // Light projection first: this holds the whole library in memory for
+        // the session, and the full row carries lyrics/caption/tags that never
+        // reach the key. Every install after the first merge finds groups of
+        // one here and pays nothing.
+        val light = trackDao.loadFingerprintRows()
+        val grouped = light.groupBy { TrackFingerprinter.fingerprintOf(it.performer, it.title, it.duration) }
+        val index = HashMap<Fingerprint, String>(light.size)
+        val duplicatedIds = mutableListOf<String>()
+        for ((fp, group) in grouped) {
+            val ordered = group.sortedBy { it.fileUniqueId }
+            index[fp] = ordered.first().fileUniqueId
+            if (ordered.size > 1) duplicatedIds += group.map { it.fileUniqueId }
+        }
+        if (duplicatedIds.isEmpty()) {
+            return index.also { fingerprintIndex = it }
+        }
+        // Only now touch the heavy columns, and only for the rows that need it.
+        val heavy = trackDao.getForMerge(duplicatedIds).groupBy {
+            TrackFingerprinter.fingerprintOf(it.performer, it.title, it.duration)
+        }
         val losers = mutableListOf<String>()
-        for ((fp, group) in rows.groupBy(::fingerprintOf)) {
+        for ((fp, group) in heavy) {
             val ordered = group.sortedBy { it.fileUniqueId }
             val winner = ordered.first()
-            index[fp] = winner.fileUniqueId
             if (ordered.size == 1) continue
             val collapsed = ordered.drop(1)
             losers += collapsed.map { it.fileUniqueId }
@@ -148,8 +239,11 @@ class LibraryScanner(
                     isFavorite = ordered.any { it.isFavorite },
                     playCount = ordered.sumOf { it.playCount },
                     lastPlayed = ordered.mapNotNull { it.lastPlayed }.maxOrNull(),
+                    mediaAlbumId = winner.mediaAlbumId
+                        ?: ordered.mapNotNull { it.mediaAlbumId }.firstOrNull(),
                 ),
             )
+            index[fp] = winner.fileUniqueId
         }
         if (losers.isNotEmpty()) {
             trackDao.deleteByFileUniqueIds(losers)
@@ -158,44 +252,137 @@ class LibraryScanner(
         return index.also { fingerprintIndex = it }
     }
 
+    /**
+     * Collapse what the inline pass could not see.
+     *
+     * batchIndex folds every duplicate it is shown, in RAM, on the way in.
+     * Two things still escape it: rows written before the fingerprint index
+     * existed, and a keeper chosen before a better copy of the same song
+     * arrived. Measuring first is the whole point — on a library with no
+     * collisions this costs one COUNT inside SQLite and nothing else, instead
+     * of the whole-table load it used to pay unconditionally. When there is
+     * something to do, the index is simply dropped and rebuilt, which reuses
+     * the same merge path rather than a second implementation of it.
+     */
+    private suspend fun convergeLeftoverDuplicates() {
+        // Once per process, not once per scan: the index is already folded by
+        // then and the second run finds groups of one and writes nothing.
+        //
+        // The obvious gate was a SQL count over (performer, title, duration),
+        // and it is wrong in a way that cost me a whole test run: F7 compares
+        // NORMALIZED fingerprints, so "A & B", "A,B" and "a & b" are one song
+        // to it and three different strings to SQLite. The query answered 0
+        // while a duplicate group was sitting in the table. Only the
+        // fingerprint can see that pair, and computing it needs the rows — so
+        // the honest fix is to bound the work instead of pre-judging it.
+        if (convergedOnce) return
+        convergedOnce = true
+        if (fingerprintIndex == null) return
+        _progress.update { it.copy(stage = ScanStage.INDEXING_TRACKS) }
+        TrackLog.w(TAG, "F7: post-scan convergence pass")
+        fingerprintIndex = null
+        fingerprintIndex()
+    }
+
     suspend fun fullScan() {
         // F7: collapse pre-existing duplicates even when every chat is already
         // scanned to the latest message (batchIndex never runs then).
         fingerprintIndex()
         if (!scanGate.compareAndSet(false, true)) return
-        _progress.value = ScanProgress(isRunning = true)
+        // Heaviest first. getTrackedOnce() has no ORDER BY, so the shelf used
+        // to arrive in whatever order SQLite happened to return rows — and the
+        // first SCAN_PARALLEL_CHATS permits went to whichever chats landed at
+        // the front. On a real account the music is concentrated in a handful
+        // of heavy channels, so an arbitrary order could hand all six permits
+        // to chats with nothing in them and leave the library looking empty
+        // while the work was already done. Sorting by trackCount makes the
+        // first pages produce tracks immediately, and the light chats — most
+        // of them settled at -1 and one page each — cost almost nothing at the
+        // end. Cheap rows are paid last, not first.
+        val shelf = chatDao.getTrackedOnce()
+            .filter { it.isTracked }
+            .sortedByDescending { it.trackCount }
+        val hasShelf = shelf.isNotEmpty()
+        _progress.value = ScanProgress(
+            isRunning = true,
+            stage = if (hasShelf) ScanStage.INDEXING_TRACKS else ScanStage.SYNCING_DIALOGS,
+            totalChats = shelf.size,
+            attempts = 0,
+        )
         try {
-            // Right after Ready, TDLib is still pulling dialogs through the
-            // proxy ("Save chat to database…" for minutes on a big account):
-            // GetChats answers 0 there, and without the wait this scan would
-            // end in silence with an empty list and no banner.
-            val chats = awaitCandidateChats()
-            if (chats.isEmpty()) {
-                // lastError is what the tabs surface as the failure line — a
-                // silent zero here is what made the first-run auto-scan look
-                // like it had never run.
-                val reason = "no candidate chats after ${CHATS_LOAD_TIMEOUT_MS}ms"
-                _progress.value = ScanProgress(
-                    lastError = reason,
-                    lastErrorDetail = reason,
-                )
-                return
-            }
-            _progress.update { it.copy(totalChats = chats.size) }
+            val seenChatIds = Collections.synchronizedSet(shelf.map { it.chatId }.toHashSet())
+        // Denominator for the fractional bar: every chat this scan will walk.
+        // Grown as discovery finds more, and the numerator grows with it —
+        // both sides move, so the ratio stays honest.
+        scanChatTotal = shelf.size
+        workMilli.set(0L)
+            val channel = Channel<ChatInfo>(Channel.UNLIMITED)
+            shelf.forEach { channel.trySend(it.asChatInfo()) }
 
-            // Chats scan concurrently (bounded by the semaphore) but are
-            // LAUNCHED in list order: GetChats answers newest-dialogs-first, so
-            // the chats the user is most likely to open claim the first
-            // permits. A failure stays inside its own chat (scanOneChat).
-            val semaphore = Semaphore(SCAN_PARALLEL_CHATS)
+            // No Semaphore here: launching exactly SCAN_PARALLEL_CHATS workers
+            // that each take one of SCAN_PARALLEL_CHATS permits bounds nothing
+            // a second time — the worker count already IS the bound, and the
+            // semaphore only added a second suspend/resume on every chat.
             coroutineScope {
-                chats.forEach { info ->
+                val workers = List(SCAN_PARALLEL_CHATS) {
                     launch {
-                        semaphore.withPermit { scanOneChat(info) }
+                        for (chat in channel) scanOneChat(chat)
                     }
                 }
+                launch {
+                    val candidates = awaitCandidateChats()
+                    // Channels and supergroups first, private chats last. On a
+            // from-zero scan every trackCount is 0, so the shelf sort above
+            // cannot rank anything — and discovery hands these over in
+            // Main-list order, which is RECENCY: the chats a user talks in
+            // most sit at the front and hold no music, while the archive
+            // channels holding thousands of tracks sit at the back. A chat
+            // type is the only heavy-signal available before the first page,
+            // and it is a real one: channels carry the libraries, DMs almost
+            // never do.
+            val fresh = candidates
+                .filter { seenChatIds.add(it.chatId) }
+                .sortedByDescending { it.isChannel || it.isGroup }
+            // Grow the denominator WITH the numerator. On a fresh install the
+            // shelf is empty, so scanChatTotal starts at 0 and every
+            // publishWork() returns early — the fraction would sit at 0f for
+            // the entire first run. totalChats was grown here but this was
+            // not, and that gap only shows on the one path a warm rescan
+            // never takes.
+            scanChatTotal += fresh.size
+                    if (fresh.isNotEmpty()) {
+                        _progress.update {
+                            it.copy(
+                                stage = ScanStage.INDEXING_TRACKS,
+                                totalChats = it.totalChats + fresh.size,
+                                attempts = 0,
+                            )
+                        }
+                        fresh.forEach { channel.send(it) }
+                    }
+                    if (shelf.isEmpty() && fresh.isEmpty()) {
+                        val reason = "no candidate chats after ${CHATS_LOAD_TIMEOUT_MS}ms"
+                        _progress.update {
+                            it.copy(
+                                lastError = reason,
+                                lastErrorDetail = reason,
+                                attempts = 0,
+                            )
+                        }
+                    }
+                    channel.close()
+                }
+                workers.joinAll()
             }
-            _progress.update { it.copy(isRunning = false) }
+            if (shelf.isNotEmpty() || seenChatIds.isNotEmpty()) {
+                convergeLeftoverDuplicates()
+            }
+            _progress.update {
+                it.copy(
+                    isRunning = false,
+                    stage = if (shelf.isEmpty() && seenChatIds.isEmpty()) ScanStage.IDLE else ScanStage.FINISHED,
+                )
+            }
         } catch (e: Exception) {
             // Cancelling the scan (scope shutdown) is not a scan failure and
             // must not be swallowed into lastError.
@@ -232,24 +419,46 @@ class LibraryScanner(
      *
      * Quietly gives up the whole pass if a user-started scan owns the gate.
      */
+    /**
+     * Clear a finished scan's failure line.
+     *
+     * The banner had no way out: once a scan failed, the red line sat on the
+     * screen until the NEXT scan happened to overwrite it, so a failure from a
+     * week ago was still being reported. Nothing else writes lastError, so
+     * clearing it here cannot race a live scan.
+     */
+    fun dismissError() {
+        _progress.update { if (it.lastError == null) it else it.copy(lastError = null, lastErrorDetail = null) }
+    }
+
     suspend fun quietRepass() {
         for (delayMs in QUIET_REPASS_DELAYS_MS) {
+            // Cheap Room check: if no tracked chat is left at boundary 0,
+            // there is nothing to retry — exit immediately without delaying or scanning.
+            val unscannedInitial = chatDao.getTrackedOnce()
+                .filter { it.lastScannedMessageId == 0L }
+                .map { it.chatId }
+                .toHashSet()
+            if (unscannedInitial.isEmpty()) return
+
             delay(delayMs)
             // A scan started meanwhile owns the candidates; retrying now would race it.
             if (!scanGate.compareAndSet(false, true)) return
             try {
-                val candidates = withShelfExtras(client.listTrackedCandidateChats())
-                if (candidates.isEmpty()) continue
                 val unscanned = chatDao.getTrackedOnce()
                     .filter { it.lastScannedMessageId == 0L }
                     .map { it.chatId }
                     .toHashSet()
+                if (unscanned.isEmpty()) return
+
+                val candidates = withShelfExtras(client.listTrackedCandidateChats())
+                if (candidates.isEmpty()) continue
                 val targets = candidates.filter { it.chatId in unscanned }
                 if (targets.isEmpty()) return
                 val semaphore = Semaphore(SCAN_PARALLEL_CHATS)
                 coroutineScope {
                     targets.forEach { info ->
-                        launch { semaphore.withPermit { scanOneChat(info) } }
+                        launch { semaphore.withPermit { scanOneChat(info, settleEmpty = true) } }
                     }
                 }
                 TrackLog.d(TAG, "quiet re-pass: retried ${targets.size} unscanned candidates")
@@ -269,41 +478,52 @@ class LibraryScanner(
      * toward [ScanProgress.chatsScanned] so progress always reaches
      * [ScanProgress.totalChats]. Only cancellation escapes to cancel the run.
      */
-    private suspend fun scanOneChat(info: ChatInfo) {
+    private suspend fun scanOneChat(info: ChatInfo, settleEmpty: Boolean = false) {
         try {
+            val existing = chatDao.getById(info.chatId)
+            // Honour the user's choice at the door. Discovery answers whether a
+            // chat EXISTS, not whether it should be scanned — and the row's own
+            // cursor is the resume boundary, read-only here.
+            if (existing != null && !existing.isTracked) {
+                TrackLog.d(TAG, "chat ${info.chatId} untracked — skipping")
+                return
+            }
+            // The row write stays, but it PASSES every field it does not own.
+            // Dropping it broke the resume boundary: updateScanProgress below
+            // is an UPDATE, and an UPDATE against no row silently does
+            // nothing. What made the old form dangerous was the fields it left
+            // out — REPLACE rewrote them to the entity defaults, wiping
+            // discoveredAt/lastSeenAt and forcing isTracked = true. Named
+            // explicitly, the upsert creates a missing row and otherwise only
+            // refreshes identity.
             val type = when {
                 info.isChannel -> ChatType.CHANNEL
                 info.isGroup -> ChatType.SUPERGROUP
                 else -> ChatType.PRIVATE
             }
-            val existing = chatDao.getById(info.chatId)
-            // F8: preserve any HQ photoUrl the row already carries (covers/hq_*).
-            // GetChats only returns inline minithumbnail; upsert(REPLACE) would
-            // clobber the full-size avatar we downloaded earlier.
-            val preservedPhotoUrl = existing?.photoUrl?.takeIf {
-                it.isNotBlank() && it.contains(Covers.HQ_PREFIX)
-            } ?: info.photoUrl?.takeIf { it.isNotBlank() }
-                ?: existing?.photoUrl
             chatDao.upsert(
                 ChatSource(
                     chatId = info.chatId,
                     title = info.title,
                     username = info.username,
-                    photoUrl = preservedPhotoUrl,
+                    photoUrl = preservedAvatar(existing, info),
                     type = type,
-                    isTracked = true,
-                    // REPLACE must not wipe the resume boundary or the shelf's
-                    // track count — a zeroed count hides the channel from
-                    // observeAllByTrackCount until this scan finishes.
+                    isTracked = existing?.isTracked ?: true,
                     lastScannedMessageId = existing?.lastScannedMessageId ?: 0L,
-                    trackCount = existing?.trackCount ?: 0
-                )
+                    trackCount = existing?.trackCount ?: 0,
+                    // A row created here is new, so its discovery time is
+                    // NOW — not 1970. Only a row that already existed keeps
+                    // the baseline the migration seeded.
+                    discoveredAt = existing?.discoveredAt ?: timeSource(),
+                    lastSeenAt = existing?.lastSeenAt ?: timeSource(),
+                ),
             )
             scanChat(
                 chatId = info.chatId,
                 fromMessageId = 0L,
                 full = true,
                 stopBefore = existing?.lastScannedMessageId ?: 0L,
+                settleEmpty = settleEmpty,
             )
         } catch (e: CancellationException) {
             throw e
@@ -431,30 +651,94 @@ class LibraryScanner(
      * id set only. Asking for the full listing each round would repeat the
      * per-chat GetChat that dominates its cost, once per second.
      */
+    /**
+     * One scan's candidate set, in three steps that used to be one.
+     *
+     * 1. [discoverFromLists] asks TDLib what its chat lists hold right now —
+     *    the only way to see a chat joined since the last run.
+     * 2. [ingest] writes that into Room, stamping `discoveredAt` once and
+     *    `lastSeenAt` on every pass, so discovery contributes evidence rather
+     *    than authority.
+     * 3. [withShelfExtras] unions the result with EVERY tracked row, built
+     *    from the stored row rather than re-fetched — which is both what makes
+     *    a chat survive a list that forgot it, and what keeps the per-scan cost
+     *    off the GetChat path for chats nothing has changed.
+     */
     private suspend fun awaitCandidateChats(): List<ChatInfo> {
+        // The dialog poll is done; the network resolution is what the user is
+        // waiting on now. The stage existed but was never published anywhere,
+        // so the banner could not tell the two apart.
+        _progress.update { it.copy(stage = ScanStage.RESOLVING_SOURCES) }
+        val discovered = discoverFromLists()
+        // How many candidates discovery actually resolved — the number a user
+        // can watch while this phase runs.
+        _progress.update { it.copy(resolvedChats = discovered.size) }
+        ingest(discovered)
+        return withShelfExtras(discovered)
+    }
+
+    /**
+     * The polling wait: TDLib answers 0 while it is still pulling dialogs, and
+     * a scan started against that would end in silence. Polls the cheap count
+     * until it holds still, then takes the real listing once.
+     *
+     * When the count is 0 the real listing is asked instead: only it can fail,
+     * and its failure is what the error banner exists to show — polling the
+     * cheap count around a broken listing would burn the whole timeout with
+     * nothing reaching the UI.
+     */
+    private suspend fun discoverFromLists(): List<ChatInfo> {
         val deadline = timeSource() + CHATS_LOAD_TIMEOUT_MS
         var attempt = 0
         var lastCount = -1
         var stable = 0
+        // NOTE: an earlier version compared countCandidateChatIds() against
+        // chatDao.getTrackedOnce().size here, and it could never fire:
+        // countCandidateChatIds() reads Main+Archive only (~240 on this
+        // account) while Room holds the merged total from lists + folders +
+        // contacts + audio (~287). 240 >= 287 is false on every launch. The
+        // comparison has to be against the same universe it measures, so it
+        // is left out until Room records where each chat came from.
         while (true) {
             attempt++
             // Published so the banners can show "attempt N" during the wait —
             // two minutes with no visible change reads as a hang.
-            _progress.update { it.copy(attempts = attempt) }
+            _progress.update {
+                if (it.stage == ScanStage.SYNCING_DIALOGS) {
+                    it.copy(attempts = attempt)
+                } else {
+                    it
+                }
+            }
             val count = client.countCandidateChatIds()
-            if (count > 0 && count == lastCount) stable++ else stable = 0
+            if (count == 0) {
+                return client.listTrackedCandidateChats()
+            }
+            if (count == lastCount) stable++ else stable = 0
             lastCount = count
+            // One honest number per poll instead of a bare attempt counter.
+            // The old label kept its last value forever, so "Attempt 4" stayed
+            // on screen long after the poll had finished.
+            _progress.update {
+                if (it.stage == ScanStage.SYNCING_DIALOGS) {
+                    it.copy(attempts = attempt, detectedChats = count)
+                } else {
+                    it.copy(detectedChats = count)
+                }
+            }
+            // Two matching samples after an ACTIVE loadChatList pump: the
+            // pump itself reports 404 once TDLib has surfaced everything it
+            // holds, so two seconds of zero growth under an active pump is
+            // evidence, not a guess. The third only cost another full second.
             if (stable >= CHATS_STABLE_POLLS) {
                 if (attempt > CHATS_STABLE_POLLS) {
                     TrackLog.d(TAG, "candidate chats settled at $count after $attempt attempts")
                 }
-                return withShelfExtras(client.listTrackedCandidateChats())
+                return client.listTrackedCandidateChats()
             }
             if (timeSource() >= deadline) {
                 TrackLog.w(TAG, "candidate chats never settled ($count after $attempt attempts)")
-                return withShelfExtras(
-                    if (count > 0) client.listTrackedCandidateChats() else emptyList(),
-                )
+                return client.listTrackedCandidateChats()
             }
             TrackLog.d(
                 TAG,
@@ -464,6 +748,28 @@ class LibraryScanner(
             delay(CHATS_RETRY_DELAY_MS)
         }
     }
+
+    /**
+     * Writes what discovery just saw into Room.
+     *
+     * Discovery answers with whatever its lists hold THIS pass, and on this
+     * account that set is provably incomplete — TDLib reports its lists
+     * complete while returning well under the account's real chat count. Left
+     * unrecorded, a chat absent from one pass is absent from every later one.
+     * Room becomes the memory: `discoveredAt` is written once and never moves,
+     * `lastSeenAt` tracks freshness, and everything the row already owns (scan
+     * cursor, track count, the user's tracked flag) is preserved.
+     */
+    private suspend fun ingest(discovered: List<ChatInfo>) {
+        if (discovered.isEmpty()) return
+        val now = timeSource()
+        val written = chatDao.ingestDiscovered(discovered.map { it.asDiscovered(now) }, now)
+        if (written > 0) {
+            TrackLog.d(TAG, "ingest: $written of ${discovered.size} discovered rows changed")
+        }
+    }
+
+
 
     /**
      * Candidate set for one pass: whatever the main chat list reports, plus
@@ -504,12 +810,24 @@ class LibraryScanner(
                     unreachableIds += row.chatId
                     continue
                 }
-                val needsRepair = !row.isTracked || row.lastScannedMessageId != 0L
-                if (needsRepair || row.photoUrl.isNullOrBlank() && !info.photoUrl.isNullOrBlank()) {
+                // Only a real defect triggers repair. `lastScannedMessageId != 0`
+                // used to count as one, which meant every pass reset a healthy
+                // orphan's cursor to 0 and rescanned its WHOLE history — an
+                // unlisted chat with music was never caught up, only replayed.
+                // A scanned cursor is a record, not a fault.
+                // Avatar ONLY. The old `!row.isTracked` branch force-retracked
+                // an unlisted chat on every pass, which made the UI's untrack
+                // button a no-op for exactly the chats it was pressed on. The
+                // 10-07 bug that motivated it ("Chat not found" marking live
+                // channels untracked) is fixed at the source now, and
+                // scanOneChat skips untracked rows — consent wins everywhere.
+                val needsAvatar = row.photoUrl.isNullOrBlank() && !info.photoUrl.isNullOrBlank()
+                if (needsAvatar) {
                     chatDao.upsert(
                         row.copy(
-                            isTracked = true,
-                            lastScannedMessageId = 0L,
+                            // The resume boundary is preserved: repair fixes a
+                            // missing avatar or an untracked row, never the
+                            // cursor.
                             photoUrl = if (row.photoUrl.isNullOrBlank()) {
                                 info.photoUrl ?: row.photoUrl
                             } else {
@@ -572,14 +890,38 @@ class LibraryScanner(
                 }
             }
         }
+        // EVERY tracked row outside this pass's lists, not only the ones that
+        // have never been scanned. The old `lastScannedMessageId == 0L` gate
+        // meant a chat that HAD been scanned and then dropped out of TDLib's
+        // lists was never offered as a candidate again — no rescan, no cover
+        // refill, no playback refresh, and a row that quietly decayed forever.
+        // Discovery deciding what exists is not the same as it deciding what
+        // is still worth scanning: the row itself is the memory.
+        // Built from the stored row (asChatInfo), so this costs a query, not
+        // one GetChat per candidate.
         val extras = chatDao.getTrackedOnce()
-            .filter { it.lastScannedMessageId == 0L && it.chatId !in known }
+            .filter { it.isTracked && it.chatId !in known }
         if (extras.isEmpty()) return slice
         TrackLog.d(TAG, "candidates: +${extras.size} tracked chats outside the main list")
         return slice + extras.map { it.asChatInfo() }
     }
 
     /** The shelf's own row, shaped for a pass — the main list never has these. */
+    /** A discovery answer as a row to be stamped, before Room decides its history. */
+    private fun ChatInfo.asDiscovered(now: Long) = ChatSource(
+        chatId = chatId,
+        title = title,
+        username = username,
+        photoUrl = photoUrl,
+        type = when {
+            isChannel -> ChatType.CHANNEL
+            isGroup -> ChatType.SUPERGROUP
+            else -> ChatType.PRIVATE
+        },
+        discoveredAt = 0L,
+        lastSeenAt = now,
+    )
+
     private fun ChatSource.asChatInfo() = ChatInfo(
         chatId = chatId,
         title = title,
@@ -634,34 +976,52 @@ class LibraryScanner(
             trackDao.getByIds(audios.map { it.uniqueFileId }).associateBy { it.fileUniqueId }
         val toInsert = mutableListOf<Track>()
         val toUpdate = mutableListOf<Track>()
+        val toSources = mutableListOf<TrackSource>()
         val index = fingerprintIndex()
         var reposts = 0
+
+        // Every occurrence records where it was seen, win or lose. This used
+        // to happen only for rows that became tracks, so the loser of a dedupe
+        // carried its chat association to the grave with it — which is how a
+        // song found in a bot chat disappeared from that chat's filter while
+        // still listing in the main library. The chat now survives the merge.
+        fun sourceFor(trackFileUniqueId: String, audio: RemoteAudio) = TrackSource(
+            trackFileUniqueId = trackFileUniqueId,
+            chatId = audio.chatId,
+            messageId = audio.messageId,
+            fileId = audio.remoteFileId,
+            dateAdded = audio.dateSeconds * 1000L,
+        )
+
         for (audio in audios) {
             val existing = existingById[audio.uniqueFileId]
             val merged = MetadataMerger.merge(audio, now, existing = existing)
             if (existing != null) {
                 toUpdate += merged
+                toSources += sourceFor(merged.fileUniqueId, audio)
                 fingerprintLock.withLock { index[fingerprintOf(merged)] = merged.fileUniqueId }
                 continue
             }
             val fp = fingerprintOf(merged)
-            val held = fingerprintLock.withLock {
-                val keeper = index[fp]
-                if (keeper == null || keeper == merged.fileUniqueId) {
+            val keeper = fingerprintLock.withLock {
+                val held = index[fp]
+                if (held == null || held == merged.fileUniqueId) {
                     index[fp] = merged.fileUniqueId
-                    true
+                    null
                 } else {
-                    false
+                    held
                 }
             }
-            if (!held) {
-                // F7: same song, different file id — a repost. Dropped at the
-                // door so a rescan can never grow the duplicate set again. The
-                // locked reserve makes six parallel chats agree on one owner.
+            if (keeper != null) {
+                // F7: same song, different file id — a repost. No new track row,
+                // but THIS chat's copy is still recorded, pointed at the keeper.
+                // The locked reserve makes six parallel chats agree on one owner.
+                toSources += sourceFor(keeper, audio)
                 reposts++
                 continue
             }
             toInsert += merged
+            toSources += sourceFor(merged.fileUniqueId, audio)
         }
         var inserted = 0
         if (toInsert.isNotEmpty()) {
@@ -670,11 +1030,33 @@ class LibraryScanner(
             inserted = trackDao.insertAll(toInsert).count { it != -1L }
         }
         if (toUpdate.isNotEmpty()) trackDao.updateAll(toUpdate)
+        // Written after the tracks so the foreign key has something to point
+        // at, and filtered to ids that actually exist: the fingerprint index
+        // can outlive a row deleted outside the scanner, and a source row for
+        // a missing track would abort the whole batch.
+        if (toSources.isNotEmpty()) {
+            val known = trackDao
+                .getByIds(toSources.map { it.trackFileUniqueId }.distinct())
+                .map { it.fileUniqueId }
+                .toHashSet()
+            val writable = toSources.filter { it.trackFileUniqueId in known }
+            if (writable.size != toSources.size) {
+                TrackLog.w(
+                    TAG,
+                    "F7: ${toSources.size - writable.size} sources skipped (keeper no longer exists)",
+                )
+            }
+            if (writable.isNotEmpty()) trackDao.insertSources(writable)
+        }
         if (inserted > 0) {
             _progress.update { it.copy(tracksIndexed = it.tracksIndexed + inserted) }
         }
         if (reposts > 0) {
-            TrackLog.d(TAG, "F7: dropped $reposts reposts in this batch")
+            TrackLog.d(
+                TAG,
+                "F7: folded $reposts reposts onto their keepers, " +
+                    "keeping ${toSources.size - inserted} source rows",
+            )
         }
     }
 
@@ -689,22 +1071,65 @@ class LibraryScanner(
      * START at the boundary, which would collect only older messages (the
      * wrong direction for "what has arrived since").
      */
+    /**
+     * What avatar this chat should keep.
+     *
+     * Anything already on the row wins — it may be a full-size HQ cover or a
+     * local rescue file, and TDLib's inline minithumbnail is always the worse
+     * one. The row's value is only replaced when it has none.
+     */
+    private fun preservedAvatar(existing: ChatSource?, info: ChatInfo): String? =
+        existing?.photoUrl?.takeIf { it.isNotBlank() }
+            ?: info.photoUrl?.takeIf { it.isNotBlank() }
+
     private suspend fun scanChat(
         chatId: Long,
         fromMessageId: Long,
         full: Boolean,
         stopBefore: Long = 0L,
+        settleEmpty: Boolean = false,
     ) {
+
+        val startedAt = timeSource()
+        TrackLog.d(TAG, "chat $chatId START")
         var cursor = fromMessageId
         var emptyPages = 0
         // Largest (most recent) message ID seen in this scan.
         var maxMessageId = fromMessageId
+        // Set only when the walk terminated at the end of history — the one
+        // signal that separates "I got to the bottom and there is nothing"
+        // from a page that merely came back empty.
+        var reachedHistoryEnd = false
+        // Tracks this chat has contributed so far, for its own fraction.
+        var indexedInChat = 0
+        // The last totalCount TDLib reported for this chat; used to settle the
+        // unit without needing the page value after the loop.
+        var lastTotalCount = 0
+        var pagesFetched = 0
         while (emptyPages < 2) {
+            pagesFetched++
+            val pageAt = timeSource()
             val page = client.getChatAudio(chatId, cursor, limit = TelegramConfig.DEFAULT_PAGE_LIMIT)
+            TrackLog.d(
+                TAG,
+                "chat $chatId page: got=${page.audios.size} total=${page.totalCount} " +
+                    "took=${timeSource() - pageAt}ms cursor=$cursor",
+            )
             if (page.audios.isEmpty()) {
                 emptyPages++
-                if (page.nextFromMessageId == 0L || page.nextFromMessageId == cursor) break
+                if (page.nextFromMessageId == 0L || page.nextFromMessageId == cursor) {
+                    // The walk ended on an empty page: this is the end of the
+                    // chat's history as far as TDLib is willing to serve it.
+                    reachedHistoryEnd = true
+                    break
+                }
                 if (page.nextFromMessageId in 1..stopBefore) break
+                // A settled empty chat only needs a single page to answer "anything new?".
+                // If page 1 is empty, there is no new audio above its boundary: stop immediately.
+                if (stopBefore == SCAN_COMPLETE_NO_TRACKS) {
+                    reachedHistoryEnd = true
+                    break
+                }
                 if (emptyPages >= 2) break
                 cursor = page.nextFromMessageId
                 continue
@@ -715,24 +1140,97 @@ class LibraryScanner(
                 if (audio.messageId > maxMessageId) maxMessageId = audio.messageId
             }
             batchIndex(fresh)
+            // Charge this page's share of the chat as it lands. totalCount is
+            // what TDLib already reported for the whole chat on page 1, so a
+            // 2,000-track chat paging ten times moves the bar ten times.
+            lastTotalCount = page.totalCount
+            if (page.totalCount > 0) {
+                val counted = indexedInChat.toLong() * 1000L / page.totalCount
+                indexedInChat += fresh.size
+                val now = indexedInChat.toLong() * 1000L / page.totalCount
+                if (now > counted) {
+                    workMilli.addAndGet(now - counted)
+                    publishWork()
+                }
+            }
             if (!full) break
             val next = page.nextFromMessageId
-            if (next == 0L || next == cursor) break
+            if (next == 0L || next == cursor) {
+                reachedHistoryEnd = true
+                break
+            }
             if (next in 1..stopBefore) break
             cursor = next
         }
         // Persist the highest boundary ever scanned — never lower it, so a
         // boundary kept through the upsert survives even a chat that ends up
         // contributing nothing new (empty, all-below, failed mid-way).
+        //
+        // A chat that genuinely holds no audio used to store 0 here, and 0 is
+        // also what an unscanned chat holds. The scanner could not tell "I
+        // looked and there is nothing" from "I have never looked", so it
+        // walked all 164 empty chats from message 0 on every single scan —
+        // the constant re-work behind the scan never getting faster. The
+        // sentinel separates the two states without inventing a column.
+        val boundary = when {
+            maxMessageId > 0L -> maxOf(stopBefore, maxMessageId)
+            // != 0, not > 0: a settled empty chat already holds -1 and must
+            // keep it. The old `> 0L` dropped it straight back to 0, so the
+            // very next scan re-walked it from message 0 — which is why the
+            // sentinel appeared to change nothing.
+            stopBefore != 0L -> stopBefore
+            // Only a walk that actually served a page and reached its end is
+            // settled. An empty page from a launch-time sync race stays at 0
+            // so the quiet re-pass can retry it — that retry is the fix for a
+            // real bug and must not be turned off by this one.
+            // Only the RE-PASS is allowed to settle. On the first pass an
+            // empty answer is indistinguishable from a launch-time sync
+            // race — identical bytes — so leaving it at 0 keeps the retry
+            // window that fixes a real bug. After the sync window has passed
+            // and it is STILL empty, the chat is genuinely empty.
+            settleEmpty && reachedHistoryEnd -> SCAN_COMPLETE_NO_TRACKS
+            // Not served: TDLib answered nothing for this chat, which on a
+            // launching account means the dialog had not synced yet. Leave it
+            // at 0 so the quiet re-pass finds it again.
+            else -> 0L
+        }
+        val count = trackDao.countForChat(chatId)
         chatDao.updateScanProgress(
             chatId = chatId,
-            messageId = maxOf(stopBefore, maxMessageId),
-            trackCount = trackDao.countForChat(chatId)
+            messageId = boundary,
+            trackCount = count,
         )
+        TrackLog.d(
+            TAG,
+            "scanned chat $chatId: boundary=$boundary, tracks=$count " +
+                "pages=${pagesFetched} in=${timeSource() - startedAt}ms",
+        )
+        // Settle this chat's unit exactly, once, whatever path it took. A chat
+        // that produced no audio never entered the per-page loop, and one that
+        // did can stop short of totalCount when its resume boundary already
+        // claimed the rest — either way the unit is owed in full, or the sum
+        // can never reach 1f and the bar stops short of 100%.
+        val earned = if (lastTotalCount > 0) {
+            (indexedInChat.toLong() * 1000L / lastTotalCount).coerceIn(0L, 1000L)
+        } else {
+            0L
+        }
+        workMilli.addAndGet(1000L - earned)
+        publishWork()
     }
 
     companion object {
         private const val TAG = "TelegramScan"
+
+        /**
+         * A chat that was walked to its end and holds no audio.
+         *
+         * Telegram message ids start at 1, so a negative value is a free slot
+         * for a second state. 0 keeps meaning "not scanned yet", which is what
+         * the resume boundary, the quiet re-pass and the candidate filter all
+         * read it as.
+         */
+        const val SCAN_COMPLETE_NO_TRACKS = -1L
 
         /** How long to wait for TDLib's dialogs to load before giving up. */
         private const val CHATS_LOAD_TIMEOUT_MS = 120_000L
@@ -745,7 +1243,19 @@ class LibraryScanner(
      * finished". Three seconds of stillness: the dialog pull runs in bursts,
      * so a single unchanged poll could still be a gap between them.
      */
-    private const val CHATS_STABLE_POLLS = 3
+    /**
+     * Matching polls required before discovery stops waiting.
+     *
+     * 2, not 3: the poll actively pumps `loadChatList()`, which answers 404
+     * once every dialog TDLib holds has been surfaced — so a second identical
+     * count means a full second of no growth under an active pump. The third
+     * sample bought nothing but another `delay(CHATS_RETRY_DELAY_MS)` on every
+     * launch, which is a full second of the dead air the user sees before a
+     * scan begins. 1 is not enough: a bursty connection can pause between two
+     * `messages.getDialogs` pages for over a second and fake stability while
+     * half the account is still unsurfaced.
+     */
+    private const val CHATS_STABLE_POLLS = 2
 
         /** Chats scanned at once by [fullScan] (approved range: 4–8). */
         private const val SCAN_PARALLEL_CHATS = 6

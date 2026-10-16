@@ -6,11 +6,13 @@ import com.extrumz.app.data.db.dao.ArtistCount
 import com.extrumz.app.data.db.dao.ArtistPlayCount
 import com.extrumz.app.data.db.dao.ChatDao
 import com.extrumz.app.data.db.dao.ChatTrackCount
+import com.extrumz.app.data.db.dao.FingerprintRow
 import com.extrumz.app.data.db.dao.MediaAlbumCount
 import com.extrumz.app.data.db.dao.TrackDao
 import com.extrumz.app.data.db.entity.ChatSource
 import com.extrumz.app.data.db.entity.ChatType
 import com.extrumz.app.data.db.entity.Track
+import com.extrumz.app.data.db.entity.TrackSource
 import com.extrumz.app.data.telegram.ChatInfo
 import com.extrumz.app.data.telegram.TelegramClientException
 import com.extrumz.app.data.telegram.LibraryScanner
@@ -62,6 +64,10 @@ class LibraryScannerSpeedTest {
 
         override fun observeTracked(): Flow<List<ChatSource>> = flowOf(rows.values.toList())
         override suspend fun getById(chatId: Long): ChatSource? = rows[chatId]
+        override suspend fun touchSeen(ids: List<Long>, now: Long) {
+            ids.forEach { id -> rows[id]?.let { rows[id] = it.copy(lastSeenAt = now) } }
+        }
+
         override suspend fun upsert(chat: ChatSource) {
             upsertCount++
             lastUpserted = chat
@@ -70,9 +76,18 @@ class LibraryScannerSpeedTest {
 
         override suspend fun upsertAll(chats: List<ChatSource>) = chats.forEach { upsert(it) }
         override suspend fun updateScanProgress(chatId: Long, messageId: Long, trackCount: Int) {
-            // Mirrors UPDATE ... WHERE chatId = :chatId — no row, no effect.
-            rows[chatId]?.let {
-                rows[chatId] = it.copy(lastScannedMessageId = messageId, trackCount = trackCount)
+            rows[chatId]?.let { current ->
+                val newId = when {
+                    messageId > 0 -> maxOf(current.lastScannedMessageId, messageId)
+                    messageId == -1L && current.lastScannedMessageId <= 0 -> -1L
+                    else -> current.lastScannedMessageId
+                }
+                val newCount = when {
+                    messageId > 0 -> trackCount
+                    messageId == -1L && current.lastScannedMessageId <= 0 -> 0
+                    else -> current.trackCount
+                }
+                rows[chatId] = current.copy(lastScannedMessageId = newId, trackCount = newCount)
             }
         }
 
@@ -99,12 +114,43 @@ class LibraryScannerSpeedTest {
 
     private class FakeTrackDao : TrackDao {
         val rows = linkedMapOf<String, Track>()
+        val sources = linkedSetOf<TrackSource>()
         var getByIdsCount = 0
         var getByIdCount = 0
         var insertAllCount = 0
         var insertCount = 0
         var updateCount = 0
         var ignoredCount = 0
+
+        override suspend fun insertSources(sources: List<TrackSource>) {
+            this.sources += sources
+        }
+
+        // Mirrors the SQL gate: rows whose (performer, title, duration) is
+        // shared with a lower file id. Clean libraries answer 0 here, which
+        // is what lets the convergence pass cost nothing on a normal scan.
+        override suspend fun countCollidedDuplicates(): Int =
+            rows.values
+                .groupBy { Triple(it.performer, it.title, it.duration) }
+                .values.count { group -> group.size > 1 }
+
+        // The light fingerprint projection: same rows, no heavy columns.
+        override suspend fun loadFingerprintRows(): List<FingerprintRow> =
+            rows.values.map {
+                FingerprintRow(
+                    fileUniqueId = it.fileUniqueId,
+                    performer = it.performer,
+                    title = it.title,
+                    duration = it.duration,
+                    isFavorite = it.isFavorite,
+                    playCount = it.playCount,
+                    lastPlayed = it.lastPlayed,
+                    mediaAlbumId = it.mediaAlbumId,
+                )
+            }
+
+        override suspend fun getForMerge(ids: List<String>): List<Track> =
+            ids.mapNotNull { rows[it] }
 
         override suspend fun getById(id: String): Track? {
             getByIdCount++
@@ -219,6 +265,8 @@ class LibraryScannerSpeedTest {
         private val listFailsWith: String? = null,
     ) : MusicTelegramClient {
         private val chats = chats
+
+        override suspend fun countCandidateChatIds(): Int = chats.size
         override val authState: StateFlow<TelegramAuthState> =
             MutableStateFlow(TelegramAuthState.Ready)
         override val connectionState: StateFlow<TelegramConnectionState> =
@@ -276,10 +324,15 @@ class LibraryScannerSpeedTest {
             return RemoteAudioPage(list.subList(start, end), next)
         }
 
+        var listTrackedCandidateChatsCount = 0
+            private set
+
         override suspend fun listTrackedCandidateChats(): List<ChatInfo> {
+            listTrackedCandidateChatsCount++
             listFailsWith?.let { error(it) }
             return chats
         }
+
 
         override suspend fun getChatInfo(chatId: Long): ChatInfo? =
             chats.firstOrNull { it.chatId == chatId }
@@ -376,7 +429,13 @@ class LibraryScannerSpeedTest {
         // The semaphore bound holds and the chats really did overlap.
         assertEquals(6, client.maxInFlight)
         assertEquals(ids, client.firstRequestOrder)
-        assertEquals(12, chats.upsertCount)
+        // 24, not 12: ingestDiscovered writes each newly found row (12), then
+        // scanOneChat writes it again carrying its own fields. That second
+        // write is load-bearing — updateScanProgress is an UPDATE and does
+        // nothing against a missing row — so it stays; what changed is that it
+        // now NAMES discoveredAt/lastSeenAt/isTracked instead of letting
+        // REPLACE reset them to the entity defaults.
+        assertEquals(24, chats.upsertCount)
         assertEquals(12, tracks.rows.size)
         assertEquals(12, progress.tracksIndexed)
     }
@@ -407,7 +466,8 @@ class LibraryScannerSpeedTest {
         assertEquals("boom 2", progress.lastErrorDetail)
         // The healthy chats made it in; the failing chat still upserted + counted.
         assertEquals(setOf(1L, 3L), tracks.rows.values.map { it.sourceChatId }.toSet())
-        assertEquals(3, chats.upsertCount)
+        // 6 = 3 discovered + 3 scanned; see the note on upsertCount above.
+        assertEquals(6, chats.upsertCount)
     }
 
     @Test
@@ -463,7 +523,12 @@ class LibraryScannerSpeedTest {
             scanner.fullScan()
 
             assertEquals(2, client.pageRequests.size)
-            assertEquals(2, tracks.getByIdsCount)
+            // Two batch lookups per page, not one: the first reads the page's
+            // own rows, the second confirms which keepers still exist before
+            // their source rows are written. Both are ONE query for the whole
+            // page — what this test guards against is the per-song path
+            // (getById / insert below), and neither count moved off the floor.
+            assertEquals(4, tracks.getByIdsCount)
             assertEquals(2, tracks.insertAllCount)
             // The scanner itself never drops to the per-song path.
             assertEquals(0, tracks.getByIdCount)
@@ -471,6 +536,42 @@ class LibraryScannerSpeedTest {
             assertEquals(150, tracks.rows.size)
             assertEquals(150, scanner.progress.value.tracksIndexed)
         }
+
+    /**
+     * The production bug this whole redesign exists for: the same song in two
+     * chats used to leave ONE track row and NO trace of the loser, so the
+     * second chat's filter lost the song forever while the main list kept it.
+     * A repost must now leave a source row pointing at the keeper.
+     */
+    @Test
+    fun `a repost folds into one track row but keeps BOTH chats as sources`() = runTest {
+        // The fixture builds title/performer/duration from messageId alone, so
+        // the SAME messageId in two chats is a same-song repost; uniqueId is
+        // what differs, exactly like a re-upload. Different chats give the two
+        // source rows distinct (chatId, messageId) keys.
+        val inChatOne = audio(1L, 10L, uniqueId = "file-a")
+        val inChatTwo = audio(2L, 10L, uniqueId = "file-b")
+        val client = FakeTelegramClient(
+            chats = listOf(chatInfo(1L), chatInfo(2L)),
+            messagesByChat = mutableMapOf(
+                1L to listOf(inChatOne),
+                2L to listOf(inChatTwo),
+            ),
+        )
+        val tracks = FakeTrackDao()
+        val scanner = LibraryScanner(client, tracks, FakeChatDao())
+
+        scanner.fullScan()
+
+        // One song, one row — F7 still does its job.
+        assertEquals(1, tracks.rows.size)
+        // ...but both homes survive, which is what the channel filter reads.
+        val homes = tracks.sources.map { it.chatId }.toSet()
+        assertEquals(setOf(1L, 2L), homes)
+        // The loser points at the keeper rather than at a row that never was.
+        val keeper = tracks.rows.values.first()
+        assertTrue(tracks.sources.all { it.trackFileUniqueId == keeper.fileUniqueId })
+    }
 
     @Test
     fun `the same file in two parallel chats lands as a single row`() = runTest {
@@ -683,10 +784,12 @@ class LibraryScannerSpeedTest {
         val scanner = LibraryScanner(client, FakeTrackDao(), FakeChatDao())
         scanner.fullScan()
         val requestsAfterScan = client.pageRequests.size
+        val candidateCallsAfterScan = client.listTrackedCandidateChatsCount
 
         scanner.quietRepass()
 
         assertEquals(requestsAfterScan, client.pageRequests.size)
+        assertEquals(candidateCallsAfterScan, client.listTrackedCandidateChatsCount)
         assertFalse(scanner.progress.value.isRunning)
     }
 
@@ -1055,8 +1158,98 @@ class LibraryScannerSpeedTest {
         assertEquals(inline, chats.rows[1L]!!.photoUrl)
     }
 
+    @Test
+    fun `quiet re-pass marks empty chat settled and subsequent fullScan preserves sentinel`() = runTest {
+        val client = FakeTelegramClient(
+            chats = listOf(chatInfo(1L), chatInfo(2L)),
+            messagesByChat = mutableMapOf(1L to descendingMessages(1L, 3)),
+        )
+        val chats = FakeChatDao()
+        val tracks = FakeTrackDao()
+        val scanner = LibraryScanner(client, tracks, chats)
+
+        scanner.fullScan()
+        // 1. First pass leaves empty chat at 0L (sync-race safety window)
+        assertEquals(0L, chats.rows[2L]!!.lastScannedMessageId)
+
+        // 2. Quiet re-pass runs with settleEmpty = true and settles it to -1L
+        scanner.quietRepass()
+        assertEquals(LibraryScanner.SCAN_COMPLETE_NO_TRACKS, chats.rows[2L]!!.lastScannedMessageId)
+
+        // 3. Subsequent fullScan: quiet settled chat costs exactly 1 page check (0 pages past boundary) and preserves -1L
+        val chat2RequestsBeforeFullScan = client.pageRequests.count { it.first == 2L }
+        scanner.fullScan()
+        assertEquals(LibraryScanner.SCAN_COMPLETE_NO_TRACKS, chats.rows[2L]!!.lastScannedMessageId)
+        assertEquals(chat2RequestsBeforeFullScan + 1, client.pageRequests.count { it.first == 2L })
+
+        // 4. Quiet re-pass skips chat 2 because lastScannedMessageId != 0L:
+        // Exits in 0ms without even calling listTrackedCandidateChats!
+        val chat2RequestsBeforeRepass = client.pageRequests.count { it.first == 2L }
+        val candidateCallsBeforeRepass = client.listTrackedCandidateChatsCount
+        scanner.quietRepass()
+        assertEquals(chat2RequestsBeforeRepass, client.pageRequests.count { it.first == 2L })
+        assertEquals(candidateCallsBeforeRepass, client.listTrackedCandidateChatsCount)
+
+        // 5. Settled chat receives new audio: picked up immediately, promotes boundary above -1L
+        client.setMessages(2L, listOf(audio(2L, 42L)))
+        val chat2RequestsBeforePickup = client.pageRequests.count { it.first == 2L }
+        scanner.fullScan()
+        assertEquals(42L, chats.rows[2L]!!.lastScannedMessageId)
+        assertEquals(1, chats.rows[2L]!!.trackCount)
+        assertEquals(1, tracks.countForChat(2L))
+        assertEquals(chat2RequestsBeforePickup + 1, client.pageRequests.count { it.first == 2L })
+    }
+
     private companion object {
         /** Simulated per-RPC latency; virtual time in runTest keeps it free. */
         const val RPC_DELAY_MS = 50L
+    }
+
+    /**
+     * The sentinel is only real if it survives a rescan, and only reachable if
+     * `settleEmpty` is actually passed. This is the test that fails when either
+     * rots: dropping the parameter leaves chat 2 at 0, and regressing
+     * `stopBefore != 0L` back to `> 0L` wipes -1 on the very next fullScan.
+     */
+    @Test
+    fun `updateScanProgress preserves sentinel and never lets 0 overwrite -1 or positive IDs`() = runTest {
+        val chats = FakeChatDao()
+        chats.upsert(
+            ChatSource(
+                chatId = 1L,
+                title = "Test",
+                username = null,
+                photoUrl = null,
+                type = com.extrumz.app.data.db.entity.ChatType.PRIVATE,
+                isTracked = true,
+                lastScannedMessageId = 0L,
+                trackCount = 0,
+            )
+        )
+
+        // 1. Settling to -1 succeeds from 0
+        chats.updateScanProgress(1L, LibraryScanner.SCAN_COMPLETE_NO_TRACKS, 0)
+        assertEquals(LibraryScanner.SCAN_COMPLETE_NO_TRACKS, chats.rows[1L]!!.lastScannedMessageId)
+
+        // 2. Stale write of 0 cannot overwrite -1
+        chats.updateScanProgress(1L, 0L, 0)
+        assertEquals(LibraryScanner.SCAN_COMPLETE_NO_TRACKS, chats.rows[1L]!!.lastScannedMessageId)
+
+        // 3. Positive track boundary upgrades -1
+        chats.updateScanProgress(1L, 500L, 10)
+        assertEquals(500L, chats.rows[1L]!!.lastScannedMessageId)
+        assertEquals(10, chats.rows[1L]!!.trackCount)
+
+        // 4. Stale write of 0 or -1 cannot overwrite positive boundary
+        chats.updateScanProgress(1L, 0L, 0)
+        assertEquals(500L, chats.rows[1L]!!.lastScannedMessageId)
+        chats.updateScanProgress(1L, -1L, 0)
+        assertEquals(500L, chats.rows[1L]!!.lastScannedMessageId)
+
+        // 5. Monotonic increase moves boundary forward, never backward
+        chats.updateScanProgress(1L, 600L, 12)
+        assertEquals(600L, chats.rows[1L]!!.lastScannedMessageId)
+        chats.updateScanProgress(1L, 400L, 12)
+        assertEquals(600L, chats.rows[1L]!!.lastScannedMessageId)
     }
 }

@@ -58,17 +58,20 @@ object TelegramAuthController {
                 // scanner guards and waits internally), so a silent death
                 // of the auto-scan can't repeat unnoticed.
                 TrackLog.d(TAG, "authorization ready; starting auto-scan")
-                runCatching {
-                    // Live indexing starts BEFORE the first scan: a message
-                    // arriving mid-scan is indexed now, not at the next pass.
-                    Telegram.scanner.startLiveIndexing(scope)
-                    Telegram.scanner.fullScan()
-                    // Silent second pass: the auto-scan races TDLib's dialog
-                    // sync, so the least-active chats answer empty and stay at
-                    // bound 0 launch after launch — nothing fails, nothing
-                    // logs. quietRepass retries them once the sync settles.
-                    Telegram.scanner.quietRepass()
-                }.onFailure { TrackLog.w(TAG, "auto-scan failed: ${it.message}") }
+                scanJob?.cancel()
+                scanJob = scope.launch {
+                    runCatching {
+                        // Live indexing starts BEFORE the first scan: a message
+                        // arriving mid-scan is indexed now, not at the next pass.
+                        Telegram.scanner.startLiveIndexing(scope)
+                        Telegram.scanner.fullScan()
+                        // Silent second pass: the auto-scan races TDLib's dialog
+                        // sync, so the least-active chats answer empty and stay at
+                        // bound 0 launch after launch — nothing fails, nothing
+                        // logs. quietRepass retries them once the sync settles.
+                        Telegram.scanner.quietRepass()
+                    }.onFailure { TrackLog.w(TAG, "auto-scan failed: ${it.message}") }
+                }
             },
         ).also { starter = it }
         scope.launch {
@@ -77,10 +80,14 @@ object TelegramAuthController {
         }
     }
 
+    @Volatile
+    private var scanJob: kotlinx.coroutines.Job? = null
+
     /** Kicks a full scan; no-op while one is already running (scanner guards itself). */
     fun startScan() {
         ensureStarted()
-        scope.launch {
+        scanJob?.cancel()
+        scanJob = scope.launch {
             runCatching {
                 Telegram.scanner.fullScan()
                 Telegram.scanner.quietRepass()

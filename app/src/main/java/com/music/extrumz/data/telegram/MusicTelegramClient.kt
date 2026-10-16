@@ -55,7 +55,18 @@ data class RemoteAudio(
 
 data class RemoteAudioPage(
     val audios: List<RemoteAudio>,
-    val nextFromMessageId: Long
+    val nextFromMessageId: Long,
+    /**
+     * TDLib's count of audio messages in this chat, known after page 1.
+     *
+     * The scan never had it: the page was built from messages and
+     * nextFromMessageId only, so the client could not tell a chat holding
+     * 2,000 tracks from one holding 2. That is why progress had to be
+     * counted in chats — a unit where a 15 ms chat and a 30 s chat weigh the
+     * same — and why the bar moved in steps. Reading it costs nothing; TDLib
+     * already sent it.
+     */
+    val totalCount: Int = 0,
 )
 
 data class ChatInfo(

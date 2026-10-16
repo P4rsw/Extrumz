@@ -13,17 +13,19 @@ import com.extrumz.app.data.db.entity.PlayHistory
 import com.extrumz.app.data.db.entity.Playlist
 import com.extrumz.app.data.db.entity.PlaylistTrack
 import com.extrumz.app.data.db.entity.Track
+import com.extrumz.app.data.db.entity.TrackSource
 
 @Database(
     entities = [
         Track::class,
+        TrackSource::class,
         ChatSource::class,
         Playlist::class,
         PlaylistTrack::class,
         PlayHistory::class,
         PendingOperation::class
     ],
-    version = 3,
+    version = 5,
     exportSchema = false
 )
 abstract class ExtrumzDatabase : RoomDatabase() {

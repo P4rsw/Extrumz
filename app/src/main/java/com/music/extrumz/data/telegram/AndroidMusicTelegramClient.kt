@@ -18,6 +18,17 @@ import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
 private const val TAG = "TelegramClient"
+/** Contacts resolved concurrently; capped because the server flood-controls this. */
+/**
+ * Contacts resolved concurrently.
+ *
+ * Back to 8. Lowering it to 2 was a mistake with a measurable cost: instead of
+ * a short burst that finishes, the lookups became a sustained drip that was
+ * still running when the scan workers started, keeping pressure on an already
+ * exhausted rate-limit bucket. Stalls went from ~135s to ~208s. Finishing the
+ * burst EARLY is what matters, not making it small.
+ */
+private const val CONTACT_PARALLEL = 8
 
 /**
  * [runCatching] catches [CancellationException] too — a cancelled cover
@@ -64,6 +75,15 @@ class AndroidMusicTelegramClient(
         if (client == null) {
             publishAuth(TelegramAuthState.Initializing)
             parametersSent = false
+            // Native TDLib log at verbosity 2. This is the only place that
+            // says WHY a query took 75 seconds: NetQueryDelayer swallows a
+            // 420 FLOOD_WAIT internally and retries, so the Java side sees
+            // only a slow call and never the reason. Grep TDLibNative.
+            runCatching {
+                Client.setLogMessageHandler(2) { _, message ->
+                    com.extrumz.app.data.TrackLog.w("TDLibNative", message)
+                }
+            }
             client = Client.create(
                 { update -> handleUpdate(update) },
                 { throwable ->
@@ -243,9 +263,12 @@ class AndroidMusicTelegramClient(
         limit: Int
     ): RemoteAudioPage {
         awaitReady()
-        if (fromMessageId == 0L) {
-            runCatching { send<TdApi.Ok>(TdApi.OpenChat(chatId)) }
-        }
+        // No OpenChat here. SearchChatMessages does not need the chat to be
+        // open, and the call was made but CloseChat never was: every chat this
+        // scan touched stayed "open" for TDLib's lifetime, keeping its sync
+        // handlers alive. It also fired in a burst of six at the start of
+        // every scan, on top of discovery's own traffic — the blast that
+        // Telegram answers with FLOOD_WAIT.
         val found = send(
             TdApi.SearchChatMessages(
                 chatId,
@@ -262,7 +285,8 @@ class AndroidMusicTelegramClient(
             audios = found.messages.mapNotNull { m ->
                 (m.content as? TdApi.MessageAudio)?.toRemoteAudio(m)
             },
-            nextFromMessageId = found.nextFromMessageId
+            nextFromMessageId = found.nextFromMessageId,
+            totalCount = found.totalCount,
         )
     }
 
@@ -301,12 +325,20 @@ class AndroidMusicTelegramClient(
     }
 
     /** Network-backed chat load by id: positive ids are users (private chats), negative are supergroups/channels. */
-    private suspend fun forceFetchChat(chatId: Long): TdApi.Chat =
-        if (chatId > 0) {
-            send(TdApi.CreatePrivateChat(chatId, false))
-        } else {
-            send(TdApi.CreateSupergroupChat(-1_000_000_000_000L - chatId, false))
-        }
+    private suspend fun forceFetchChat(chatId: Long): TdApi.Chat = when {
+        // Private: chatId IS the user id.
+        chatId > 0 -> send(TdApi.CreatePrivateChat(chatId, false))
+        // Supergroup/channel: chatId = -1_000_000_000_000 - supergroupId, so
+        // the id comes back by subtracting that marker. Driving it the other
+        // way ("-marker - chatId") gives the same answer ONLY for ids at or
+        // below the marker; a basic group's -123456789 lands in between and
+        // produces -999876543211, which CreateSupergroupChat rejects with
+        // SUPERGROUP_ID_INVALID — that is how 8 private groups went missing.
+        chatId <= -1_000_000_000_000L ->
+            send(TdApi.CreateSupergroupChat(-chatId - 1_000_000_000_000L, false))
+        // Basic group: chatId = -basicGroupId, no marker.
+        else -> send(TdApi.CreateBasicGroupChat(-chatId, false))
+    }
 
     /**
      * "This chat does not exist" versus any OTHER failure — only the former
@@ -392,6 +424,140 @@ class AndroidMusicTelegramClient(
         return mainIds.size + archiveIds.count { seen.add(it) }
     }
 
+    /**
+     * Session cache for the three list-free sources that actually cost a
+     * network round trip.
+     *
+     * Audio discovery walks up to 20 SearchMessages pages, GetContacts pulls
+     * every saved user, and each contact then costs a CreatePrivateChat (a
+     * users.getFullUser for anyone not already cached). Chat lists and
+     * GetChat are local reads and stay uncached — the whole point is to keep
+     * the cheap path cheap and stop repeating the expensive one on every scan
+     * of an unchanged account.
+     *
+     * A short TTL, not "once per process": a newly posted track or a newly
+     * saved contact should show up within minutes, and none of these answers
+     * is large enough to be worth invalidating early.
+     */
+    @Volatile private var slowSourcesAt = 0L
+    @Volatile private var cachedAudioChatIds: LongArray = longArrayOf()
+    @Volatile private var cachedContactIds: LongArray = longArrayOf()
+
+    private fun slowSourcesFresh(now: Long): Boolean = now - slowSourcesAt < TelegramConfig.SLOW_SOURCES_TTL_MS
+
+
+    /**
+     * Account-wide audio discovery, one round trip per page.
+     *
+     * Runs only when [slowSourcesFresh] says the session cache is stale — the
+     * caller decides, because this is the single most expensive thing the
+     * candidate pass does (up to 20 SearchMessages pages against the server).
+     */
+    private suspend fun fetchAudioChatIds(): Pair<List<Long>, Boolean> {
+        val ids = mutableListOf<Long>()
+        var offset = ""
+        var pages = 0
+        while (pages < TelegramConfig.AUDIO_DISCOVERY_PAGES) {
+            val found = runCatchingCancellable<TdApi.FoundMessages> {
+                send(
+                    TdApi.SearchMessages(
+                        null,
+                        "",
+                        offset,
+                        TelegramConfig.AUDIO_DISCOVERY_PAGE_SIZE,
+                        TdApi.SearchMessagesFilterAudio(),
+                        null,
+                        0,
+                        0,
+                    ),
+                )
+            }.getOrNull() ?: break
+            pages++
+            found.messages.forEach { ids += it.chatId }
+            if (found.nextOffset.isEmpty()) break
+            offset = found.nextOffset
+        }
+        TrackLog.d(
+            TAG,
+            "audio discovery: pages=$pages messages=" +
+                "${pages * TelegramConfig.AUDIO_DISCOVERY_PAGE_SIZE} " +
+                "chats=${ids.toHashSet().size} complete=${pages > 0}",
+        )
+        // false when not even one page answered: that is a connectivity
+        // failure, not an account with no audio, and the caller must not
+        // stamp the TTL over it.
+        return ids to (pages > 0)
+    }
+
+    /**
+     * Saved contacts as chat ids, one round trip for the list plus one
+     * CreatePrivateChat per contact (users.getFullUser for anyone TDLib has
+     * not cached). The second-most expensive thing the candidate pass does,
+     * and the reason it sits behind the caller's TTL.
+     */
+    private suspend fun fetchContactIds(knownChatIds: Set<Long>): List<Long> {
+        // GetContacts answers with USER ids, not chat ids — CreatePrivateChat
+        // is the bridge, and with forceImport=false it returns the existing
+        // dialog rather than minting one. This is where the missing personal
+        // chats come from: the dialog list only carries chats with a top
+        // message, GetContacts carries everyone saved.
+        val userIds = runCatchingCancellable { send(TdApi.GetContacts()) }
+            .getOrNull()?.userIds
+            ?: return emptyList()
+
+        // For a private chat the user id IS the chat id, so anyone already in
+        // a dialog list is already resolved — asking again is a wasted round
+        // trip. On the real account this clears most of the pass before a
+        // single request leaves the device.
+        val resolved = ArrayList<Long>(userIds.size)
+        val unknown = ArrayList<Long>(userIds.size)
+        for (userId in userIds) {
+            if (userId in knownChatIds) resolved += userId else unknown += userId
+        }
+
+        // Bounded: contact resolution is flood-controlled on the server side,
+        // so 8 — matching the scan's own parallelism — is the ceiling, not a
+        // number to push.
+        val semaphore = Semaphore(CONTACT_PARALLEL)
+        val fetched = coroutineScope {
+            unknown.map { userId ->
+                async {
+                    semaphore.withPermit {
+                        val chat = runCatchingCancellable {
+                            send(TdApi.CreatePrivateChat(userId, false))
+                        }.getOrNull()
+                        if (chat == null) {
+                            // A flood error must never be hammered: Telegram
+                            // escalates the penalty on retry. Whatever resolved
+                            // stands; the TTL re-runs the rest later.
+                            TrackLog.d(TAG, "contact $userId unresolved — keeping the resolved set")
+                        }
+                        chat?.id
+                    }
+                }
+            }.awaitAll().filterNotNull()
+        }
+        resolved += fetched
+        TrackLog.d(TAG, "contacts: ${userIds.size} saved, ${unknown.size} needed a lookup, ${fetched.size} resolved")
+        return resolved
+    }
+
+    /**
+     * Everything the audio walk and the contact pass can already recognise
+     * without a request: the dialog lists plus whatever Room has accumulated.
+     * Used as the pre-filter that turns a contact into "already known".
+     */
+    private suspend fun candidateKnownIds(): Set<Long> {
+        val known = LinkedHashSet<Long>()
+        runCatchingCancellable { send<TdApi.Chats>(TdApi.GetChats(TdApi.ChatListMain(), TelegramConfig.MAX_TOP_CHATS)) }
+            .getOrNull()
+            ?.chatIds
+            ?.forEach { known += it }
+        return known
+    }
+
+
+
     override suspend fun listTrackedCandidateChats(): List<ChatInfo> {
         awaitReady()
         // GetChats only answers with dialogs TDLib has already cached; LoadChats
@@ -445,6 +611,81 @@ class AndroidMusicTelegramClient(
                 send(TdApi.GetChats(TdApi.ChatListFolder(folderId), TelegramConfig.MAX_TOP_CHATS))
             }.getOrNull()?.chatIds?.toList() ?: emptyList()
         }.toLongArray()
+        // Two sources that never depend on a dialog list, because on this
+        // account the lists are simply short: LoadChats answers NOT_FOUND
+        // after ~144 main dialogs while the account really holds ~291 chats
+        // that contain messages (the rest are empty history Telegram keeps
+        // only in the export), and no limit or extra round changes that.
+        //
+        // GetChatFolder reads the folder DEFINITION rather than its list:
+        // includedChatIds + pinnedChatIds name chats explicitly, even when
+        // the chat has no active position and GetChats(ChatListFolder)
+        // therefore never returns it.
+        val explicitFolderIds = folderListIds.flatMap { folderId ->
+            runCatchingCancellable<TdApi.ChatFolder> { send(TdApi.GetChatFolder(folderId)) }
+                .getOrNull()
+                ?.let { it.includedChatIds.toList() + it.pinnedChatIds.toList() }
+                ?: emptyList()
+        }.toLongArray()
+        // The one source that reaches bot chats. GetContacts carries saved
+        // people, folder definitions carry lists the user built, and both
+        // came back empty for the 99 bot dialogs this account is missing —
+        // a bot is in neither unless the user pinned it. Music Downloader
+        // (1705 messages) was still absent after contacts+folders raised the
+        // scan from 175 to 261 chats; this is the only path left that does
+        // not consult a dialog list at all.
+        //
+        // SearchMessages with chatList=null searches the WHOLE account rather
+        // than ChatListMain (what searchAllAudio hardcodes), and an empty
+        // query is legal exactly BECAUSE a media filter is set — so every
+        // answer is an audio message, and every audio message carries the
+        // chatId it lives in. Bounded pages: enough to cover the recent
+        // audio corpus without turning a list fetch into a full history walk.
+        val now = System.currentTimeMillis()
+        val audioChatIds: List<Long>
+        val contactIds: List<Long>
+        if (slowSourcesFresh(now)) {
+            // Same answers, zero round trips: this is the path every repeat
+            // scan of an unchanged account takes.
+            audioChatIds = cachedAudioChatIds.toList()
+            contactIds = cachedContactIds.toList()
+        } else {
+            // The two expensive walks are independent, so they overlap: the
+            // 20-page audio search no longer waits behind contact resolution.
+            val knownIds = candidateKnownIds()
+            val (audioResult, contactsResult) = coroutineScope {
+                val audio = async { fetchAudioChatIds() }
+                val contacts = async { fetchContactIds(knownIds) }
+                audio.await() to contacts.await()
+            }
+            val (fetchedAudio, audioComplete) = audioResult
+            val fetchedContacts = contactsResult
+            // A transient timeout on page 1 answers with an empty list; caching
+            // THAT would blind the app for a full TTL and hide chats the
+            // previous fetch had already found. Only an empty result over an
+            // empty cache is allowed to stick — a real zero on first run.
+            if (fetchedAudio.isNotEmpty() || (audioComplete && cachedAudioChatIds.isEmpty())) {
+                cachedAudioChatIds = fetchedAudio.toLongArray()
+            } else if (!audioComplete && cachedAudioChatIds.isNotEmpty()) {
+                TrackLog.w(TAG, "audio discovery came back empty; keeping the previous answer")
+            }
+            // Union, never replace. A pass that lost ten contacts to a
+            // transient error would otherwise erase them for a whole TTL —
+            // and monotonicity says a chat we have already found is never
+            // given back. This is what makes the parallel pass safe.
+            if (fetchedContacts.isNotEmpty() || cachedContactIds.isEmpty()) {
+                val merged = LinkedHashSet<Long>(cachedContactIds.size + fetchedContacts.size)
+                cachedContactIds.forEach { merged += it }
+                fetchedContacts.forEach { merged += it }
+                cachedContactIds = merged.toLongArray()
+            }
+            audioChatIds = cachedAudioChatIds.toList()
+            contactIds = cachedContactIds.toList()
+            // Opening the app while offline must not lock audio discovery out
+            // for a whole TTL: only stamp when at least one page really
+            // answered, so the next scan simply retries.
+            if (audioComplete) slowSourcesAt = now
+        }
         // Main first: GetChats answers newest-dialogs-first, so the freshness
         // ranking fullScan launches in survives; archive appends behind it,
         // deduped because each list is read independently. The merged set is
@@ -459,14 +700,23 @@ class AndroidMusicTelegramClient(
         val seen = mainIds.toHashSet()
         val chatIds = mainIds +
             archiveIds.filter { seen.add(it) } +
-            folderIds.filter { seen.add(it) }
+            folderIds.filter { seen.add(it) } +
+            explicitFolderIds.filter { seen.add(it) } +
+            contactIds.filter { seen.add(it) } +
+            audioChatIds.filter { seen.add(it) }
         // The counts ARE the diagnosis: main 0 means the dialog sync hasn't
         // finished (LibraryScanner awaits and retries); archive > 0 is the
         // only way to see the fix above actually firing on a real account.
+        // explicit/contacts are reported SEPARATELY because "merged went up"
+        // alone cannot say which list-free source paid off — and if both add
+        // zero, the next question is whether the lists or the sources are
+        // what to distrust.
         TrackLog.d(
             TAG,
             "candidates: main=${mainIds.size} archive=${archiveIds.size} " +
-                "folders=${folderIds.size} merged=${chatIds.size}",
+                "folders=${folderIds.size} explicit=${explicitFolderIds.size} " +
+                "contacts=${contactIds.size} audio=${audioChatIds.toHashSet().size} " +
+                "merged=${chatIds.size}",
         )
         val infos = coroutineScope {
             val permits = Semaphore(TelegramConfig.GET_INFO_PARALLEL)
@@ -484,7 +734,17 @@ class AndroidMusicTelegramClient(
         // Each list is capped by GetChats itself; re-taking MAX_TOP_CHATS here
         // would truncate the archive half whenever the main list is full —
         // the very failure this function was fixed for.
-        return infos.filterNotNull()
+        // The counts alone cannot answer "is chat X here" — only the titles
+        // can, and without them the question ends in guesswork every time.
+        // One line per pass, sorted, so a missing chat is a name to look for
+        // rather than a number to argue about.
+        val found = infos.filterNotNull()
+        TrackLog.d(
+            TAG,
+            "candidate titles (${found.size}): " +
+                found.map { it.title }.sorted().joinToString(" | "),
+        )
+        return found
     }
 
     /**

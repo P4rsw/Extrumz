@@ -867,7 +867,7 @@ private fun PipelineSection(
             Text(
                 text = title.uppercase(),
                 style = MaterialTheme.typography.bodyMedium.copy(
-                    fontSize = 11.5.sp,
+                    fontSize = 11.sp,
                     fontWeight = FontWeight.W600,
                     letterSpacing = 0.5.sp,
                 ),
@@ -903,7 +903,7 @@ private fun PipelineRow(label: String, value: String) {
         Text(
             text = text,
             style = MaterialTheme.typography.bodySmall.copy(
-                fontSize = 12.5.sp,
+                fontSize = 12.sp,
                 lineHeight = 17.sp,
             ),
         )

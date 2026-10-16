@@ -247,7 +247,86 @@ object DatabaseMigrations {
         )
     }
 
-    val ALL: Array<Migration> = arrayOf(MIGRATION_1_2, MIGRATION_2_3)
+    /**
+     * Every song may live in more than one chat; `tracks` held exactly one
+     * (sourceChatId) and F7's dedupe DELETED the losers, so a song found in a
+     * channel lost that channel the moment a repost elsewhere won the keeper
+     * race. `track_sources` records every occurrence instead.
+     *
+     * Backfill seeds one row per existing track from its own columns: today
+     * every track has exactly one known home, so its source IS its history.
+     * CASCADE ties them to `tracks` for the dedupe pass that still collapses
+     * legacy duplicate rows.
+     */
+    val MIGRATION_3_4: Migration = object : Migration(3, 4) {
+        override fun migrate(connection: SQLiteConnection) {
+            connection.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS track_sources (
+                    trackFileUniqueId TEXT NOT NULL,
+                    chatId INTEGER NOT NULL,
+                    messageId INTEGER NOT NULL,
+                    fileId TEXT NOT NULL DEFAULT '',
+                    dateAdded INTEGER NOT NULL DEFAULT 0,
+                    PRIMARY KEY(trackFileUniqueId, chatId, messageId),
+                    FOREIGN KEY(trackFileUniqueId) REFERENCES tracks(fileUniqueId)
+                        ON DELETE CASCADE
+                )
+                """.trimIndent(),
+            )
+            connection.execSQL(
+                "CREATE INDEX IF NOT EXISTS index_track_sources_chat_message " +
+                    "ON track_sources(chatId, messageId)",
+            )
+            connection.execSQL(
+                "CREATE INDEX IF NOT EXISTS index_track_sources_track " +
+                    "ON track_sources(trackFileUniqueId)",
+            )
+            connection.execSQL(
+                """
+                INSERT OR IGNORE INTO track_sources
+                    (trackFileUniqueId, chatId, messageId, fileId, dateAdded)
+                SELECT fileUniqueId, sourceChatId, sourceMessageId, fileId, dateAdded
+                FROM tracks
+                WHERE sourceChatId != 0 AND sourceMessageId != 0
+                """.trimIndent(),
+            )
+        }
+    }
+
+    /**
+     * "Once found, never dropped" needs the row to remember its own origin.
+     *
+     * Candidate lists are rebuilt from TDLib on every pass, and on this
+     * account they are provably incomplete — TDLib hands back ~180 dialogs
+     * while the account holds far more, and a chat missing from one pass was
+     * silently missing from every later one. `discoveredAt` is written once
+     * and never moves, so the row survives a list that forgets it.
+     *
+     * Seeded with the CURRENT timestamp for existing rows: they were all
+     * discovered by definition (they are in the table), and the exact origin
+     * was never recorded before now.
+     */
+    val MIGRATION_4_5: Migration = object : Migration(4, 5) {
+        override fun migrate(connection: SQLiteConnection) {
+            // DEFAULT must be a CONSTANT that matches @ColumnInfo(defaultValue)
+            // exactly — Room compares the migrated schema against the entity
+            // and rejects the whole migration on a mismatch (the app crashes
+            // with "Migration didn't properly handle: chats"). A timestamp here
+            // would have no equivalent in the annotation, so the stamp lives in
+            // the DATA: existing rows get "now" by an UPDATE after the column
+            // exists, while new rows get 0 until a discovery pass writes one.
+            val now = System.currentTimeMillis()
+            connection.execSQL("ALTER TABLE chats ADD COLUMN discoveredAt INTEGER NOT NULL DEFAULT 0")
+            connection.execSQL("ALTER TABLE chats ADD COLUMN lastSeenAt INTEGER NOT NULL DEFAULT 0")
+            connection.execSQL("UPDATE chats SET discoveredAt = $now, lastSeenAt = $now")
+            connection.execSQL(
+                "CREATE INDEX IF NOT EXISTS index_chats_discoveredAt ON chats(discoveredAt)",
+            )
+        }
+    }
+
+    val ALL: Array<Migration> = arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
 
     /** One-shot FTS repair for pre-existing databases opened before FTS triggers existed. */
     val FTS_REPAIR = object : Migration(1, 1) {
