@@ -202,6 +202,7 @@ import com.extrumz.app.ui.screens.LibraryGridPage
 import com.extrumz.app.ui.screens.LibraryScreen
 import com.extrumz.app.ui.screens.SearchScreen
 import com.extrumz.app.data.settings.SongSort
+import com.extrumz.app.ui.util.ProvideLocaleDirection
 import com.extrumz.app.ui.replay.ReplayScreen
 import com.extrumz.app.ui.replay.cards
 import com.extrumz.app.ui.replay.ReplayShareSheet
@@ -1683,9 +1684,7 @@ private fun ExtrumzApp(
                         // the same deal one screen at a time. The charts, the shelves, the
                         // story pages: they were drawn for a reader coming from the right,
                         // and a flag on the manifest would have taken the player with them.
-                        CompositionLocalProvider(
-                            LocalLayoutDirection provides LayoutDirection.Rtl,
-                        ) {
+                        ProvideLocaleDirection {
                             ReplayScreen(
                                 state = replay,
                                 holder = account?.name.orEmpty(),
@@ -2389,9 +2388,7 @@ private fun ExtrumzApp(
                 // the page beneath it declared does not reach it — and without
                 // declaring its own, every card in the run laid out from the
                 // left while the Replay it was opened from read from the right.
-                CompositionLocalProvider(
-                    LocalLayoutDirection provides LayoutDirection.Rtl,
-                ) {
+                ProvideLocaleDirection {
                     ReplayStories(
                         summary = summary,
                         start = start,
@@ -2418,13 +2415,19 @@ private fun ExtrumzApp(
                     sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
                     containerColor = MaterialTheme.colorScheme.background,
                 ) {
-                    ReplayShareSheet(
-                        summary = summary,
-                        holder = account?.name.orEmpty(),
-                        memberSince = replay.memberSince,
-                        page = replaySharePage,
-                        onDismiss = { showReplayShare = false },
-                    )
+                    // The sheet is the one Replay surface that was left out of
+                    // the RTL scope: the screen and the story pages both read
+                    // from the right for Persian, and the sheet the user
+                    // reaches from either of them opened the other way round.
+                    ProvideLocaleDirection {
+                        ReplayShareSheet(
+                            summary = summary,
+                            holder = account?.name.orEmpty(),
+                            memberSince = replay.memberSince,
+                            page = replaySharePage,
+                            onDismiss = { showReplayShare = false },
+                        )
+                    }
                 }
             }
         }

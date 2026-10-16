@@ -60,6 +60,18 @@ import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileOutputStream
 import java.util.Locale
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.asAndroidBitmap
+import androidx.compose.ui.graphics.rememberGraphicsLayer
+import androidx.compose.ui.graphics.layer.GraphicsLayer
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.foundation.layout.fillMaxSize
+import kotlinx.coroutines.delay
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.layout.layout
 
 /**
  * The picture, and the apps that can take it.
@@ -88,10 +100,32 @@ fun ReplayShareSheet(
     var failed by remember { mutableStateOf(false) }
     var saved by remember { mutableStateOf(false) }
 
-    LaunchedEffect(summary, page) {
-        poster = runCatching { renderReplayPoster(context, summary, holder, memberSince, page) }
-            .onFailure { failed = true }
-            .getOrNull()
+    // The card is CAPTURED from the composable the story itself draws, not
+    // rendered a second time by hand. It used to be a 30KB canvas copy of the
+    // story card, and a copy drifts: its brand row ended up on the opposite
+    // side from the story's, so the picture a user sent did not match the
+    // thing they sent it from. There is no second renderer now.
+    val layer = rememberGraphicsLayer()
+    val face = page ?: ReplayStoryPage.INTRO
+    val pages = remember(summary) { replayPages(summary) }
+    // Set from inside the draw pass, so the capture waits for a frame that
+    // actually recorded rather than counting frame ticks and hoping.
+    var recorded by remember(summary, face) { mutableStateOf(false) }
+
+    LaunchedEffect(summary, face, recorded) {
+        if (!recorded) return@LaunchedEffect
+        // The backdrop's palette is pulled out of the artwork on a background
+        // thread and starts life as the fallback, so the earliest frames are
+        // the wrong colour — a saved card in the default purple rather than
+        // the one the album painted. Nothing here can await Coil, so the
+        // capture is taken a few times over the next second and the last
+        // write wins; by then the real palette has landed.
+        repeat(6) {
+            delay(180)
+            runCatching { layer.toImageBitmap().asAndroidBitmap() }
+                .onSuccess { poster = it }
+                .onFailure { failed = true }
+        }
     }
 
     Column(
@@ -135,6 +169,36 @@ fun ReplayShareSheet(
                 .background(MaterialTheme.colorScheme.surfaceVariant),
             contentAlignment = Alignment.Center,
         ) {
+            // Composed at a fixed 360x640dp with density pinned to 3, so the
+            // capture is always exactly 1080x1920 whatever the device reports.
+            // Left to the screen width it exported 540x960 on a budget phone
+            // and 1600x2844 on a tablet — the old canvas renderer was a fixed
+            // 1080x1920, and that is the size story platforms expect.
+            //
+            // It is recorded but never painted (no drawLayer) and reports a
+            // zero size to this Box, so it cannot move the preview or the
+            // sheet around, and its semantics are stripped so the invisible
+            // full-size copy is not reachable by a screen reader or by touch.
+            // Without that the card's own clickable sat outside the preview
+            // and swallowed taps meant for the buttons below.
+            CompositionLocalProvider(LocalDensity provides Density(density = 3f, fontScale = 1f)) {
+                Box(
+                    Modifier
+                        .layout { measurable, _ ->
+                            val placeable = measurable.measure(
+                                Constraints.fixed(360.dp.roundToPx(), 640.dp.roundToPx()),
+                            )
+                            layout(0, 0) { placeable.place(0, 0) }
+                        }
+                        .clearAndSetSemantics { }
+                        .drawWithContent {
+                            layer.record { this@drawWithContent.drawContent() }
+                            if (!recorded) recorded = true
+                        },
+                ) {
+                    ReplayCard(face, summary, pages, Modifier.fillMaxSize())
+                }
+            }
             val image = poster
             when {
                 image != null -> Image(

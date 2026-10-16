@@ -86,6 +86,7 @@ import com.extrumz.app.ui.player.sharpenUpscale
 import com.extrumz.app.ui.theme.AccentRed
 import kotlinx.coroutines.launch
 import com.extrumz.app.ui.components.forLanguageSegments
+import androidx.compose.ui.draw.clipToBounds
 
 /**
  * The Replay as a run of full-screen cards you tap through.
@@ -135,15 +136,7 @@ fun ReplayStories(
 ) {
     // A category with nothing in it has no card: an empty page in the middle of
     // a story reads as the app having lost something.
-    val pages = remember(summary) {
-        ReplayStoryPage.ordered.filter { page ->
-            when (page) {
-                ReplayStoryPage.ALBUMS -> summary.albums.isNotEmpty()
-                ReplayStoryPage.GENRES -> summary.genres.isNotEmpty()
-                else -> true
-            }
-        }
-    }
+    val pages = remember(summary) { replayPages(summary) }
     val pagerState = rememberPagerState(
         initialPage = pages.indexOf(start).coerceAtLeast(0),
         pageCount = { pages.size },
@@ -405,40 +398,152 @@ private fun StoryChrome(
             }
         }
         Spacer(Modifier.height(14.dp))
-        // "Replay'26" for a year, which is the shape everyone knows this
-        // by. A month or "All time" has no two-digit form and is spelt
-        // out rather than truncated into nonsense.
-        val heading = if (label.length == 4 && label.all { it.isDigit() }) {
-            "Replay'${label.takeLast(2)}"
-        } else {
-            "Replay · $label"
+        ReplayBrandRow(label)
+    }
+}
+
+/**
+ * The pages a run actually has.
+ *
+ * A category with nothing in it has no card: an empty page in the middle of a
+ * story reads as the app having lost something. The share sheet asks for the
+ * same list, because the number of progress segments is part of the design and
+ * a captured card that showed eight where the story showed six was a card that
+ * did not match the thing it was taken from.
+ */
+internal fun replayPages(summary: ReplaySummary): List<ReplayStoryPage> =
+    ReplayStoryPage.ordered.filter { page ->
+        when (page) {
+            ReplayStoryPage.ALBUMS -> summary.albums.isNotEmpty()
+            ReplayStoryPage.GENRES -> summary.genres.isNotEmpty()
+            else -> true
         }
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                // The year is a figure this screen produced rather than a word
-                // it was handed, so it is set in the reader's digits — the same
-                // rule every other number on a Replay follows.
-                text = heading.forLanguage(),
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.W700,
-                color = Color.White,
-                modifier = Modifier.weight(1f),
-            )
-            // The mark and the word together, the way the card carries it.
-            Icon(
-                painter = painterResource(R.drawable.ic_logo),
-                contentDescription = null,
-                tint = Color.White.copy(alpha = 0.9f),
-                modifier = Modifier.size(width = 26.dp, height = 17.dp),
-            )
-            Spacer(Modifier.width(7.dp))
-            Text(
-                text = "Extrumz",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.W700,
-                color = Color.White.copy(alpha = 0.9f),
-            )
+    }
+
+/**
+ * One saved card, built the way the story builds one.
+ *
+ * This is the only composable the share sheet touches. It used to be two —
+ * a backdrop and a face — stacked in a Column by the caller, and that is
+ * where the design came apart: [StoryPage] pads down [CHROME_HEIGHT] to clear
+ * the chrome, which only works when the chrome is a sibling floating over it
+ * rather than a block above it, and the caller also repeated the horizontal
+ * margin. The result was a card with a 96dp hole under the title, double
+ * margins and a clipped foot.
+ *
+ * So the structure here is deliberately the same as [Stage]'s: mesh, scrim,
+ * page and chrome, all siblings in one Box. Nothing is re-derived, and the
+ * card cannot disagree with the story about its own geometry.
+ */
+@Composable
+internal fun ReplayCard(
+    page: ReplayStoryPage,
+    summary: ReplaySummary,
+    pages: List<ReplayStoryPage>,
+    modifier: Modifier = Modifier,
+) {
+    val palette = rememberArtworkColors(summary.storyArtwork(page)).rotated(storyHue(page))
+    Box(modifier.clipToBounds()) {
+        MeshGradientBackground(palette = palette, trackKey = page.name, animated = false)
+        // The same wash Stage lays down, and for the same reason: enough ink
+        // for white type at the top and the foot. Left out of the saved card
+        // it came back lighter than the story and the copy read differently
+        // from the original.
+        Box(
+            Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.verticalGradient(
+                        0.0f to Color.Black.copy(alpha = 0.45f),
+                        0.35f to Color.Black.copy(alpha = 0.10f),
+                        1.0f to Color.Black.copy(alpha = 0.34f),
+                    ),
+                ),
+        )
+        StoryPage(page = page, summary = summary, onShare = {})
+        ReplayCardChrome(
+            label = summary.localizedLabel(LocalContext.current),
+            count = pages.size,
+            current = pages.indexOf(page).coerceAtLeast(0),
+        )
+    }
+}
+
+/**
+ * The story's fixed furniture — the run of progress segments and the two words
+ * saying what this is — without the cross.
+ *
+ * The cross is replaced by a spacer of the same height rather than dropped:
+ * [StoryPage] pads down a fixed [CHROME_HEIGHT] to clear this block, so a
+ * shorter chrome would move every headline up the card and the saved image
+ * would sit differently from the frame it was taken from.
+ */
+@Composable
+private fun ReplayCardChrome(label: String, count: Int, current: Int) {
+    Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp)) {
+        Spacer(Modifier.height(40.dp))
+        Spacer(Modifier.height(6.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            repeat(count) { index ->
+                Segment(
+                    fraction = when {
+                        index < current -> 1f
+                        index > current -> 0f
+                        else -> 1f
+                    },
+                    modifier = Modifier.weight(1f),
+                )
+            }
         }
+        Spacer(Modifier.height(14.dp))
+        ReplayBrandRow(label)
+    }
+}
+
+/**
+ * The story's title row: the run label at the reading start, the mark and the
+ * wordmark at the far end.
+ *
+ * Extracted so the share sheet can render the very same row instead of a
+ * hand-drawn imitation of it. The two had already drifted once — the canvas
+ * copy put the brand on the opposite side from the story — and a second
+ * renderer of one design will always drift again.
+ */
+@Composable
+private fun ReplayBrandRow(label: String) {
+    // "Replay'26" for a year, which is the shape everyone knows this by. A
+    // month or "All time" has no two-digit form and is spelt out rather than
+    // truncated into nonsense.
+    val heading = if (label.length == 4 && label.all { it.isDigit() }) {
+        "Replay'${label.takeLast(2)}"
+    } else {
+        "Replay · $label"
+    }
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(
+            // The year is a figure this screen produced rather than a word it
+            // was handed, so it is set in the reader's digits — the same rule
+            // every other number on a Replay follows.
+            text = heading.forLanguage(),
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.W700,
+            color = Color.White,
+            modifier = Modifier.weight(1f),
+        )
+        // The mark and the word together, the way the card carries it.
+        Icon(
+            painter = painterResource(R.drawable.ic_logo),
+            contentDescription = null,
+            tint = Color.White.copy(alpha = 0.9f),
+            modifier = Modifier.size(width = 26.dp, height = 17.dp),
+        )
+        Spacer(Modifier.width(7.dp))
+        Text(
+            text = "Extrumz",
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.W700,
+            color = Color.White.copy(alpha = 0.9f),
+        )
     }
 }
 
@@ -460,6 +565,7 @@ private fun Segment(fraction: Float, modifier: Modifier = Modifier) {
 }
 
 // ── One card ────────────────────────────────────────────────────────────────
+
 
 @Composable
 private fun StoryPage(

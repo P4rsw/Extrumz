@@ -218,8 +218,8 @@ fun ReplayCreditCard(
                         Text(
                             text = stringResource(R.string.member_since).uppercase(Locale.getDefault()),
                             style = MaterialTheme.typography.labelSmall,
-                            fontSize = 7.sp,
-                            lineHeight = 8.sp,
+                            fontSize = 11.sp,
+                            lineHeight = 14.sp,
                             letterSpacing = 0.8.sp,
                             color = Color.White.copy(alpha = 0.55f),
                             // Both lines to the right edge, not just the block.
