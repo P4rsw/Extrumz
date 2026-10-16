@@ -65,6 +65,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import com.extrumz.app.ui.util.isRtlReading
 import com.extrumz.app.ui.util.ProvideLocaleDirection
 import com.extrumz.app.ui.components.ScanStatusBanner
+import com.extrumz.app.data.model.toSong
 
 /**
  * The offline Telegram library: every track the scanner has indexed in Room,
@@ -389,19 +390,3 @@ private fun filteredTracks(
     }
 }
 
-private fun Track.toSong(): Song {
-    val telegramConfigId = SourceRegistry.configs.value
-        .firstOrNull { it.kind == SourceKind.TELEGRAM }?.id
-    val trackId = "tg_${sourceChatId}_${sourceMessageId}"
-    return Song(
-        videoId = telegramConfigId?.let { SourceRegistry.trackKey(it, trackId) } ?: trackId,
-        title = title.ifBlank { fileId },
-        artist = performer.ifBlank { album.ifBlank { "—" } },
-        thumbnailUrl = coverUrl.ifBlank { null },
-        durationText = if (duration > 0) {
-            String.format(Locale.ROOT, "%d:%02d", duration / 60, duration % 60)
-        } else {
-            null
-        },
-    )
-}

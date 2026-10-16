@@ -53,6 +53,8 @@ import com.extrumz.app.data.db.entity.Playlist
 import com.extrumz.app.ui.util.ProvideLocaleDirection
 import kotlinx.coroutines.launch
 import java.util.UUID
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.ui.text.style.TextAlign
 
 /**
  * Every playlist the user has made, with the two things you can do to one.
@@ -68,6 +70,7 @@ import java.util.UUID
 @Composable
 fun PlaylistsScreen(
     contentPadding: PaddingValues,
+    listState: LazyListState,
     onOpenPlaylist: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -130,10 +133,21 @@ fun PlaylistsScreen(
                         text = stringResource(R.string.playlists_empty_hint),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center,
                     )
+                    // The action the comment above demands. Told there are no
+                    // playlists, the next thing the user wants is to make one,
+                    // and the header button is not where they are looking.
+                    Spacer(Modifier.height(16.dp))
+                    Button(onClick = { creating = true }, shape = RoundedCornerShape(999.dp)) {
+                        Icon(Icons.Rounded.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text(stringResource(R.string.playlists_new))
+                    }
                 }
             } else {
                 LazyColumn(
+                    state = listState,
                     contentPadding = PaddingValues(
                         top = 4.dp,
                         bottom = contentPadding.calculateBottomPadding() + 96.dp,
@@ -155,6 +169,7 @@ fun PlaylistsScreen(
         if (creating || openNaming != null) {
             NameDialog(
                 initial = openNaming?.name.orEmpty(),
+                isRenaming = openNaming != null,
                 onDismiss = { creating = false; naming = null },
                 onConfirm = { entered ->
                     val name = entered.trim()
@@ -291,18 +306,21 @@ private fun PlaylistRow(
 @Composable
 private fun NameDialog(
     initial: String,
+    isRenaming: Boolean,
     onDismiss: () -> Unit,
     onConfirm: (String) -> Unit,
 ) {
-    var text by remember { mutableStateOf(initial) }
+    // Keyed on the initial value: the dialog is reused for every rename, so an
+    // unkeyed remember would keep the first name it was ever opened with.
+    var text by remember(initial) { mutableStateOf(initial) }
+    val canConfirm = text.isNotBlank()
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
-            Text(
-                stringResource(
-                    if (initial.isEmpty()) R.string.playlists_new else R.string.playlists_rename,
-                ),
-            )
+            // isRenaming, not initial.isEmpty(): a playlist whose name is
+            // blank would otherwise be renamed through a dialog titled "New
+            // playlist".
+            Text(stringResource(if (isRenaming) R.string.playlists_rename else R.string.playlists_new))
         },
         text = {
             OutlinedTextField(
@@ -313,8 +331,8 @@ private fun NameDialog(
             )
         },
         confirmButton = {
-            TextButton(onClick = { onConfirm(text) }) {
-                Text(stringResource(R.string.playlists_create))
+            TextButton(onClick = { onConfirm(text) }, enabled = canConfirm) {
+                Text(stringResource(if (isRenaming) R.string.playlists_rename else R.string.playlists_create))
             }
         },
         dismissButton = {

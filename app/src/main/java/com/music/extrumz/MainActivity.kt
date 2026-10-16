@@ -415,6 +415,7 @@ private fun ExtrumzApp(
     // Library shelf and — with the other landing — from Search's pill.
     var showChannels by rememberSaveable { mutableStateOf(false) }
     var showPlaylists by rememberSaveable { mutableStateOf(false) }
+    val playlistListState = remember { LazyListState() }
     // Where closing that picker lands. The Library shelf hands the listener to
     // the filtered Songs tab; the Search pill keeps them where they were so
     // the results re-filter in place.
@@ -1666,6 +1667,7 @@ private fun ExtrumzApp(
                     } else if (key == "playlists") {
                         PlaylistsScreen(
                             contentPadding = listPadding,
+                            listState = playlistListState,
                             // The playlist's own page is the next pass; until
                             // then a row has nowhere to go.
                             onOpenPlaylist = { showPlaylists = false },
@@ -2146,7 +2148,7 @@ private fun ExtrumzApp(
                         // The picker owns its list; its big title stays up the
                         // way the Channels tab's did when it was a tab.
                         showChannels -> false
-                        showPlaylists -> false
+                        showPlaylists -> playlistListState.firstVisibleItemIndex > 0
                         showSettings ||
                             showEqualizer ||
                             showHistory ||

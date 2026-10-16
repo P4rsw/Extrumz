@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.first
 import androidx.room.RoomRawQuery
 import java.io.File
 import kotlin.math.abs
+import com.extrumz.app.data.model.toSong
 
 private const val TAG = "Extrumz"
 
@@ -193,19 +194,8 @@ class TelegramSource(
         } else {
             dao.search(query).first()
         }
-        return rows.take(limit).map { it.toSong() }
+        return rows.take(limit).map { it.toSong(config.id) }
     }
-
-    private fun Track.toSong(): Song = Song(
-        videoId = SourceRegistry.trackKey(config.id, trackIdFor(this)),
-        title = title.ifBlank { caption.takeIf { it.isNotBlank() } ?: fileId },
-        artist = performer.ifBlank { "نامشخص" },
-        albumName = album.ifBlank { null },
-        thumbnailUrl = coverUrl.ifBlank { null },
-        durationText = durationText(duration),
-        sourceQuality = "HIGH",
-        sourceChatId = sourceChatId,
-    )
 
     // ── Tier 1: MediaStore /Telegram/ ───────────────────────────────────
 
