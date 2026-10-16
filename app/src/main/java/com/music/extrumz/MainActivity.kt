@@ -2186,7 +2186,10 @@ private fun ExtrumzApp(
                         // the page's heading, so it has nothing to hand back
                         // to — hiding it on scroll would leave the page nameless.
                         openPlaylistId != null -> false
-                        showPlaylists -> playlistListState.firstVisibleItemIndex > 0
+                        // false, for the same reason as the playlist's own
+                        // page: the bar's title is this page's heading, so
+                        // there is nothing for it to hand back to.
+                        showPlaylists -> false
                         showSettings ||
                             showEqualizer ||
                             showHistory ||
