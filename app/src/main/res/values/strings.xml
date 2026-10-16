@@ -1175,4 +1175,9 @@
     <string name="playlists_already">Already in this playlist</string>
     <string name="playlists_add_unavailable">This song is not in your Telegram library, so it cannot be added to a playlist yet.</string>
     <string name="playlists_added_to">Added to \u201c%1$s\u201d</string>
+    <string name="chan_filter_by">Filter the library by this channel</string>
+    <string name="chan_clear_filter">Clear the channel filter</string>
+    <string name="chan_play_all">Play everything in it</string>
+    <string name="playlists_pin">Pin to the top</string>
+    <string name="playlists_unpin">Unpin</string>
 </resources>

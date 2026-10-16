@@ -698,4 +698,9 @@
     <string name="playlists_already">از قبل در این پلی‌لیست است</string>
     <string name="playlists_add_unavailable">این آهنگ در کتابخانهٔ تلگرام نیست، پس هنوز نمی‌شود به پلی‌لیست اضافه‌اش کرد.</string>
     <string name="playlists_added_to">به «%1$s» اضافه شد</string>
+    <string name="chan_filter_by">کتابخانه را با این کانال فیلتر کن</string>
+    <string name="chan_clear_filter">فیلترِ کانال را بردار</string>
+    <string name="chan_play_all">همهٔ آهنگ‌هایش را پخش کن</string>
+    <string name="playlists_pin">سنجاق به بالا</string>
+    <string name="playlists_unpin">برداشتنِ سنجاق</string>
 </resources>

@@ -227,6 +227,7 @@ import com.extrumz.app.ui.screens.PlaylistDetailScreen
 import androidx.compose.runtime.produceState
 import com.extrumz.app.data.db.TelegramDb
 import com.extrumz.app.ui.components.AddToPlaylistSheet
+import com.extrumz.app.ui.components.LibraryItemActionsSheet
 
 /** A full first screen of a native YouTube Music radio before AutoPlay tops it up. */
 private const val INITIAL_RADIO_TRACKS = 24
@@ -428,6 +429,8 @@ private fun ExtrumzApp(
         value = openPlaylistId?.let { TelegramDb.playlistDao.getById(it)?.name }
     }
     val playlistDetailListState = remember { LazyListState() }
+    // The Library card whose own menu is open, if any.
+    var libraryItemActions by remember { mutableStateOf<ShelfItem?>(null) }
     // Where closing that picker lands. The Library shelf hands the listener to
     // the filtered Songs tab; the Search pill keeps them where they were so
     // the results re-filter in place.
@@ -965,9 +968,16 @@ private fun ExtrumzApp(
     val onBrowseLongPress: (ShelfItem) -> Unit = { item ->
         val id = item.browseId
         val type = id?.let { viewModel.browseTypeOf(it) }
-        // Telegram cards (`tg:channels`, `tg:chat:<id>`) open a picker or set
-        // the filter — there is no page or queue behind them to act on.
-        if (id != null && !id.startsWith("tg:") && type != BrowseType.ARTIST) {
+        // The two kinds of card this app owns get menus of their own. A
+        // channel is not a release — there is no page behind it and the useful
+        // verbs are filtering by it and playing what is in it. A playlist is
+        // the user's own object, with the verbs the playlists page already
+        // has. Everything else is a release page and keeps the browse menu.
+        val isOwned = id != null &&
+            (id.startsWith("tg:chat:") || id.startsWith("playlist:"))
+        if (isOwned) {
+            libraryItemActions = item
+        } else if (id != null && !id.startsWith("tg:") && type != BrowseType.ARTIST) {
             browseActions = BrowseTarget(
                 browseId = id,
                 title = item.title,
@@ -2665,6 +2675,41 @@ private fun ExtrumzApp(
             ) {
                 DownloadManagerSheet(onDismiss = closeDownloadManager)
             }
+        }
+
+        libraryItemActions?.let { target ->
+            val pinned by AppSettings.pinnedPlaylists.collectAsStateWithLifecycle()
+            val selectedChannel by TelegramUi.selectedChatId.collectAsStateWithLifecycle()
+            LibraryItemActionsSheet(
+                item = target,
+                isPinned = target.browseId != null && target.browseId in pinned,
+                channelIsSelected = selectedChannel ==
+                    target.browseId?.removePrefix("tg:chat:")?.toLongOrNull(),
+                onDismiss = { libraryItemActions = null },
+                onPlay = { songs, index ->
+                    libraryItemActions = null
+                    playFrom(
+                        songs,
+                        index,
+                        QueueSource(target.title, PlaybackSourceType.BROWSE, target.browseId),
+                    )
+                },
+                onFilterChannel = { chatId ->
+                    libraryItemActions = null
+                    TelegramUi.selectedChatId.value = chatId
+                },
+                onRescan = {
+                    libraryItemActions = null
+                    TelegramAuthController.startScan()
+                },
+                onOpenPlaylist = { playlistId ->
+                    libraryItemActions = null
+                    openPlaylistId = playlistId
+                },
+                onTogglePin = {
+                    target.browseId?.let { AppSettings.togglePinnedPlaylist(it) }
+                },
+            )
         }
 
         // ---- Album / playlist actions ----
