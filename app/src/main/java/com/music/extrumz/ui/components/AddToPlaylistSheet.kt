@@ -83,6 +83,11 @@ fun AddToPlaylistSheet(
     // The playlist's name, not the finished sentence: the sentence needs a
     // string resource and this is set from inside a coroutine.
     var addedToName by remember(song.videoId) { mutableStateOf<String?>(null) }
+    // Naming happens here rather than on the playlists page. Sending the user
+    // there to make one, then back here to add the song, is two trips for one
+    // intention -- and the button did nothing at all before, because the sheet
+    // was left owning a song the page it opened knew nothing about.
+    var naming by remember(song.videoId) { mutableStateOf(false) }
 
     androidx.compose.runtime.LaunchedEffect(song.videoId) {
         track = resolveTrack(song)
@@ -134,34 +139,48 @@ fun AddToPlaylistSheet(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     Spacer(Modifier.height(12.dp))
-                    TextButton(onClick = { onCreated(UUID.randomUUID().toString()) }) {
+                    TextButton(onClick = { naming = true }) {
                         Text(stringResource(R.string.playlists_new))
                     }
                 }
 
                 else -> LazyColumn(Modifier.heightIn(max = 380.dp)) {
                     items(playlists, key = { it.id }) { playlist ->
-                        var contains by remember(playlist.id, row.fileUniqueId) {
-                            mutableStateOf<Boolean?>(null)
-                        }
-                        androidx.compose.runtime.LaunchedEffect(playlist.id, row.fileUniqueId) {
-                            contains = dao.getEntries(playlist.id)
-                                .any { it.trackFileUniqueId == row.fileUniqueId }
-                        }
-                        val inside = contains == true
+                        // The DAO's own membership stream, not a one-shot read.
+                        // A one-shot was the reason the tick only appeared after
+                        // closing and reopening the menu: the sheet was still
+                        // showing the answer it fetched before the write.
+                        val members by dao.observeTracks(playlist.id)
+                            .collectAsState(initial = emptyList())
+                        val inside = members.any { it.fileUniqueId == row.fileUniqueId }
 
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clickable(enabled = contains != null && !inside) {
+                                // The tick sat hard against the right edge and
+                                // the name against the left, with nothing
+                                // between them and the sheet's own edge.
+                                .padding(horizontal = 20.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                // Tapping a playlist that already holds this
+                                // song takes it out again. Leaving the row
+                                // inert was worse than either: the menu listed
+                                // the playlist, showed it held the song, and
+                                // offered no way to act on that.
+                                .clickable {
                                     scope.launch {
-                                        dao.addTrack(
-                                            playlist.id,
-                                            row.fileUniqueId,
-                                            System.currentTimeMillis(),
-                                        )
-                                        addedToName = playlist.name
+                                        if (inside) {
+                                            dao.removeTrack(playlist.id, row.fileUniqueId)
+                                            addedToName = null
+                                        } else {
+                                            dao.addTrack(
+                                                playlist.id,
+                                                row.fileUniqueId,
+                                                System.currentTimeMillis(),
+                                            )
+                                            addedToName = playlist.name
+                                        }
                                     }
                                 }
                                 .padding(vertical = 12.dp),
@@ -203,17 +222,69 @@ fun AddToPlaylistSheet(
             }
 
             Row(
-                modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp),
                 horizontalArrangement = Arrangement.Start,
             ) {
-                TextButton(onClick = { onCreated(UUID.randomUUID().toString()) }) {
+                TextButton(onClick = { naming = true }) {
                     Icon(Icons.Rounded.Add, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(6.dp))
                     Text(stringResource(R.string.playlists_new))
                 }
             }
         }
+
+        if (naming) {
+            NamePlaylistDialog(
+                onDismiss = { naming = false },
+                onConfirm = { name ->
+                    naming = false
+                    val row0 = track ?: return@NamePlaylistDialog
+                    scope.launch {
+                        val now = System.currentTimeMillis()
+                        val playlist = com.extrumz.app.data.db.entity.Playlist(
+                            id = UUID.randomUUID().toString(),
+                            name = name,
+                            description = null,
+                            coverUrl = null,
+                            telegramChannelId = null,
+                            telegramInviteLink = null,
+                            createdAt = now,
+                            updatedAt = now,
+                        )
+                        dao.upsert(playlist)
+                        dao.addTrack(playlist.id, row0.fileUniqueId, now)
+                        addedToName = name
+                    }
+                },
+            )
+        }
     }
+}
+
+/** Names a playlist that is about to be created with the song already in it. */
+@Composable
+private fun NamePlaylistDialog(onDismiss: () -> Unit, onConfirm: (String) -> Unit) {
+    var text by remember { mutableStateOf("") }
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.playlists_new)) },
+        text = {
+            androidx.compose.material3.OutlinedTextField(
+                value = text,
+                onValueChange = { text = it },
+                singleLine = true,
+                label = { Text(stringResource(R.string.playlists_name_hint)) },
+            )
+        },
+        confirmButton = {
+            TextButton(onClick = { onConfirm(text.trim()) }, enabled = text.isNotBlank()) {
+                Text(stringResource(R.string.playlists_create))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.playlists_cancel)) }
+        },
+    )
 }
 
 /**
