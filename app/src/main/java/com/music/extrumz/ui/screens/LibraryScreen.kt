@@ -111,17 +111,10 @@ fun LibraryScreen(
      * without going through that folder.
      */
     downloadedPlaylists: List<SavedCollection> = emptyList(),
-    /**
-     * The user's own playlists, already shaped as cards: this screen renders
-     * them and knows nothing about where they came from — the same contract
-     * [downloadedPlaylists] has.
-     */
-    userPlaylists: List<ShelfItem> = emptyList(),
 ) {
     ProvideLocaleDirection {
         val onDevice = stringResource(R.string.on_device)
         val manageShelfTitle = stringResource(R.string.manage)
-        val playlistsTitle = stringResource(R.string.playlists)
         LazyColumn(
             state = listState,
             modifier = modifier.fillMaxSize(),
@@ -203,23 +196,6 @@ fun LibraryScreen(
             // browse the ~125 channels this account holds. Channels now have a
             // single entry, the list under "manage", and one place to be
             // filtered from.
-            // The user's own playlists. Only shown once there is one: a shelf
-            // that says "playlists" over an empty row is a promise the screen
-            // cannot keep, and the manage row above is where one gets made.
-            if (userPlaylists.isNotEmpty()) {
-                item(key = "shelf:$playlistsTitle") {
-                    val playlistsShelf = HomeShelf(
-                        title = playlistsTitle,
-                        items = userPlaylists,
-                    )
-                    LibraryGridShelf(
-                        shelf = playlistsShelf,
-                        onItemClick = onShelfItemClick,
-                        onItemLongPress = onShelfItemLongPress,
-                        onShowAll = { onShowAll(playlistsShelf) },
-                    )
-                }
-            }
             item(key = "shelf:$onDevice") {
                 val onDeviceShelf = HomeShelf(
                     title = onDevice,
