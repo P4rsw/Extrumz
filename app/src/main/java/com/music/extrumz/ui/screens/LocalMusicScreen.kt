@@ -1286,7 +1286,9 @@ private fun DrillDownActionRow(
             Icon(
                 ExtrumzIcons.Shuffle,
                 contentDescription = stringResource(R.string.shuffle),
-                tint = if (isSystemInDarkTheme()) Color.White else Color.Black,
+                // The app paints its OWN theme (default DARK); the system flag can
+                // disagree with it, which rendered this glyph black-on-dark.
+                tint = MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier.size(18.dp),
             )
         }
@@ -1612,14 +1614,14 @@ private fun DownloadSelectionBar(
             Icon(
                 Icons.Rounded.Check,
                 contentDescription = stringResource(R.string.select_all),
-                tint = if (isSystemInDarkTheme()) Color.White else MaterialTheme.colorScheme.primary,
+                tint = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.size(20.dp),
             )
         }
         Text(
             text = "$count ${stringResource(R.string.selected)}",
             style = MaterialTheme.typography.titleSmall,
-            color = if (isSystemInDarkTheme()) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.weight(1f),
         )
         TextButton(onClick = onDelete, enabled = count > 0) {

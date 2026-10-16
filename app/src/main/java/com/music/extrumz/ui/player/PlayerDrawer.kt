@@ -232,7 +232,7 @@ internal fun PlayerDrawer(
             Text(
                 text = title,
                 style = MaterialTheme.typography.titleLarge.copy(
-                    fontSize = 19.sp,
+                    fontSize = 20.sp,
                     fontWeight = FontWeight.Bold,
                 ),
                 color = Color.White,

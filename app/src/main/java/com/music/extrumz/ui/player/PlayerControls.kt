@@ -386,14 +386,19 @@ internal fun TransportRow(
                 )
             }
         } else {
-            TransportGlyph(
-                icon = if (isPlaying) R.drawable.ic_player_pause else R.drawable.ic_player_play,
-                contentDescription = stringResource(if (isPlaying) R.string.pause else R.string.play),
-                size = playSize,
-                touchSize = playTouch,
-                onClick = onPlayPause,
-                haptic = if (isPlaying) Haptic.Pause else Haptic.Resume,
-            )
+            // The most-tapped control in the app swapped its glyph instantly;
+            // every other state-swapping button here cross-fades, so this one
+            // was the odd one out.
+            Crossfade(targetState = isPlaying, label = "playPause") { playing ->
+                TransportGlyph(
+                    icon = if (playing) R.drawable.ic_player_pause else R.drawable.ic_player_play,
+                    contentDescription = stringResource(if (playing) R.string.pause else R.string.play),
+                    size = playSize,
+                    touchSize = playTouch,
+                    onClick = onPlayPause,
+                    haptic = if (playing) Haptic.Pause else Haptic.Resume,
+                )
+            }
         }
         TransportGlyph(
             icon = R.drawable.ic_player_next,
@@ -966,7 +971,7 @@ private fun BottomGlyph(
             Text(
                 text = label,
                 color = tint,
-                fontSize = 19.sp,
+                fontSize = 20.sp,
                 fontWeight = FontWeight.Bold,
             )
         }

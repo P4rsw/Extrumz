@@ -64,6 +64,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.json.JSONArray
 import java.io.File
+import com.extrumz.app.ui.components.ScanStatusBanner
 
 /**
  * The scanned chats/channels, as a full-screen picker. Picking one narrows the
@@ -101,6 +102,16 @@ fun ChannelsScreen(
     val restoreScope = rememberCoroutineScope()
     var restoring by remember { mutableStateOf(false) }
     var restoreStatus by remember { mutableStateOf<String?>(null) }
+    // The line reports what a restore just did, so it has to go away on its
+    // own. Left up it read as current state — a "بازیابی…" still on screen
+    // minutes later looks like a restore that hung, and every return to this
+    // screen inherited whatever the last one said.
+    LaunchedEffect(restoreStatus) {
+        if (restoreStatus != null) {
+            delay(6_000)
+            restoreStatus = null
+        }
+    }
     val restoreFileExists = remember {
         File(context.filesDir, "restore_chats.json").exists()
     }
@@ -148,42 +159,20 @@ fun ChannelsScreen(
             ) { Text(stringResource(R.string.tg_start_scan)) }
         }
 
-        if (scan.isRunning) {
-            LinearProgressIndicator(Modifier.fillMaxWidth())
-            Text(
-                stringResource(R.string.tg_scanning) +
-                    if (scan.attempts > 0) {
-                        " — " + stringResource(R.string.tg_scan_attempt, scan.attempts)
-                    } else {
-                        ""
-                    },
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+        // One banner, driven by the scanner's own stage and fraction. It
+        // replaces a determinate-looking bar that had no value and an
+        // "Attempt N" label that froze on its last number — the engine was
+        // publishing both a stage and a 0..1 fraction the UI never read.
+        // An error now carries a retry here instead of being a dead line.
+        if (scan.isRunning || scan.lastError != null) {
+            ScanStatusBanner(
+                scan = scan,
+                onRetry = if (scan.lastError != null) {
+                    { TelegramAuthController.startScan() }
+                } else {
+                    null
+                },
             )
-        }
-
-        // Surfaced rather than swallowed: a scan that ended with nothing
-        // loaded has to say so, or the empty list below reads as "no music".
-        if (!scan.isRunning && scan.lastError != null) {
-            Column(Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
-                Text(
-                    stringResource(R.string.tg_scan_failed),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.error,
-                )
-                // The title stays the generic (translated) line; the real
-                // exception — a malformed DB, a failed RPC — is what makes the
-                // failure actionable, so it runs underneath in a muted tone.
-                displayErrorDetail(scan.lastErrorDetail)?.let { detail ->
-                    Text(
-                        detail,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(top = 2.dp),
-                    )
-                }
-            }
         }
 
         // The filter button itself (user ask, 10-10): flipping it swaps the
@@ -267,7 +256,33 @@ fun ChannelsScreen(
             }
         }
 
-        if (chats.isEmpty()) {
+        // Three states, not two. The guard below tests `chats`, but the list
+        // renders `visibleChats`, so with the empty filter on and every chat
+        // at 0 tracks the screen fell through both branches and drew nothing
+        // at all — no title, no action, no hint that a filter was hiding the
+        // answer. The third branch says so, and undoes it.
+        val allFilteredOut = chats.isNotEmpty() && visibleChats.isEmpty()
+        if (allFilteredOut) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(24.dp),
+                verticalArrangement = Arrangement.Center,
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Text(
+                    stringResource(R.string.tg_chats_all_hidden),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Button(
+                    onClick = { AppSettings.setFilterEmptyChats(false) },
+                    modifier = Modifier.padding(top = 16.dp),
+                ) {
+                    Text(stringResource(R.string.tg_show_all_chats))
+                }
+            }
+        } else if (chats.isEmpty()) {
             Column(
                 modifier = Modifier
                     .fillMaxSize()
@@ -289,8 +304,13 @@ fun ChannelsScreen(
             }
         } else {
             LazyColumn(
+                // Top is deliberately small. The outer Column already reserves
+                // the status bar, and the Scaffold's own top inset was being
+                // added on top of it here — two reservations for one bar, which
+                // is the band of empty black the list opened with. The first
+                // channel should start where the header above it ends.
                 contentPadding = PaddingValues(
-                    top = contentPadding.calculateTopPadding(),
+                    top = 4.dp,
                     bottom = contentPadding.calculateBottomPadding() + 96.dp,
                 ),
             ) {
@@ -306,14 +326,13 @@ fun ChannelsScreen(
                     )
                 }
                 if (authState is TelegramAuthState.Ready && !scan.isRunning) {
-                    item {
-                        TextButton(
-                            onClick = { TelegramAuthController.startScan() },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 16.dp),
-                        ) { Text(stringResource(R.string.tg_start_scan)) }
-                    }
+                    // The third copy of "Start scan" used to live here, at the
+                    // bottom of the list. It is the same action as the button
+                    // at the top of the page, which is visible without a
+                    // scroll — so the page had one primary action drawn three
+                    // times, and the one users actually found was the one they
+                    // had to scroll to. Removed; the top button is the entry
+                    // point and the empty state keeps its own.
                 }
             }
         }

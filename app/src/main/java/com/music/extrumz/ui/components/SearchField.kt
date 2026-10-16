@@ -84,7 +84,7 @@ fun SearchField(
             contentDescription = stringResource(R.string.search),
             tint = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier
-                .size(32.dp)
+                .size(44.dp)
                 .clip(CircleShape)
                 .clickable(enabled = query.isNotBlank(), onClick = submit)
                 .padding(6.dp),
@@ -124,7 +124,7 @@ fun SearchField(
         if (query.isNotEmpty()) {
             Box(
                 modifier = Modifier
-                    .size(28.dp)
+                    .size(44.dp)
                     .clip(CircleShape)
                     .clickable {
                         onQueryChange("")

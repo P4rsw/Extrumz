@@ -9,6 +9,7 @@
 
 package com.extrumz.app.ui.components
 
+import androidx.compose.animation.Crossfade
 import androidx.compose.animation.AnimatedVisibilityScope
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionScope
@@ -402,12 +403,14 @@ private fun GlassNowPlaying(
                     },
                     modifier = Modifier.size(glyphSlot),
                 ) {
-                    Icon(
-                        imageVector = if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-                        contentDescription = stringResource(if (isPlaying) R.string.pause else R.string.play),
-                        tint = contentColor,
-                        modifier = Modifier.size(glyphSize),
-                    )
+                    Crossfade(targetState = isPlaying, label = "playPause") { playing ->
+                        Icon(
+                            imageVector = if (playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+                            contentDescription = stringResource(if (playing) R.string.pause else R.string.play),
+                            tint = contentColor,
+                            modifier = Modifier.size(glyphSize),
+                        )
+                    }
                 }
             }
             // Dropped inline: the collapsed row is sharing its width with the

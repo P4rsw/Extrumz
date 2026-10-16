@@ -64,6 +64,7 @@ import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
 import com.extrumz.app.ui.util.isRtlReading
 import com.extrumz.app.ui.util.ProvideLocaleDirection
+import com.extrumz.app.ui.components.ScanStatusBanner
 
 /**
  * The offline Telegram library: every track the scanner has indexed in Room,
@@ -113,7 +114,15 @@ fun SongsScreen(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .padding(contentPadding),
+            // Top inset only. Applying the whole Scaffold inset as a modifier
+            // shrank the scrollable area on every side, so the region outside
+            // it — the band behind the mini-player and the nav bar the user
+            // sees — was the bare window background, i.e. flat black. The
+            // Library page passes the same inset down to its list instead and
+            // its content runs edge to edge, which is why one looked open and
+            // the other looked like a black gap. The list keeps its own 96dp
+            // bottom padding, so nothing scrolls under the bars unseen.
+            .padding(top = contentPadding.calculateTopPadding()),
     ) {
     // The whole header mirrors for Persian: the connection line and the
     // search field both sit at the reading edge, and a provider is the
@@ -185,46 +194,34 @@ fun SongsScreen(
             )
     }
 
-        if (scan.isRunning) {
-            Spacer(Modifier.height(8.dp))
-            Text(
-                stringResource(R.string.tg_scanning) +
-                    if (scan.attempts > 0) {
-                        " — " + stringResource(R.string.tg_scan_attempt, scan.attempts)
-                    } else {
-                        ""
-                    },
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(horizontal = 16.dp),
+        // One banner for both states, driven by the scanner's own stage and
+        // fraction — the same component the Channels page uses, so the two
+        // screens cannot drift apart again. This replaces an indeterminate bar
+        // and an "Attempt N" label that froze on its last value, and it gives
+        // a failed scan a retry instead of leaving a red line with no action.
+        if (scan.isRunning || scan.lastError != null) {
+            ScanStatusBanner(
+                scan = scan,
+                onDismiss = if (scan.lastError != null) {
+                    { Telegram.scanner.dismissError() }
+                } else {
+                    null
+                },
+                onRetry = if (scan.lastError != null) {
+                    { TelegramAuthController.startScan() }
+                } else {
+                    null
+                },
             )
         }
 
-        // A scan that ended empty (chats never loaded) says so here rather
-        // than leaving the empty-state hint below to imply there is no music.
-        // Same two-line treatment as ChannelsScreen (review parity fix): the
-        // translated title, then the real cause underneath in a muted tone.
-        if (!scan.isRunning && scan.lastError != null) {
-            Column(Modifier.padding(horizontal = 16.dp)) {
-                Text(
-                    stringResource(R.string.tg_scan_failed),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.error,
-                )
-                displayErrorDetail(scan.lastErrorDetail)?.let { detail ->
-                    Text(
-                        detail,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(top = 2.dp),
-                    )
-                }
-            }
-        }
-
-        Spacer(Modifier.height(8.dp))
-
         if (songs.isEmpty()) {
+            // Mirrored like the header above. The direction provider only
+            // covered the header, so an empty library showed a Persian
+            // paragraph whose wrapped lines were aligned to the left — the
+            // last edge a Persian reader looks at — while every other line on
+            // the screen was right-aligned.
+            ProvideLocaleDirection {
             Column(
                 modifier = Modifier
                     .fillMaxSize()
@@ -232,17 +229,29 @@ fun SongsScreen(
                 verticalArrangement = Arrangement.Center,
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
+                // Two different situations used to share one line, and the
+                // line was written for only one of them: a signed-in user with
+                // an empty library was told to sign in, and offered no button
+                // at all. The rule is that an empty state carries an action.
+                val signedIn = authState is TelegramAuthState.Ready
                 Text(
-                    stringResource(R.string.tg_empty_hint),
+                    stringResource(
+                        if (signedIn) R.string.tg_empty_scan_hint
+                        else R.string.tg_empty_hint
+                    ),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                if (authState !is TelegramAuthState.Ready) {
-                    Spacer(Modifier.height(16.dp))
-                    Button(onClick = { TelegramAuthController.requestAuthUi() }) {
+                Spacer(Modifier.height(16.dp))
+                when {
+                    !signedIn -> Button(onClick = { TelegramAuthController.requestAuthUi() }) {
                         Text(stringResource(R.string.tg_login))
                     }
+                    !scan.isRunning -> Button(onClick = { TelegramAuthController.startScan() }) {
+                        Text(stringResource(R.string.tg_start_scan))
+                    }
                 }
+            }
             }
         } else {
             val listState = rememberLazyListState()

@@ -22,23 +22,6 @@ import com.extrumz.app.R
 // spots (Replay's rank badge) that want that specific red regardless of theme.
 val AccentRed = Color(0xFFFA2D48)
 
-/**
- * Extrumz's own colours — the lime-to-teal gradient the mark is cut from.
- *
- * Named and available rather than wired into the scheme: this app is
- * deliberately monochrome so that cover artwork is the only colour on screen,
- * and a permanent accent would fight that. Reach for these where the brand
- * itself is being drawn — the mark, a share card, a splash — and nowhere else.
- */
-object ExtrumzColors {
-    val Base = Color(0xFF0B0B0F)     // the near-black the icon sits on
-    val Lime = Color(0xFFD6FF3F)     // gradient, left end
-    val Teal = Color(0xFF3DFFE0)     // gradient, right end
-    /** Horizontal lime→teal, matching the launcher icon exactly. */
-    val Gradient = listOf(Lime, Teal)
-    /** Only for a connected-to-Telegram state. Never decoration. */
-    val Telegram = Color(0xFF2AABEE)
-}
 
 private val DarkColors = darkColorScheme(
     primary = Color.White,
@@ -77,17 +60,44 @@ val SFProDisplay = FontFamily(
     Font(R.font.sf_pro_display_heavy, FontWeight.W800),
 )
 
+/**
+ * How tall a line is, as a multiple of its own size.
+ *
+ * Every style here used to omit lineHeight, so the line box came from the
+ * font's own metrics — and SF Pro Display's are around 1.19x, well under the
+ * 1.4 floor a readable paragraph needs. Nothing was "set wrong"; nothing was
+ * set at all, so the app inherited the font's leading everywhere at once.
+ *
+ * Headings stay tighter than body (they are read as shapes, not sentences);
+ * body copy gets the full floor, which is where the missing leading actually
+ * hurt. Anything that renders a single centred line — buttons, chips, tabs —
+ * is deliberately left alone: a 1.4 ratio there only adds dead height above
+ * and below the glyphs without improving anything.
+ */
+private fun Float.sp(size: Float) = (this * size).sp
+
+/**
+ * Tabular figures for anything numeric.
+ *
+ * SF Pro is proportional by default: '1' is 908 units and '6' is 1264, a 28%
+ * spread, so a running clock, a countdown, a percentage or a column of
+ * durations changes width every time a digit changes and the text around it
+ * shifts. The font ships the `tnum` feature; enabling it costs nothing and
+ * only affects digits, so prose is untouched.
+ */
+private const val TABULAR = "tnum"
+
 // Heavy, tight typography — the backbone of the Apple Music look.
 private val ExtrumzTypography = Typography(
-    displayLarge = TextStyle(fontWeight = FontWeight.W800, fontSize = 34.sp, letterSpacing = (-0.8).sp),
-    headlineLarge = TextStyle(fontWeight = FontWeight.W800, fontSize = 30.sp, letterSpacing = (-0.7).sp),
-    headlineMedium = TextStyle(fontWeight = FontWeight.W700, fontSize = 22.sp, letterSpacing = (-0.4).sp),
-    titleLarge = TextStyle(fontWeight = FontWeight.W700, fontSize = 20.sp, letterSpacing = (-0.3).sp),
-    titleMedium = TextStyle(fontWeight = FontWeight.W600, fontSize = 16.sp, letterSpacing = (-0.2).sp),
-    bodyLarge = TextStyle(fontWeight = FontWeight.W400, fontSize = 16.sp),
-    bodyMedium = TextStyle(fontWeight = FontWeight.W400, fontSize = 14.sp),
-    labelMedium = TextStyle(fontWeight = FontWeight.W600, fontSize = 12.sp),
-    labelSmall = TextStyle(fontWeight = FontWeight.W600, fontSize = 11.sp),
+    displayLarge = TextStyle(fontWeight = FontWeight.W800, fontSize = 34.sp, lineHeight = 41.sp, letterSpacing = (-0.8).sp),
+    headlineLarge = TextStyle(fontWeight = FontWeight.W800, fontSize = 30.sp, lineHeight = 36.sp, letterSpacing = (-0.7).sp),
+    headlineMedium = TextStyle(fontWeight = FontWeight.W700, fontSize = 22.sp, lineHeight = 29.sp, letterSpacing = (-0.4).sp),
+    titleLarge = TextStyle(fontWeight = FontWeight.W700, fontSize = 20.sp, lineHeight = 26.sp, letterSpacing = (-0.3).sp),
+    titleMedium = TextStyle(fontWeight = FontWeight.W600, fontSize = 16.sp, lineHeight = 22.sp, letterSpacing = (-0.2).sp),
+    bodyLarge = TextStyle(fontWeight = FontWeight.W400, fontSize = 16.sp, lineHeight = 23.sp, fontFeatureSettings = TABULAR),
+    bodyMedium = TextStyle(fontWeight = FontWeight.W400, fontSize = 14.sp, lineHeight = 20.sp, fontFeatureSettings = TABULAR),
+    labelMedium = TextStyle(fontWeight = FontWeight.W600, fontSize = 12.sp, lineHeight = 16.sp, fontFeatureSettings = TABULAR),
+    labelSmall = TextStyle(fontWeight = FontWeight.W600, fontSize = 11.sp, lineHeight = 14.sp, fontFeatureSettings = TABULAR),
 ).withFamily(SFProDisplay)
 
 /** Applies [family] to every style in the scale, so nothing is left on Roboto. */

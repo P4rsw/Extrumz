@@ -63,6 +63,7 @@ import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 import dev.chrisbanes.haze.materials.HazeMaterials
 import java.util.Locale
 import kotlin.math.roundToInt
+import com.extrumz.app.ui.components.forLanguage
 
 private val DrawerShape = RoundedCornerShape(topStart = 26.dp, topEnd = 26.dp)
 private val ControlShape = RoundedCornerShape(16.dp)
@@ -165,7 +166,7 @@ internal fun LyricsOffsetSheet(
                 Text(
                     text = stringResource(R.string.lyrics_offset),
                     style = MaterialTheme.typography.titleLarge.copy(
-                        fontSize = 19.sp,
+                        fontSize = 20.sp,
                         fontWeight = FontWeight.Bold,
                     ),
                     color = Color.White,
@@ -280,4 +281,8 @@ private fun formatOffset(offsetMs: Int): String = String.format(
     Locale.getDefault(),
     "%+.1f s",
     offsetMs / 1_000f,
-)
+    // Every other figure this screen shows is set in the reader's digits; this
+    // one — the number the whole sheet exists to change — was the only one
+    // left in Latin, so a Persian reader saw "+۱.۵ ثانیه" everywhere and
+    // "+1.5 s" in the one place that mattered.
+).forLanguage()

@@ -1,5 +1,6 @@
 package com.extrumz.app.ui.components
 
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -87,7 +88,9 @@ import kotlinx.coroutines.delay
 fun Modifier.thumbnailBorder(shape: Shape): Modifier = composed {
     this.border(
         width = 1.dp,
-        color = if (isSystemInDarkTheme()) Color.White.copy(alpha = 0.15f) else Color.Black.copy(alpha = 0.15f),
+        // Theme-driven, not system-driven: see LocalMusicScreen. On a light-mode
+        // phone with the app in DARK this hairline was black on black.
+        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.15f),
         shape = shape
     )
 }
@@ -591,9 +594,12 @@ private fun SongRowContent(
         }
         // Same sheet the long-press opens, for anyone who doesn't think to hold.
         if (onMore != null) {
+            // 44dp, not 36: this button sits inside the row's own
+            // combinedClickable, so a near-miss used to play the song instead
+            // of opening its sheet — the worst possible outcome for a mis-tap.
             Box(
                 modifier = Modifier
-                    .size(36.dp)
+                    .size(44.dp)
                     .clip(CircleShape)
                     .clickable(onClick = onMore),
                 contentAlignment = Alignment.Center,

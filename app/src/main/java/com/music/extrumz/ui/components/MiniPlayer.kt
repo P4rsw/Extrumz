@@ -1,5 +1,6 @@
 package com.extrumz.app.ui.components
 
+import androidx.compose.animation.Crossfade
 import com.extrumz.app.R
 
 import androidx.compose.foundation.background
@@ -250,12 +251,16 @@ fun MiniPlayer(
                     },
                     modifier = Modifier.size(GLYPH_SLOT),
                 ) {
-                    Icon(
-                        imageVector = if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-                        contentDescription = stringResource(if (isPlaying) R.string.pause else R.string.play),
-                        tint = MaterialTheme.colorScheme.onBackground,
-                        modifier = Modifier.size(GLYPH_SIZE),
-                    )
+                    // Cross-fade rather than pop: the glyph is the state, and
+                    // a hard swap reads as a glitch on the tap that caused it.
+                    Crossfade(targetState = isPlaying, label = "playPause") { playing ->
+                        Icon(
+                            imageVector = if (playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+                            contentDescription = stringResource(if (playing) R.string.pause else R.string.play),
+                            tint = MaterialTheme.colorScheme.onBackground,
+                            modifier = Modifier.size(GLYPH_SIZE),
+                        )
+                    }
                 }
             }
             Spacer(Modifier.width(TRANSPORT_GAP))
