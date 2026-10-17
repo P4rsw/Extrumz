@@ -35,6 +35,7 @@ import com.extrumz.app.data.telegram.ProxyLink
 import com.extrumz.app.data.telegram.ProxySettings
 import com.extrumz.app.data.telegram.ProxyStore
 import com.extrumz.app.data.telegram.Telegram
+import com.extrumz.app.data.telegram.AndroidMusicTelegramClient
 
 /**
  * The proxy editor.
@@ -224,7 +225,11 @@ fun ProxyDialog(onDismiss: () -> Unit) {
                         draft
                     }
                     ProxyStore.save(final)
-                    Telegram.client.applyProxy(final)
+                    // The one place a reset is wanted: the user just changed
+                    // something and should not have to wait out TDLib's own
+                    // backoff to find out whether it took.
+                    (Telegram.client as? AndroidMusicTelegramClient)
+                        ?.applyProxy(final, resetNetwork = true)
                     onDismiss()
                 },
             ) {

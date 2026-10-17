@@ -204,6 +204,28 @@ class AndroidMusicTelegramClient(
      * restart.
      */
     override fun applyProxy(settings: ProxySettings) {
+        // No network reset on this path. It runs while TDLib is still starting,
+        // before anything is connected, so there is nothing to disturb — and
+        // dropping the network here kills the first connection instead, which
+        // is what a launch looked like: connected, then refused, then nothing.
+        applyProxy(settings, resetNetwork = false)
+    }
+
+    /**
+     * Applies [settings], and optionally asks TDLib to re-evaluate the network
+     * straight away.
+     *
+     * [resetNetwork] is true only when the user has just changed something, and
+     * it exists for one case: changing the proxy does not disturb a connection
+     * attempt that is already backing off, and the device log showed what that
+     * costs — a config fetch fails and the next attempt is 151 seconds away, so
+     * a corrected proxy did nothing visible for two and a half minutes.
+     *
+     * Doing it on the startup path was wrong: nothing is connected yet, so the
+     * reset has no flood to break, and it tears down the first connection
+     * instead. Dialogs died with two requests in flight.
+     */
+    fun applyProxy(settings: ProxySettings, resetNetwork: Boolean) {
         val c = client ?: return
         if (!settings.enabled || !settings.isUsable) {
             runCatching { c.send(TdApi.DisableProxy(), null) }
@@ -220,7 +242,7 @@ class AndroidMusicTelegramClient(
             c.send(TdApi.AddProxy(settings.host, settings.port, true, type)) { result ->
                 if (result is TdApi.Proxy) {
                     c.send(TdApi.EnableProxy(result.id)) { enabled ->
-                        if (enabled is TdApi.Ok) forceReconnect(settings)
+                        if (enabled is TdApi.Ok && resetNetwork) forceReconnect(settings)
                     }
                 }
             }
