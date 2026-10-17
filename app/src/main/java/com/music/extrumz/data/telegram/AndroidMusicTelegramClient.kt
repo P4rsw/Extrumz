@@ -202,7 +202,7 @@ class AndroidMusicTelegramClient(
             return
         }
         val type = when (settings.kind) {
-            ProxyKind.MTProto -> TdApi.ProxyTypeMtproto(settings.secret)
+            ProxyKind.MTProto -> TdApi.ProxyTypeMtproto(settings.normalizedSecret())
             ProxyKind.Socks5 ->
                 TdApi.ProxyTypeSocks5(settings.username, settings.password)
             ProxyKind.Http ->

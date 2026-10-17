@@ -46,7 +46,61 @@ data class ProxySettings(
     /** Enough to attempt a connection. An MTProto proxy without its secret is not. */
     val isUsable: Boolean
         get() = host.isNotBlank() && port in 1..65535 &&
-            (kind != ProxyKind.MTProto || secret.isNotBlank())
+            (kind != ProxyKind.MTProto || normalizedSecret().isNotBlank())
+
+    /**
+     * The secret in the form TDLib can actually use.
+     *
+     * `proxyTypeMtproto` takes the secret "as hex or base64", and has to work
+     * out which. A base64 secret with its padding stripped — which is exactly
+     * what a `t.me/proxy` link carries, and what Telegram's own client accepts
+     * — is neither valid hex nor decodable base64, so TDLib either rejects it
+     * or derives the wrong key. Either way the proxy sees a client that cannot
+     * be decrypted and simply never answers: the connection reaches
+     * `ConnectionStateReady` because the TCP socket did open, and the device
+     * log shows `last read: never` underneath it. Every request then hangs.
+     *
+     * That is why a link that works in Telegram did not work here — Telegram
+     * restores the padding, and this did not.
+     *
+     * So: hex is passed through untouched (the `dd…` form is already hex), and
+     * anything else is padded and decoded here, then handed over as hex. Doing
+     * the decode ourselves removes the guess TDLib was making, which is the
+     * part that was wrong.
+     */
+    fun normalizedSecret(): String {
+        val raw = secret.trim()
+        if (raw.isEmpty()) return ""
+
+        // Already hex, either 16 bytes (32 chars) or the 16+17 form (34, "dd…").
+        if (raw.length in setOf(32, 34) && raw.all { it.isDigit() || it.lowercaseChar() in 'a'..'f' }) {
+            return raw.lowercase()
+        }
+
+        // java.util.Base64, not android.util: the Android one is a stub in JVM
+        // unit tests, which would leave the one piece of this with logic in it
+        // untestable on a desktop. Available on every API this app supports.
+        //
+        // The plain decoder, not the MIME one: MIME silently discards characters
+        // it does not recognise, so "!!!" would decode to nothing and be handed
+        // on as if it were a key. A secret that cannot be decoded has to come
+        // back empty so the caller refuses the proxy — connecting and then
+        // hanging silently is the exact failure this function exists to prevent.
+        val decoded = runCatching { java.util.Base64.getDecoder().decode(pad(raw)) }.getOrNull()
+            ?: return ""
+
+        // An MTProto secret is 16 bytes, or 17 with the "dd" flag in front.
+        // Anything else is not one, whatever it decoded to.
+        if (decoded.size !in setOf(16, 17)) return ""
+
+        return decoded.joinToString("") { "%02x".format(it) }
+    }
+
+    /** Restores the `=` padding a `t.me` link leaves off. */
+    private fun pad(value: String): String {
+        val missing = (4 - value.length % 4) % 4
+        return value + "=".repeat(missing)
+    }
 
     /** One line for the settings row. Never includes the secret or the password. */
     val label: String

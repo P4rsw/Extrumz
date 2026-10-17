@@ -23,13 +23,13 @@ class ProxyLinkTest {
     @Test
     fun `parses an MTProto link into host port and secret`() {
         val parsed = ProxyLink.parse(
-            "https://t.me/proxy?server=1.2.3.4&port=443&secret=dd0f8a7b6c5d4e3f"
+            "https://t.me/proxy?server=1.2.3.4&port=443&secret=dd0f8a7b6c5d4e3f00112233445566aa"
         )
         assertNotNull(parsed)
         assertEquals(ProxyKind.MTProto, parsed!!.kind)
         assertEquals("1.2.3.4", parsed.host)
         assertEquals(443, parsed.port)
-        assertEquals("dd0f8a7b6c5d4e3f", parsed.secret)
+        assertEquals("dd0f8a7b6c5d4e3f00112233445566aa", parsed.secret)
         assertTrue(parsed.enabled)
         assertTrue(parsed.isUsable)
     }
@@ -77,6 +77,55 @@ class ProxyLinkTest {
     }
 
     @Test
+    fun `an unpadded base64 secret becomes hex`() {
+        // The shape a t.me link actually carries: 22 chars, no "=". TDLib
+        // cannot tell this from a hex string and derives the wrong key, so the
+        // proxy never answers. Decoding it here removes the guess.
+        val settings = ProxySettings(
+            enabled = true,
+            kind = ProxyKind.MTProto,
+            host = "nasho.poolaki.co.uk",
+            port = 8443,
+            secret = "EERighJJvXrFGRMCIMJdCQ",
+        )
+        val hex = settings.normalizedSecret()
+        assertEquals(32, hex.length)
+        assertTrue(hex.all { it.isDigit() || it in 'a'..'f' })
+        // Checked against an independent decoder: base64 of this secret is
+        // "Incorrect padding" without the "==" the link leaves off, and decodes
+        // to these sixteen bytes with it. That mismatch is the whole bug.
+        assertEquals("104462821249bd7ac519130220c25d09", hex)
+    }
+
+    @Test
+    fun `a padded base64 secret decodes to the same key`() {
+        val unpadded = ProxySettings(
+            kind = ProxyKind.MTProto, secret = "EERighJJvXrFGRMCIMJdCQ",
+        ).normalizedSecret()
+        val padded = ProxySettings(
+            kind = ProxyKind.MTProto, secret = "EERighJJvXrFGRMCIMJdCQ==",
+        ).normalizedSecret()
+        assertEquals(unpadded, padded)
+    }
+
+    @Test
+    fun `a hex secret is passed through unchanged`() {
+        // Already in the form TDLib wants — re-encoding it would break it.
+        val hex = "dd0f8a7b6c5d4e3f0a1b2c3d4e5f6071"
+        assertEquals(hex, ProxySettings(kind = ProxyKind.MTProto, secret = hex).normalizedSecret())
+    }
+
+    @Test
+    fun `a proxy with an undecodable secret is not usable`() {
+        // Better refused than connected-and-silent, which is the failure this
+        // whole path exists to avoid.
+        val broken = ProxySettings(
+            enabled = true, kind = ProxyKind.MTProto, host = "1.2.3.4", port = 443, secret = "!!!",
+        )
+        assertFalse(broken.isUsable)
+    }
+
+    @Test
     fun `the label never leaks the secret or the password`() {
         // Shown in settings and beside the badge, so it has to be safe to look at.
         val mtproto = ProxySettings(
@@ -84,8 +133,9 @@ class ProxyLinkTest {
             kind = ProxyKind.MTProto,
             host = "1.2.3.4",
             port = 443,
-            secret = "dd0f8a7b6c5d4e3f",
+            secret = "dd0f8a7b6c5d4e3f00112233445566aa",
         )
+        assertTrue(mtproto.isUsable)
         assertTrue(mtproto.label.contains("1.2.3.4"))
         assertFalse(mtproto.label.contains("dd0f8a"))
 
