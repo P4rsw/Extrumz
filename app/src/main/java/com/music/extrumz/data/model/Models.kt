@@ -101,6 +101,17 @@ data class Song(
      * channel filter narrows search results by — the same
      * `TelegramUi.selectedChatId` the Songs chip and the Library shelf turn.
      */
+    /**
+     * The `tracks` row this was built from.
+     *
+     * The chat filters need it. A song lives in one row but can belong to many
+     * chats — `track_sources` records every one — so "is this song in that
+     * channel?" is a question about a set of `fileUniqueId`s, not about the
+     * single `sourceChatId` the row happens to carry. Filtering on
+     * `sourceChatId` showed a song in exactly one of the six chats it was
+     * found in.
+     */
+    val fileUniqueId: String = "",
     val sourceChatId: Long = 0L,
 ) {
     /** Legacy derived property: true if and only if [queueTier] is [QueueTier.AUTOPLAY]. */

@@ -32,6 +32,7 @@ internal fun Track.toSong(configId: String? = null): Song {
         thumbnailUrl = coverUrl.ifBlank { null },
         durationText = formatTrackDuration(duration),
         sourceQuality = "HIGH",
+        fileUniqueId = fileUniqueId,
         sourceChatId = sourceChatId,
         // The playlist-membership key, carried on the field the model already
         // reserves for exactly this: a row's identity within one playlist.

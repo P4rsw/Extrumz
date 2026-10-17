@@ -69,6 +69,7 @@ import com.extrumz.app.data.model.toSong
 import androidx.compose.foundation.combinedClickable
 import kotlinx.coroutines.flow.sample
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.first
 
 /**
  * The offline Telegram library: every track the scanner has indexed in Room,
@@ -130,7 +131,16 @@ fun SongsScreen(
         value = chatFilter?.let { id -> TelegramDb.chatDao.getById(id)?.title }
     }
 
-    val tracks = filteredTracks(allTracks, query, chatFilter)
+    // Which rows are actually in the filtered chat. From `track_sources`, not
+    // from `sourceChatId`: a song can be found in six chats and the row
+    // remembers one, so filtering on the row's own field showed it in exactly
+    // one of them. The channel filter looked broken while the data was right.
+    val chatTrackIds by produceState<Set<String>>(emptySet(), chatFilter) {
+        value = chatFilter?.let { id ->
+            TelegramDb.trackDao.observeIdsInChat(id).first().toSet()
+        } ?: emptySet()
+    }
+    val tracks = filteredTracks(allTracks, query, chatFilter, chatTrackIds)
     val songs = remember(tracks) { tracks.map(Track::toSong) }
 
     Column(
@@ -403,15 +413,23 @@ private fun Song.subtitle(): String = listOfNotNull(
     durationText,
 ).joinToString(" • ")
 
+/**
+ * [chatTrackIds] is every row `track_sources` places in the filtered chat, and
+ * it is the membership test rather than `track.sourceChatId`. One row can
+ * belong to many chats — six, for a song shared around — and `sourceChatId`
+ * remembers only whichever chat the keeper happened to come from, so a song
+ * was reachable from one of its channels and invisible in the rest.
+ */
 private fun filteredTracks(
     all: List<Track>,
     query: String,
     chatId: Long?,
+    chatTrackIds: Set<String>,
 ): List<Track> {
     val q = query.trim()
     if (q.isEmpty() && chatId == null) return all
     return all.filter { track ->
-        (chatId == null || track.sourceChatId == chatId) &&
+        (chatId == null || track.fileUniqueId in chatTrackIds) &&
             (q.isEmpty() ||
                 track.title.contains(q, ignoreCase = true) ||
                 track.performer.contains(q, ignoreCase = true) ||

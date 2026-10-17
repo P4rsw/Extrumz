@@ -53,6 +53,11 @@ import com.extrumz.app.playback.StreamChoice
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicLong
 import com.extrumz.app.data.db.TelegramDb
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.Flow
 
 /** What the current track's provider picker already knows without another request. */
 enum class LyricsProviderState {
@@ -77,10 +82,21 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     // chosen the published rows are narrowed to it (post-fetch, so remote
     // results are filtered the same way local FTS rows are), and clearing
     // the filter brings the full set straight back off the cache.
+    // The rows in the filtered chat, for the same reason the songs list reads
+    // them: a song's `sourceChatId` is one chat out of however many it was
+    // found in, so narrowing on it hid a song from every channel but one.
+    @OptIn(ExperimentalCoroutinesApi::class)
+    private val chatTrackIds: Flow<Set<String>> = TelegramUi.selectedChatId
+        .flatMapLatest { id ->
+            if (id == null) flowOf(emptySet())
+            else TelegramDb.trackDao.observeIdsInChat(id).map { it.toSet() }
+        }
+
     val results: StateFlow<UiState<List<SearchResult>>?> = combine(
         _results.asStateFlow(),
         TelegramUi.selectedChatId,
-    ) { state, chatId -> state.narrowedTo(chatId) }
+        chatTrackIds,
+    ) { state, chatId, ids -> state.narrowedTo(chatId, ids) }
         .stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
     /** The mixed YouTube Music result page is the fast, useful default. */
@@ -129,7 +145,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         _typeaheadResults.asStateFlow(),
         TelegramUi.selectedChatId,
     ) { rows, chatId ->
-        val filtered = if (chatId == null) rows else rows.forChannel(chatId)
+        val filtered = if (chatId == null) rows else rows.forChannel(chatId, emptySet())
         // The cap lands after narrowing, not before — see the write side.
         filtered.take(TYPEAHEAD_MAX_RESULTS)
     }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
@@ -895,10 +911,11 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
      */
     private fun UiState<List<SearchResult>>?.narrowedTo(
         chatId: Long?,
+        chatTrackIds: Set<String>,
     ): UiState<List<SearchResult>>? {
         if (chatId == null) return this
         val rows = (this as? UiState.Success)?.data ?: return this
-        val kept = rows.forChannel(chatId)
+        val kept = rows.forChannel(chatId, chatTrackIds)
         return if (kept.isEmpty()) {
             UiState.Error(text(R.string.no_results))
         } else {
@@ -907,10 +924,13 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     /** A row survives the channel filter only if it was indexed from that chat. */
-    private fun List<SearchResult>.forChannel(chatId: Long): List<SearchResult> = filter { row ->
+    private fun List<SearchResult>.forChannel(
+        chatId: Long,
+        chatTrackIds: Set<String>,
+    ): List<SearchResult> = filter { row ->
         when (row) {
-            is SearchResult.TopTrack -> row.song.sourceChatId == chatId
-            is SearchResult.Track -> row.song.sourceChatId == chatId
+            is SearchResult.TopTrack -> row.song.fileUniqueId in chatTrackIds
+            is SearchResult.Track -> row.song.fileUniqueId in chatTrackIds
             is SearchResult.Browse -> false
         }
     }

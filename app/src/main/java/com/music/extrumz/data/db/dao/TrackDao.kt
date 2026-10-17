@@ -205,6 +205,20 @@ interface TrackDao {
     )
     fun observeHistory(limit: Int = 50): Flow<List<Track>>
 
+    /**
+     * Which rows are in one chat, as a reactive set.
+     *
+     * [observeByChat] answers the same question with the full rows, but the
+     * songs list already holds every `Track` in memory and only needs to know
+     * membership — re-querying the whole channel would duplicate a list the
+     * caller has. And search filters `Song`s, which carry no join of their own.
+     *
+     * Reads `track_sources` for the reason [observeByChat] gives: one row can
+     * belong to many chats, and `tracks.sourceChatId` remembers only one.
+     */
+    @Query("SELECT trackFileUniqueId FROM track_sources WHERE chatId = :chatId")
+    fun observeIdsInChat(chatId: Long): Flow<List<String>>
+
     @Transaction
     suspend fun upsertAll(tracks: List<Track>) {
         insertAll(tracks)
