@@ -22,6 +22,8 @@ import com.extrumz.app.data.stats.ArtistFacts
 import com.extrumz.app.data.stats.ListeningStats
 import com.extrumz.app.download.Downloads
 import kotlin.concurrent.thread
+import com.extrumz.app.data.LikeState
+import kotlinx.coroutines.runBlocking
 
 class ExtrumzApplication : Application(), SingletonImageLoader.Factory {
 
@@ -44,6 +46,13 @@ class ExtrumzApplication : Application(), SingletonImageLoader.Factory {
             // session fills the songs tab without anyone tapping anything.
             TelegramAuthController.ensureStarted()
             SourceRegistry.init(this)
+            // The ratings that were written down, read back before anything
+            // can ask for one. Here rather than in a ViewModel: a process
+            // started only for the playback service never builds one — the
+            // logs show exactly that, a start for `PlaybackService` with
+            // `caller=com.android.bluetooth` — and the notification would then
+            // show a liked song as unrated.
+            runBlocking { LikeState.seed() }
         }
         AppSettings.init(this)
         SearchHistory.init(this)

@@ -442,16 +442,6 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
      */
     val likeStatuses: StateFlow<Map<String, LikeStatus>> = LikeState.overrides
 
-    init {
-        // The ratings that were written down, put back into the map at start.
-        // Without this the hearts read as unrated for every song until its own
-        // menu asked the account again — and the liked list would disagree
-        // with the heart on the row above it. seedLiked only fills gaps, so a
-        // rating changed since the launch is never overwritten.
-        viewModelScope.launch {
-            runCatching { LikeState.seedLiked(TelegramDb.likedDao.ids().toSet()) }
-        }
-    }
 
     fun likeStatusOf(videoId: String): LikeStatus =
         likeStatuses.value[videoId] ?: LikeStatus.INDIFFERENT
@@ -466,11 +456,29 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun setLike(videoId: String, status: LikeStatus) {
         if (!requireSignIn()) return
         if (likeStatusOf(videoId) == status) return
-        LikeState.set(videoId, status)
+        // Memory only: this path has an id and nothing else, so there is
+        // nothing to store. The heart goes through [toggleLike], which has the
+        // song.
+        LikeState.remember(videoId, status)
     }
 
-    /** The heart: liked becomes neutral, anything else becomes liked. */
-    fun toggleLike(videoId: String) = setLike(
+    /**
+     * The heart: liked becomes neutral, anything else becomes liked.
+     *
+     * Takes the Song, not the id, because the change has to be written down as
+     * well as remembered and a bare id cannot be. See [LikeState.set].
+     */
+    fun toggleLike(song: Song) {
+        if (!requireSignIn()) return
+        LikeState.set(
+            song,
+            if (likeStatusOf(song.videoId) == LikeStatus.LIKE) LikeStatus.INDIFFERENT
+            else LikeStatus.LIKE,
+        )
+    }
+
+    @Suppress("unused")
+    private fun toggleLikeById(videoId: String) = setLike(
         videoId,
         if (likeStatusOf(videoId) == LikeStatus.LIKE) LikeStatus.INDIFFERENT else LikeStatus.LIKE,
     )

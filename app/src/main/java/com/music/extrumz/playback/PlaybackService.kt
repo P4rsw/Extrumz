@@ -1876,18 +1876,20 @@ class PlaybackService : MediaLibraryService() {
     }
 
     private fun toggleFavoriteFromNotification(videoId: String) {
-        val previous = LikeState.overrides.value[videoId] ?: LikeStatus.INDIFFERENT
-        val target = if (previous == LikeStatus.LIKE) {
+        // The song, not just the id. A rating is written down now, and an id is
+        // not enough to store — this path used to record it in memory only, so
+        // a like taken from the notification was gone by the next launch.
+        //
+        // Rebuilt from the media item, which carries no `sourceChatId`; the
+        // coordinates are read back out of the id inside the write.
+        val song = player?.currentMediaItem?.toSong()?.takeIf { it.videoId == videoId }
+            ?: return
+        val target = if (LikeState.statusOf(videoId) == LikeStatus.LIKE) {
             LikeStatus.INDIFFERENT
         } else {
             LikeStatus.LIKE
         }
-
-        // Match the player UI: set the override on both surfaces and leave it.
-        // Nothing is written to a catalogue any more — the record this toggle
-        // used to reconcile against went with it — so there is no background
-        // write to wait on and no optimistic state to roll back from.
-        LikeState.set(videoId, target)
+        LikeState.set(song, target)
         refreshCustomLayouts()
     }
 

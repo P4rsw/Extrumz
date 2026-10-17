@@ -1395,7 +1395,7 @@ private fun ExtrumzApp(
             autoplayEnabled = autoplayEnabled,
             signedIn = signedIn,
             likeStatus = likeStatuses[song.videoId] ?: LikeStatus.INDIFFERENT,
-            onToggleLike = { viewModel.toggleLike(song.videoId) },
+            onToggleLike = { viewModel.toggleLike(song) },
             // The service owns both the queue and the Shuffle state. Keeping
             // the toggle on that side prevents the UI from changing the icon
             // before its asynchronous reorder command has actually landed.
@@ -2591,33 +2591,10 @@ private fun ExtrumzApp(
                     onDownload = { downloadSong(song) },
                     // The sheet stays up for a rating: it shows the new state
                     // in place, and people often thumb a song and then queue it.
-                    onToggleLike = {
-                        val wasLiked = viewModel.likeStatusOf(song.videoId) == LikeStatus.LIKE
-                        viewModel.toggleLike(song.videoId)
-                        // Written down as well as remembered. LikeState is a
-                        // map in memory and this process gets killed in the
-                        // background routinely, so a like that only lived
-                        // there was gone by the next launch.
-                        scope.launch {
-                            if (wasLiked) {
-                                TelegramDb.likedDao.delete(song.videoId)
-                            } else {
-                                val coords = telegramCoordsOf(song.videoId)
-                                TelegramDb.likedDao.upsert(
-                                    LikedVideo(
-                                        videoId = song.videoId,
-                                        title = song.title,
-                                        artist = song.artist,
-                                        thumbnailUrl = song.thumbnailUrl,
-                                        durationText = song.durationText,
-                                        sourceChatId = coords?.first ?: 0L,
-                                        sourceMessageId = coords?.second ?: 0L,
-                                        likedAt = System.currentTimeMillis(),
-                                    ),
-                                )
-                            }
-                        }
-                    },
+                    // One line. The rating and the write are the same call
+                    // now — this used to spell the write out here, which is
+                    // exactly why four other surfaces never got one.
+                    onToggleLike = { viewModel.toggleLike(song) },
                     onToggleDislike = {
                         val previousStatus = viewModel.toggleDislike(song.videoId)
                         if (

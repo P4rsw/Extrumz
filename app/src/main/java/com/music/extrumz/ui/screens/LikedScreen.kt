@@ -84,10 +84,14 @@ fun LikedScreen(
             .collectAsState(initial = emptyList())
         // Resolved for playback only. The list itself renders from the stored
         // row, because most liked songs have no `tracks` entry to join to.
-        var songs by remember(liked) { mutableStateOf<List<Song>>(emptyList()) }
+        // One entry per liked row, null where there is no local track — NOT a
+        // filtered list. Dropping the nulls shortened this list against
+        // `liked`, so a tap on the fifth row played the third song: the index
+        // the click carried and the index the player received were counting
+        // different lists.
+        var songs by remember(liked) { mutableStateOf<List<Song?>>(emptyList()) }
         LaunchedEffect(liked) {
             songs = liked.map { row -> songFor(row.videoId) }
-                .filterNotNull()
         }
 
         Column(
@@ -134,8 +138,15 @@ fun LikedScreen(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clickable {
-                                    if (songs.isNotEmpty()) {
-                                        onPlay(songs, index.coerceAtMost(songs.lastIndex))
+                                    if (songs.getOrNull(index) != null) {
+                                        // The same list, minus the gaps — so
+                                        // the position handed over counts the
+                                        // songs that exist rather than the
+                                        // rows on screen.
+                                        onPlay(
+                                            songs.filterNotNull(),
+                                            songs.take(index).count { it != null },
+                                        )
                                     }
                                 }
                                 .padding(horizontal = 16.dp, vertical = 10.dp),
