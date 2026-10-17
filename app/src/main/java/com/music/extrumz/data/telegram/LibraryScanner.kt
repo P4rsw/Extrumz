@@ -1173,8 +1173,7 @@ class LibraryScanner(
             // pushing, not to push from another worker. Measured rather than
             // read from TDLib because TDLib's NetQueryDelayer swallows the
             // flood internally; the delay is the only evidence that reaches us.
-            val pageTook = timeSource() - pageAt
-            if (pageTook > FLOOD_SUSPECT_MS) delay(FLOOD_BACKOFF_MS)
+
             if (page.totalCount > 0) {
                 val counted = indexedInChat.toLong() * 1000L / page.totalCount
                 indexedInChat += fresh.size
@@ -1276,7 +1275,6 @@ class LibraryScanner(
      */
     private const val CHATS_SETTLE_SLACK = 1
     /** A page slower than this was a flood, not a fetch. Healthy is ~200ms. */
-    private const val FLOOD_SUSPECT_MS = 3_000L
     /** How long to hold off after one, before the next page. */
     private const val FLOOD_BACKOFF_MS = 1_500L
 
@@ -1310,7 +1308,7 @@ class LibraryScanner(
          * list the user is looking at. Halving them halves the churn and costs
          * no throughput.
          */
-        private const val SCAN_PARALLEL_CHATS = 1
+        private const val SCAN_PARALLEL_CHATS = 3
 
         /**
          * Quiet re-pass schedule: one round a minute after the scan (the

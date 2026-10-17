@@ -225,6 +225,9 @@ class LibraryScannerSpeedTest {
         override fun observeTopSources(limit: Int): Flow<List<ChatTrackCount>> = TODO()
         override fun observeTopFromChat(chatId: Long, limit: Int): Flow<List<Track>> = TODO()
         override fun observeByChat(chatId: Long): Flow<List<Track>> = TODO()
+        override fun observeIdsInChat(chatId: Long): Flow<List<String>> =
+            flowOf(sources.filter { it.chatId == chatId }.map { it.trackFileUniqueId })
+
         override fun observeHistory(limit: Int): Flow<List<Track>> = TODO()
 
         // F7: fingerprint index + collapse.
