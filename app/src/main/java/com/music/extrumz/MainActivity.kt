@@ -234,6 +234,9 @@ import com.extrumz.app.data.db.entity.LikedVideo
 import com.extrumz.app.ui.components.ExtrumzSplash
 import com.extrumz.app.data.telegram.Telegram
 import com.extrumz.app.data.telegram.TelegramAuthState
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.flow.MutableStateFlow
 
 /** A full first screen of a native YouTube Music radio before AutoPlay tops it up. */
 private const val INITIAL_RADIO_TRACKS = 24
@@ -244,8 +247,20 @@ internal fun shouldSkipAfterDislike(
     currentVideoId: String?,
 ): Boolean = previousStatus != LikeStatus.DISLIKE && targetVideoId == currentVideoId
 
+private val splashDone = MutableStateFlow(false)
+
 class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
+        // Held until the app says it is ready, rather than for a fixed time.
+        // The platform draws this before any Compose code exists, which is the
+        // whole reason it is used here: the overlay in the tree cannot cover
+        // the window it is drawn into.
+        val splash = installSplashScreen()
+        splash.setKeepOnScreenCondition { !splashDone.value }
+        lifecycleScope.launch {
+            delay(COLD_START_COVER_MS)
+            splashDone.value = true
+        }
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         // Before the composition, so a cold launch from a widget's artwork has
