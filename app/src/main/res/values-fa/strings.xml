@@ -723,4 +723,6 @@
     <string name="proxy_password">گذرواژه</string>
     <string name="proxy_off">خاموش</string>
     <string name="proxy_incomplete">نشانی، پورت و کلید مخفی را پر کن، یا یک لینک بچسبان.</string>
+    <string name="tg_qr_copy">کپی لینک</string>
+    <string name="tg_qr_switch_to_phone">با شماره تلفن وارد شو</string>
 </resources>

@@ -37,6 +37,13 @@ import com.extrumz.app.data.telegram.Telegram
 import com.extrumz.app.data.telegram.TelegramAuthController
 import com.extrumz.app.data.telegram.TelegramAuthState
 import kotlinx.coroutines.launch
+import androidx.compose.foundation.text.selection.SelectionContainer
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.ContentCopy
+import androidx.compose.material3.Icon
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.foundation.layout.size
 
 /**
  * Persian phone/code/password/QR login flow, ported from the old project's
@@ -47,6 +54,7 @@ import kotlinx.coroutines.launch
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TelegramAuthDialog(onDismiss: () -> Unit) {
+    val clipboard = LocalClipboardManager.current
     val authState by Telegram.client.authState.collectAsState()
     val scope = rememberCoroutineScope()
 
@@ -185,16 +193,43 @@ fun TelegramAuthDialog(onDismiss: () -> Unit) {
                             stringResource(R.string.tg_qr_link),
                             style = MaterialTheme.typography.bodySmall,
                         )
-                        Text(
-                            state.link,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.primary,
-                        )
+                        // Selectable, and with a button beside it. The link is
+                        // the whole of this screen -- it is what the user has
+                        // to carry to another device -- and it was plain text
+                        // that could not even be highlighted.
+                        SelectionContainer {
+                            Text(
+                                state.link,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.primary,
+                            )
+                        }
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            TextButton(onClick = { clipboard.setText(AnnotatedString(state.link)) }) {
+                                Icon(
+                                    Icons.Rounded.ContentCopy,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp),
+                                )
+                                Spacer(Modifier.width(6.dp))
+                                Text(stringResource(R.string.tg_qr_copy))
+                            }
+                        }
                         Text(
                             stringResource(R.string.tg_qr_hint),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
+                        // The way out. Reaching this state is one-way otherwise:
+                        // dismissing the dialog hides it, but the authorization
+                        // state is unchanged, so opening it again shows the same
+                        // QR. There was no way to say "not this, the phone".
+                        TextButton(onClick = { TelegramAuthController.usePhoneNumberInstead() }) {
+                            Text(stringResource(R.string.tg_qr_switch_to_phone))
+                        }
                     }
 
                     is TelegramAuthState.Ready -> {

@@ -1201,4 +1201,6 @@
     <string name="proxy_password">Password</string>
     <string name="proxy_off">Off</string>
     <string name="proxy_incomplete">Fill in the server, port and secret, or paste a link.</string>
+    <string name="tg_qr_copy">Copy link</string>
+    <string name="tg_qr_switch_to_phone">Sign in with a phone number instead</string>
 </resources>

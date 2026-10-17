@@ -45,6 +45,30 @@ object TelegramAuthController {
         _showAuth.value = false
     }
 
+    /**
+     * Leaves the QR flow and goes back to the phone-number one.
+     *
+     * Reaching `WaitOtherDeviceConfirmation` is one-way in TDLib: there is no
+     * call that returns to `WaitPhoneNumber`, and dismissing the dialog only
+     * hides it -- the authorization state is unchanged, so opening it again
+     * shows the same QR. The only exit is to start authorization over, which
+     * is safe here because nothing has been confirmed yet: no session exists
+     * to lose.
+     */
+    fun usePhoneNumberInstead() {
+        // Guarded on the state rather than trusted: logOut is the only call
+        // TDLib offers that returns to WaitPhoneNumber, and on an authorized
+        // client it would end a real session. Reaching it from the QR screen
+        // means nothing has been confirmed, so there is no session to end --
+        // and the guard makes that a property of the code rather than of the
+        // caller.
+        if (Telegram.client.authState.value !is TelegramAuthState.WaitingForQrScan) return
+        scope.launch {
+            runCatching { Telegram.client.logout() }
+                .onFailure { TrackLog.w(TAG, "QR→phone switch failed: ${it.message}") }
+        }
+    }
+
     /** Boots the client exactly once; the first scan runs when Ready arrives. */
     @Synchronized
     fun ensureStarted() {
