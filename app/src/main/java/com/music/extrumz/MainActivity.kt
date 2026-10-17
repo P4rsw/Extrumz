@@ -1588,29 +1588,27 @@ private fun ExtrumzApp(
         // covers it and breathes, so a slow start reads as working rather than
         // as a black screen that may or may not be the app.
         val telegramState by Telegram.client.authState.collectAsStateWithLifecycle()
-        // The splash used to hang on the Telegram state alone, and that missed
-        // the case it exists for. A returning user -- already authorized --
-        // goes straight to Ready, so `is Initializing` was never true and the
-        // splash never appeared at all, even though the library is what takes
-        // the time on a cold start: ten thousand rows and their covers out of
-        // Room, with no Telegram handshake to wait for.
+        // The splash covers the cold start, and only the cold start.
         //
-        // So it covers the window in which the app has nothing to show yet,
-        // which is TDLib's boot *or* the library's first load, whichever is
-        // still running. The overlay's own cap is what keeps that honest -- it
-        // lets go after MAX_VISIBLE_MS however this answers.
-        var librarySettled by remember { mutableStateOf(false) }
-        // Flipped by the library's first content rather than by a timer where
-        // one is available; until then, a plain cold-start window covers the
-        // first composition, which is the part a returning user was seeing as
-        // a bare black screen.
+        // It used to hang on `telegramState is Initializing`, which is wrong
+        // twice over. A returning user -- already authorized -- goes straight
+        // to Ready, so the condition was never true and the overlay never
+        // appeared at all for the people who open the app most. And the state
+        // is not monotonic: TDLib starts late enough that Initializing is
+        // emitted again after the library has already drawn its first frame,
+        // so the splash came down on top of a working app.
+        //
+        // A latch instead: it is up when the process starts, it goes down once
+        // the cold-start window has passed, and it does not come back. What
+        // takes the time on a cold start is the library -- ten thousand rows
+        // and their covers out of Room -- and that is covered by the window.
+        // ExtrumzSplash keeps its own MAX_VISIBLE_MS as the outer cap.
+        var coldStartDone by remember { mutableStateOf(false) }
         LaunchedEffect(Unit) {
             kotlinx.coroutines.delay(COLD_START_COVER_MS)
-            librarySettled = true
+            coldStartDone = true
         }
-        ExtrumzSplash(
-            visible = telegramState is TelegramAuthState.Initializing || !librarySettled,
-        )
+        ExtrumzSplash(visible = !coldStartDone)
         Row(Modifier.fillMaxSize()) {
             Box(Modifier.weight(1f).fillMaxHeight()) {
                 AnimatedContent(
