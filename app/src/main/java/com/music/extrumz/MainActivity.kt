@@ -231,6 +231,9 @@ import com.extrumz.app.data.model.toSong
 import com.extrumz.app.ui.screens.LikedScreen
 import com.extrumz.app.data.model.telegramCoordsOf
 import com.extrumz.app.data.db.entity.LikedVideo
+import com.extrumz.app.ui.components.ExtrumzSplash
+import com.extrumz.app.data.telegram.Telegram
+import com.extrumz.app.data.telegram.TelegramAuthState
 
 /** A full first screen of a native YouTube Music radio before AutoPlay tops it up. */
 private const val INITIAL_RADIO_TRACKS = 24
@@ -1579,6 +1582,13 @@ private fun ExtrumzApp(
         if (showTelegramAuth) {
             TelegramAuthDialog(onDismiss = { TelegramAuthController.dismissAuthUi() })
         }
+
+        // The cold-start window: TDLib is booting and nothing has been indexed
+        // yet, which used to be a bare window in the theme's colour. The mark
+        // covers it and breathes, so a slow start reads as working rather than
+        // as a black screen that may or may not be the app.
+        val telegramState by Telegram.client.authState.collectAsStateWithLifecycle()
+        ExtrumzSplash(visible = telegramState is TelegramAuthState.Initializing)
         Row(Modifier.fillMaxSize()) {
             Box(Modifier.weight(1f).fillMaxHeight()) {
                 AnimatedContent(

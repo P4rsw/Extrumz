@@ -25,6 +25,17 @@ import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.core.graphics.PathParser
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import kotlinx.coroutines.delay
 
 /**
  * The Extrumz mark, drawn from the same geometry as `res/drawable/ic_logo.xml`
@@ -214,3 +225,62 @@ fun ExtrumzAnimatedMark(
         )
     }
 }
+
+/**
+ * The mark over the window while the app is still getting itself ready.
+ *
+ * Backed by the app's own base colour rather than left transparent, so it is
+ * what covers the window for the whole of that window — the black flash it
+ * replaces was simply the theme showing through where nothing had drawn yet.
+ *
+ * [visible] is the caller's answer to "is there anything to show yet". The
+ * overlay holds for [MIN_VISIBLE_MS] once it has appeared even if that answer
+ * turns over immediately, because a splash that blinks for two frames is worse
+ * than no splash, and it lets go after [MAX_VISIBLE_MS] regardless, so a slow
+ * or failed start cannot leave a user staring at a logo forever.
+ */
+@Composable
+fun ExtrumzSplash(
+    visible: Boolean,
+    modifier: Modifier = Modifier,
+    tint: Color = Color.White,
+) {
+    var shown by remember { mutableStateOf(false) }
+
+    LaunchedEffect(visible) {
+        if (visible) {
+            shown = true
+            delay(MAX_VISIBLE_MS)
+            shown = false
+        } else {
+            // It was on: hold it long enough not to blink, then let go.
+            delay(MIN_VISIBLE_MS)
+            shown = false
+        }
+    }
+
+    AnimatedVisibility(
+        visible = shown,
+        enter = fadeIn(tween(220)),
+        exit = fadeOut(tween(320)),
+        modifier = modifier,
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(ExtrumzBase),
+            contentAlignment = Alignment.Center,
+        ) {
+            ExtrumzAnimatedMark(width = 148.dp, tint = tint)
+        }
+    }
+}
+
+/** How long the splash stays put even once the app is ready. */
+private const val MIN_VISIBLE_MS = 420L
+
+/** The longest a launch may spend behind the logo before it is let go anyway. */
+private const val MAX_VISIBLE_MS = 4_000L
+
+/** The theme's own base — the same value as `@color/extrumz_base`. */
+private val ExtrumzBase = Color(0xFF0B0B0F)
