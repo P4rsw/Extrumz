@@ -1139,8 +1139,22 @@ class LibraryScanner(
         // unit without needing the page value after the loop.
         var lastTotalCount = 0
         var pagesFetched = 0
+        // Set when the walk gives up on this chat rather than finishing it.
+        // The boundary must not move for an abandoned chat -- see below.
+        var abandoned = false
+        val chatDeadline = startedAt + CHAT_TIME_LIMIT_MS
         while (emptyPages < 2) {
             pagesFetched++
+            // A chat that has spent this long is not going to earn it back.
+            // The nine pages that stall in a scan take 178 of its 265 seconds
+            // -- 67% -- and return nothing, because the wait is Telegram
+            // throttling rather than work being done. Giving up frees the time,
+            // and the quiet re-pass retries what was left behind.
+            if (timeSource() > chatDeadline) {
+                abandoned = true
+                TrackLog.d(TAG, "chat $chatId abandoned after ${CHAT_TIME_LIMIT_MS}ms")
+                break
+            }
             val pageAt = timeSource()
             _progress.update { it.copy(pageStartedAt = pageAt) }
             val page = client.getChatAudio(chatId, cursor, limit = TelegramConfig.DEFAULT_PAGE_LIMIT)
@@ -1238,6 +1252,12 @@ class LibraryScanner(
         // the constant re-work behind the scan never getting faster. The
         // sentinel separates the two states without inventing a column.
         val boundary = when {
+            // An abandoned walk has only seen the newest pages. Moving the
+            // boundary up to what it saw would tell the next scan to start
+            // there -- above everything it never reached -- and those songs
+            // would never be indexed at all. Held at stopBefore instead, so
+            // the next pass picks the chat up where this one left it.
+            abandoned -> stopBefore
             maxMessageId > 0L -> maxOf(stopBefore, maxMessageId)
             // != 0, not > 0: a settled empty chat already holds -1 and must
             // keep it. The old `> 0L` dropped it straight back to 0, so the
@@ -1316,6 +1336,16 @@ class LibraryScanner(
      * anything in this gap is unambiguous — there is no middle ground to
      * misjudge.
      */
+    /**
+     * How long one chat may hold the scan before it is let go.
+     *
+     * The stalls are Telegram throttling, not work: nine pages cost 178 of a
+     * scan's 265 seconds and return nothing. Long enough that a genuinely large
+     * channel still finishes -- this is twenty times the healthy page median
+     * and a 2,000-track chat pages in well under it on a good connection.
+     */
+    private const val CHAT_TIME_LIMIT_MS = 8_000L
+
     private const val FLOOD_SUSPECT_MS = 3_000L
 
     /** How long to hold off before asking again, once a flood is suspected. */
