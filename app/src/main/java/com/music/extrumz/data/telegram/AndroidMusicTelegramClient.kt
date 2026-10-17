@@ -300,29 +300,41 @@ class AndroidMusicTelegramClient(
     }
 
     /**
-     * Asks TDLib to try this proxy and report how long a round trip took, or
+     * Asks TDLib to try this proxy and reports the round trip in seconds, or
      * -1.0 if it could not be reached.
      *
-     * `testProxy` exists for exactly this: it opens the proxy, walks it through
-     * to a Telegram datacenter and times the answer, without touching the
-     * proxy the client is currently using. That makes it the one honest way to
-     * tell "this link is dead" from "this link is fine and something else is
-     * wrong", which is the question the last three attempts could not answer.
+     * `testProxy` opens the proxy, walks it through to a Telegram datacenter
+     * and answers `Ok` or an `Error` — it does not report how long that took,
+     * so the time is measured here. The first version of this waited for a
+     * `Seconds` result that never comes, and so reported every proxy as
+     * unreachable: the device log shows four tests answering `Ok` in 2.4 to
+     * 3.5 seconds each while the screen said "could not reach Telegram" for
+     * all four.
      *
-     * DC 4, because the same call is what the scan leans on and a proxy that
-     * reaches one datacenter and not another is a real state.
+     * Fifteen seconds, not five. A working Iranian proxy measured 2.4-3.5s
+     * here, and the cost of being impatient is calling a slow proxy dead.
+     *
+     * DC 4, because that is the datacenter the scan leans on, and a proxy that
+     * reaches one datacenter and not another is a real state worth knowing.
      */
-    suspend fun pingProxy(settings: ProxySettings, timeoutSeconds: Double = 5.0): Double {
+    suspend fun pingProxy(settings: ProxySettings, timeoutSeconds: Double = 15.0): Double {
         val c = client ?: return -1.0
         val type = when (settings.kind) {
             ProxyKind.MTProto -> TdApi.ProxyTypeMtproto(settings.normalizedSecret())
             ProxyKind.Socks5 -> TdApi.ProxyTypeSocks5(settings.username, settings.password)
             ProxyKind.Http -> TdApi.ProxyTypeHttp(settings.username, settings.password, false)
         }
+        val startedAt = System.currentTimeMillis()
         return suspendCancellableCoroutine { cont ->
             runCatching {
                 c.send(TdApi.TestProxy(settings.host, settings.port, type, 4, timeoutSeconds)) { result ->
-                    cont.resume(if (result is TdApi.Seconds) result.seconds else -1.0)
+                    cont.resume(
+                        if (result is TdApi.Ok) {
+                            (System.currentTimeMillis() - startedAt) / 1000.0
+                        } else {
+                            -1.0
+                        },
+                    )
                 }
             }.onFailure { cont.resume(-1.0) }
         }
