@@ -26,6 +26,8 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.joinAll
 import java.util.Collections
 import java.io.File
+import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.withTimeout
 
 /**
  * Which of the four sub-systems the scan is inside right now.
@@ -1169,22 +1171,27 @@ class LibraryScanner(
             }
             val pageAt = timeSource()
             _progress.update { it.copy(pageStartedAt = pageAt) }
-            // Measured on device: this bounds a chat to ONE over-long page,
-            // not to the limit, because it can only be consulted once the call
-            // in flight has answered. A flooded GetChatAudio sits for 19-22
-            // seconds and returns nothing, so a chat that meets one still
-            // spends that page -- but it does not spend a second one, which is
-            // what four abandons in a single scan showed.
+            // The deadline has to sit on the call, not only between calls. The
+            // check above is only consulted once the call in flight has
+            // answered, and the stall is inside one: a flooded GetChatAudio
+            // sits for 19-22 seconds and returns nothing, which is how a chat
+            // met its eight-second limit on the device and still spent 21
+            // seconds inside it.
             //
-            // Putting the deadline on the call itself (withTimeout) would
-            // bound it properly and was tried. It cannot land as things stand:
-            // two existing tests park the scan inside a chat that never
-            // answers, to prove the one-scan-at-a-time gate holds, and
-            // advanceUntilIdle() moves the virtual clock to the next scheduled
-            // deadline -- so any timeout at all fires and the hang ends,
-            // whatever value is passed. Those tests need a different fixture
-            // before the call can be bounded from inside.
-            val page = client.getChatAudio(chatId, cursor, limit = TelegramConfig.DEFAULT_PAGE_LIMIT)
+            // Only TimeoutCancellationException is caught. It is a
+            // CancellationException, so a bare catch would also swallow the
+            // real cancellation that stops a scan, and the walk would carry on
+            // chatting after being told to stop.
+            val page = try {
+                withTimeout((chatDeadline - pageAt).coerceAtLeast(1L)) {
+                    client.getChatAudio(chatId, cursor, limit = TelegramConfig.DEFAULT_PAGE_LIMIT)
+                }
+            } catch (timeout: TimeoutCancellationException) {
+                _progress.update { it.copy(pageStartedAt = null) }
+                abandoned = true
+                TrackLog.d(TAG, "chat $chatId page timed out after ${chatTimeLimitMs}ms")
+                break
+            }
             _progress.update { it.copy(pageStartedAt = null) }
             TrackLog.d(
                 TAG,

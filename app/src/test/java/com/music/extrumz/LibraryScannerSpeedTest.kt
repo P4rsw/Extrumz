@@ -478,6 +478,42 @@ class LibraryScannerSpeedTest {
         assertEquals(12, progress.tracksIndexed)
     }
 
+    // --- chat time limit -----------------------------------------------------
+
+    @Test
+    fun `a chat whose page never answers is let go, and its boundary stays put`() = runTest {
+        // The shape of a flooded GetChatAudio: it sits for 19-22 seconds and
+        // returns nothing. Nine of them were 178 of a scan's 265 seconds on the
+        // device, which is why a chat that has spent its budget is dropped.
+        val client = FakeTelegramClient(
+            chats = listOf(chatInfo(1L)),
+            messagesByChat = mutableMapOf(
+                1L to listOf(audio(1L, 30L), audio(1L, 20L), audio(1L, 10L)),
+            ),
+            hangingChats = setOf(1L),
+        )
+        val chats = FakeChatDao()
+        val scanner = LibraryScanner(
+            client, FakeTrackDao(), chats,
+            chatTimeLimitMs = 50L,
+        )
+
+        scanner.fullScan()
+
+        val progress = scanner.progress.value
+        assertFalse(progress.isRunning)
+        assertEquals(1, progress.chatsScanned)
+        assertEquals(0, progress.tracksIndexed)
+        assertNull(progress.lastError)
+
+        // The guard, and the reason it is here rather than trusted: an
+        // abandoned walk has seen only its newest pages, so a boundary moved up
+        // to what it saw would tell the next scan to start above everything it
+        // never reached. Those songs would never be indexed at all. Held at what
+        // it was, the next pass picks the chat up where this one left it.
+        assertEquals(0L, chats.rows[1L]?.lastScannedMessageId)
+    }
+
     // --- س۱: error policy ----------------------------------------------------
 
     @Test
@@ -741,7 +777,15 @@ class LibraryScannerSpeedTest {
         val scanner = LibraryScanner(client, FakeTrackDao(), FakeChatDao())
         val job = launch { scanner.fullScan() }
         // The first scan passes the gate and parks inside the hanging chat.
-        testScheduler.advanceUntilIdle()
+        //
+        // A bounded advance, not advanceUntilIdle: the hang is the fixture
+        // that holds the gate open, and advanceUntilIdle runs the clock to the
+        // next deadline -- including the chat time limit -- which frees the
+        // chat and lets the scan finish before anything can be asserted. But
+        // runCurrent is too weak, because discovery's RPC delays still have to
+        // elapse first. A second walks discovery and reaches the hanging chat,
+        // and is well short of the eight-second limit.
+        testScheduler.advanceTimeBy(1_000)
         assertTrue(scanner.progress.value.isRunning)
 
         // With the gate closed this returns immediately; with the old
@@ -839,7 +883,10 @@ class LibraryScannerSpeedTest {
         )
         val scanner = LibraryScanner(client, FakeTrackDao(), FakeChatDao())
         val job = launch { scanner.fullScan() }
-        testScheduler.advanceUntilIdle()
+        // A bounded advance — see the note in the gate test above: here too
+        // advanceUntilIdle would trip the chat time limit and end the hang
+        // this test is parked on.
+        testScheduler.advanceTimeBy(1_000)
         assertTrue(scanner.progress.value.isRunning)
 
         // The gate is held: the re-pass must come back without scanning anything.
