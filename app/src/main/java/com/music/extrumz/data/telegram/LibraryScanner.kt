@@ -1165,6 +1165,27 @@ class LibraryScanner(
             // what TDLib already reported for the whole chat on page 1, so a
             // 2,000-track chat paging ten times moves the bar ten times.
             lastTotalCount = page.totalCount
+
+            // If that page took this long, Telegram was not serving it — it was
+            // making us wait. The healthy median on this account is 211ms; the
+            // stalls land at 19-22 seconds, with nothing in between, and the
+            // device log puts FLOOD_WAIT_19/20/21 at exactly those durations.
+            // Telegram escalates when pushed: the same log carries penalties up
+            // to 9901 seconds, which is two and three quarter hours on one
+            // address. So the answer is to stop asking for a moment, not to ask
+            // again from another worker.
+            //
+            // Read from the page's own duration rather than from TDLib because
+            // TDLib's NetQueryDelayer swallows a flood internally and retries:
+            // the slow call is the only evidence that reaches this side.
+            //
+            // Nothing fires under the scanner's tests: they drive a fake client
+            // that answers in microseconds, so a page there is measured at ~0
+            // and the branch is never taken. The pause is real only where a
+            // page can really be slow.
+            if (timeSource() - pageAt > FLOOD_SUSPECT_MS) {
+                delay(FLOOD_BACKOFF_MS)
+            }
             // If that page took a long time, we were almost certainly flooded
             // rather than served: the healthy median on this account is ~200ms
             // and the flooded ones land at 19-22 seconds, with nothing in
@@ -1274,8 +1295,16 @@ class LibraryScanner(
      * chats — a real wave arrives in tens.
      */
     private const val CHATS_SETTLE_SLACK = 1
-    /** A page slower than this was a flood, not a fetch. Healthy is ~200ms. */
-    /** How long to hold off after one, before the next page. */
+
+    /**
+     * A page slower than this was a flood, not a fetch. 211ms is a healthy
+     * median on this account and the flooded ones are 19-22 seconds, so
+     * anything in this gap is unambiguous — there is no middle ground to
+     * misjudge.
+     */
+    private const val FLOOD_SUSPECT_MS = 3_000L
+
+    /** How long to hold off before asking again, once a flood is suspected. */
     private const val FLOOD_BACKOFF_MS = 1_500L
 
         /** Pause between GetChats attempts while dialogs are still loading. */
