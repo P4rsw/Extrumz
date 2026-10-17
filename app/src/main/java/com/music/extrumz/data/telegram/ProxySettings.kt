@@ -1,7 +1,6 @@
 package com.extrumz.app.data.telegram
 
 import android.content.Context
-import android.net.Uri
 import com.extrumz.app.BuildConfig
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -150,27 +149,50 @@ object ProxyStore {
  * Both are accepted, with or without the scheme, because what people copy is
  * whatever the channel posted. Returns null for anything else, so a mistyped
  * paste is rejected rather than saved as a broken proxy.
+ *
+ * Parsed by hand rather than with android.net.Uri: Uri is a stub in JVM unit
+ * tests, so a parser written on it can only be exercised on a device, and this
+ * is the one piece of the feature with logic worth exercising. Nothing here
+ * needs Android.
  */
 object ProxyLink {
+
+    private val TELEGRAM_HOSTS = setOf("t.me", "telegram.me", "telegram.dog")
 
     fun parse(raw: String): ProxySettings? {
         val text = raw.trim()
         if (text.isEmpty()) return null
 
-        // Uri wants a scheme. Telegram links arrive with and without one.
-        val withScheme = if (text.startsWith("http", ignoreCase = true)) text else "https://$text"
-        val uri = runCatching { Uri.parse(withScheme) }.getOrNull() ?: return null
+        // Drop any scheme — "https://", "tg://", or none at all.
+        val withoutScheme = text.substringAfter("://", text)
+        val host = withoutScheme.substringBefore('/').substringBefore('?').lowercase()
+        if (host !in TELEGRAM_HOSTS) return null
 
-        val host = uri.host?.lowercase() ?: return null
-        val path = uri.path?.trim('/')?.lowercase() ?: return null
-        val server = uri.getQueryParameter("server")?.trim().orEmpty()
-        val port = uri.getQueryParameter("port")?.trim()?.toIntOrNull() ?: return null
+        val path = withoutScheme
+            .substringAfter('/', "")
+            .substringBefore('?')
+            .trim('/')
+            .lowercase()
+
+        val params = withoutScheme
+            .substringAfter('?', "")
+            .split('&')
+            .mapNotNull { pair ->
+                val at = pair.indexOf('=')
+                if (at <= 0) null else decode(pair.substring(0, at)) to decode(pair.substring(at + 1))
+            }
+            .toMap()
+
+        val server = params["server"]?.trim().orEmpty()
+        val port = params["port"]?.trim()?.toIntOrNull() ?: return null
         if (server.isBlank() || port !in 1..65535) return null
-        if (host != "t.me" && host != "telegram.me" && host != "telegram.dog") return null
 
         return when (path) {
             "proxy" -> {
-                val secret = uri.getQueryParameter("secret")?.trim().orEmpty()
+                val secret = params["secret"]?.trim().orEmpty()
+                // Rejected here, not saved: an MTProto proxy without its secret
+                // cannot connect, and storing it would look configured while
+                // never working.
                 if (secret.isBlank()) return null
                 ProxySettings(
                     enabled = true,
@@ -185,10 +207,13 @@ object ProxyLink {
                 kind = ProxyKind.Socks5,
                 host = server,
                 port = port,
-                username = uri.getQueryParameter("user")?.trim().orEmpty(),
-                password = uri.getQueryParameter("pass")?.trim().orEmpty(),
+                username = params["user"]?.trim().orEmpty(),
+                password = params["pass"]?.trim().orEmpty(),
             )
             else -> null
         }
     }
+
+    private fun decode(value: String): String =
+        runCatching { java.net.URLDecoder.decode(value, "UTF-8") }.getOrDefault(value)
 }

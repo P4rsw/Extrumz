@@ -51,7 +51,7 @@ class ProxyLinkTest {
         // What a clipboard gives you half the time.
         val parsed = ProxyLink.parse("t.me/proxy?server=9.9.9.9&port=443&secret=abc123")
         assertNotNull(parsed)
-        assertEquals("9.9.9.9", parsed.host)
+        assertEquals("9.9.9.9", parsed!!.host)
     }
 
     @Test
