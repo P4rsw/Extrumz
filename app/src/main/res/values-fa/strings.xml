@@ -725,4 +725,5 @@
     <string name="proxy_incomplete">نشانی، پورت و کلید مخفی را پر کن، یا یک لینک بچسبان.</string>
     <string name="tg_qr_copy">کپی لینک</string>
     <string name="tg_qr_switch_to_phone">با شماره تلفن وارد شو</string>
+    <string name="scan_waiting_for_telegram">منتظر تلگرام \u00b7 %1$d ثانیه</string>
 </resources>

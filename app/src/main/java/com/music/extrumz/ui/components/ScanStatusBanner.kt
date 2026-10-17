@@ -21,6 +21,10 @@ import com.extrumz.app.R
 import com.extrumz.app.data.telegram.ScanProgress
 import com.extrumz.app.data.telegram.ScanStage
 import com.extrumz.app.ui.util.ProvideLocaleDirection
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import kotlinx.coroutines.delay
 
 /**
  * What the scan is doing, told honestly.
@@ -118,6 +122,31 @@ fun ScanStatusBanner(
             }
         }
 
+        // A live line while a page is in flight and taking too long. The
+        // scan cannot report a duration for a call it is still inside, so the
+        // wait is derived here from the start time it published — which is the
+        // only way the banner can say anything at all during a stall.
+        if (scan.pageStartedAt != null) {
+            var elapsed by remember(scan.pageStartedAt) { mutableStateOf(0L) }
+            LaunchedEffect(scan.pageStartedAt) {
+                val started = scan.pageStartedAt ?: return@LaunchedEffect
+                while (true) {
+                    elapsed = System.currentTimeMillis() - started
+                    delay(1_000)
+                }
+            }
+            if (elapsed > WAITING_VISIBLE_MS) {
+                Text(
+                    text = stringResource(
+                        R.string.scan_waiting_for_telegram,
+                        (elapsed / 1_000L).toInt(),
+                    ),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.tertiary,
+                )
+            }
+        }
+
         val detail = stageDetail(scan)
         if (detail != null) {
             Text(
@@ -160,3 +189,12 @@ private fun stageDetail(scan: ScanProgress): String? = when (scan.stage) {
     ScanStage.FINISHED -> null
     else -> null
 }
+
+/**
+ * How long a page must be in flight before the banner says anything about it.
+ *
+ * Below this the scan is simply working — 179ms is a healthy median on this
+ * account — and a line that appears on every page would be noise. The stalls
+ * run to twenty seconds, so anything from a second up is unambiguous.
+ */
+private const val WAITING_VISIBLE_MS = 2_000L

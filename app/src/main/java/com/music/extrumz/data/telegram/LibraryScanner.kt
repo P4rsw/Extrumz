@@ -67,6 +67,18 @@ data class ScanProgress(
      * every page, so the bar moves while the work is being done.
      */
     val workFraction: Float = 0f,
+
+    /**
+     * When the page now in flight was asked for, or null when none is.
+     *
+     * The counters move on completion, so a page that takes twenty seconds
+     * reports nothing at all for twenty seconds, and a frozen counter is
+     * indistinguishable from a hung scan. This is published *before* the call,
+     * so the banner can count the wait out loud and say what is being waited
+     * on. It is a start time rather than a duration because the scan cannot
+     * publish while it is blocked inside the call it is timing.
+     */
+    val pageStartedAt: Long? = null,
     val totalChats: Int = 0,
     val tracksIndexed: Int = 0,
     /** GetChats attempts spent waiting for dialogs to load (0 = not waiting). */
@@ -1130,7 +1142,9 @@ class LibraryScanner(
         while (emptyPages < 2) {
             pagesFetched++
             val pageAt = timeSource()
+            _progress.update { it.copy(pageStartedAt = pageAt) }
             val page = client.getChatAudio(chatId, cursor, limit = TelegramConfig.DEFAULT_PAGE_LIMIT)
+            _progress.update { it.copy(pageStartedAt = null) }
             TrackLog.d(
                 TAG,
                 "chat $chatId page: got=${page.audios.size} total=${page.totalCount} " +
