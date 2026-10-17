@@ -234,11 +234,36 @@ class LibraryScannerSpeedTest {
         val repoints = mutableListOf<Pair<String, String>>()
         override suspend fun loadAllTracks(): List<Track> = rows.values.toList()
         override suspend fun deleteByFileUniqueIds(ids: List<String>) {
+            // TrackSource is onDelete = CASCADE in the real schema, so a
+            // deleted row takes its sources with it. Modelled, because that is
+            // the mechanism by which the merge was losing chats.
+            sources.removeAll { it.trackFileUniqueId in ids }
             ids.forEach { rows.remove(it) }
         }
         override suspend fun repointToKeeper(from: String, to: String) {
             repoints += from to to
+            // And the sources, which the real one had been leaving to a
+            // CASCADE delete. Recorded only, this fake would report a working
+            // merge while losing the same rows the bug lost.
+            rePointTrackSources(from, to)
+            rePointTrackSourcesLeftovers(from)
         }
+        /**
+         * Modelled, not a TODO, because this is the one the merge was silently
+         * breaking: the real entity is onDelete = CASCADE, so a loser's sources
+         * disappear with it. A fake that cannot lose them cannot catch that.
+         */
+        override suspend fun rePointTrackSources(from: String, to: String) {
+            val moved = sources.filter { it.trackFileUniqueId == from }
+                .map { it.copy(trackFileUniqueId = to) }
+            sources.removeAll { it.trackFileUniqueId == from }
+            sources += moved
+        }
+
+        override suspend fun rePointTrackSourcesLeftovers(from: String) {
+            sources.removeAll { it.trackFileUniqueId == from }
+        }
+
         override suspend fun rePointPlaylistTracks(from: String, to: String) = TODO()
         override suspend fun rePointPlaylistTracksLeftovers(from: String) = TODO()
         override suspend fun rePointPlayHistory(from: String, to: String) = TODO()
@@ -1264,5 +1289,36 @@ class LibraryScannerSpeedTest {
         assertEquals(600L, chats.rows[1L]!!.lastScannedMessageId)
         chats.updateScanProgress(1L, 400L, 12)
         assertEquals(600L, chats.rows[1L]!!.lastScannedMessageId)
+    }
+
+    @Test
+    fun `a merged loser keeps its chats on the keeper`() {
+        // The merge used to delete track_sources with the row it collapsed:
+        // TrackSource is onDelete = CASCADE, and repointToKeeper moved playlist
+        // and history rows across but never the sources. A song found in six
+        // chats ended up reachable from one, which is the reported "Goor is in
+        // search but not in this channel" -- the data was there and the merge
+        // had been eating it.
+        val tracks = FakeTrackDao()
+        tracks.rows["aaa"] = Track(
+            fileUniqueId = "aaa", fileId = "f1",
+            title = "Goor", performer = "Hoomaan", duration = 127,
+            sourceChatId = -1001,
+        )
+        tracks.rows["bbb"] = Track(
+            fileUniqueId = "bbb", fileId = "f2",
+            title = "Goor", performer = "Hoomaan", duration = 128,
+            sourceChatId = -1002,
+        )
+        tracks.sources += TrackSource("aaa", -1001, 11, "f", 0)
+        tracks.sources += TrackSource("bbb", -1002, 22, "f", 0)
+
+        runTest {
+            tracks.repointToKeeper(from = "bbb", to = "aaa")
+            tracks.deleteByFileUniqueIds(listOf("bbb"))
+        }
+
+        val chats = tracks.sources.filter { it.trackFileUniqueId == "aaa" }.map { it.chatId }.toSet()
+        assertEquals(setOf(-1001L, -1002L), chats)
     }
 }

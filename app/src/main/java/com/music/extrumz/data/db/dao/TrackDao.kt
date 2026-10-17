@@ -216,7 +216,11 @@ interface TrackDao {
      * Reads `track_sources` for the reason [observeByChat] gives: one row can
      * belong to many chats, and `tracks.sourceChatId` remembers only one.
      */
-    @Query("SELECT trackFileUniqueId FROM track_sources WHERE chatId = :chatId")
+    @Query(
+        "SELECT trackFileUniqueId FROM track_sources " +
+            "WHERE chatId = :chatId " +
+            "GROUP BY trackFileUniqueId ORDER BY MAX(messageId) DESC"
+    )
     fun observeIdsInChat(chatId: Long): Flow<List<String>>
 
     @Transaction
@@ -296,7 +300,22 @@ suspend fun countCollidedDuplicates(): Int
         rePointPlaylistTracksLeftovers(from)
         rePointPlayHistory(from, to)
         rePointPlayHistoryLeftovers(from)
+        // The sources too, and this one is not bookkeeping. TrackSource is
+        // declared with onDelete = CASCADE, so deleting the loser takes every
+        // chat it was found in with it — the merge was quietly erasing the
+        // associations it exists to preserve, and a song then stayed reachable
+        // from one channel and vanished from the rest. The comment above
+        // batchIndex's sourceFor has claimed the chat survives the merge for a
+        // while; it did not.
+        rePointTrackSources(from, to)
+        rePointTrackSourcesLeftovers(from)
     }
+
+    @Query("UPDATE OR IGNORE track_sources SET trackFileUniqueId = :to WHERE trackFileUniqueId = :from")
+    suspend fun rePointTrackSources(from: String, to: String)
+
+    @Query("DELETE FROM track_sources WHERE trackFileUniqueId = :from")
+    suspend fun rePointTrackSourcesLeftovers(from: String)
 
     @Query("UPDATE OR IGNORE playlist_tracks SET trackFileUniqueId = :to WHERE trackFileUniqueId = :from")
     suspend fun rePointPlaylistTracks(from: String, to: String)

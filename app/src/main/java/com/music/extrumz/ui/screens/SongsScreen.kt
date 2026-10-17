@@ -135,12 +135,19 @@ fun SongsScreen(
     // from `sourceChatId`: a song can be found in six chats and the row
     // remembers one, so filtering on the row's own field showed it in exactly
     // one of them. The channel filter looked broken while the data was right.
-    val chatTrackIds by produceState<Set<String>>(emptySet(), chatFilter) {
+    // Ordered, not just a set: the ids arrive newest-first for that chat, and
+    // the list is rebuilt in that order below. `allTracks` is ordered by
+    // `dateAdded DESC` — the keeper row's own timestamp — which is a different
+    // question. A song downloaded elsewhere today came first in a channel it
+    // was posted to years ago, and one indexed long ago sank to where its
+    // keeper came from. Ordering is the channel's, so it has to come from the
+    // channel's own message ids.
+    val chatOrder by produceState<List<String>>(emptyList(), chatFilter) {
         value = chatFilter?.let { id ->
-            TelegramDb.trackDao.observeIdsInChat(id).first().toSet()
-        } ?: emptySet()
+            TelegramDb.trackDao.observeIdsInChat(id).first()
+        } ?: emptyList()
     }
-    val tracks = filteredTracks(allTracks, query, chatFilter, chatTrackIds)
+    val tracks = filteredTracks(allTracks, query, chatFilter, chatOrder)
     val songs = remember(tracks) { tracks.map(Track::toSong) }
 
     Column(
@@ -424,16 +431,19 @@ private fun filteredTracks(
     all: List<Track>,
     query: String,
     chatId: Long?,
-    chatTrackIds: Set<String>,
+    chatOrder: List<String>,
 ): List<Track> {
     val q = query.trim()
     if (q.isEmpty() && chatId == null) return all
-    return all.filter { track ->
-        (chatId == null || track.fileUniqueId in chatTrackIds) &&
+    val rank = if (chatId == null) null else chatOrder.withIndex().associate { it.value to it.index }
+    val matched = all.filter { track ->
+        (chatId == null || rank!!.containsKey(track.fileUniqueId)) &&
             (q.isEmpty() ||
                 track.title.contains(q, ignoreCase = true) ||
                 track.performer.contains(q, ignoreCase = true) ||
                 track.album.contains(q, ignoreCase = true))
     }
+    if (rank == null) return matched
+    return matched.sortedBy { rank[it.fileUniqueId] ?: Int.MAX_VALUE }
 }
 
