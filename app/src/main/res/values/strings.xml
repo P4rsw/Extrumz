@@ -1204,4 +1204,5 @@
     <string name="tg_qr_copy">Copy link</string>
     <string name="tg_qr_switch_to_phone">Sign in with a phone number instead</string>
     <string name="scan_waiting_for_telegram">Waiting for Telegram \u00b7 %1$ds</string>
+    <string name="proxy_secret_unreadable">This does not look like a usable MTProto secret. Paste the whole link from the channel instead of typing the key.</string>
 </resources>

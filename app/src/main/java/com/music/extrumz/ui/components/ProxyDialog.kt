@@ -187,6 +187,15 @@ fun ProxyDialog(onDismiss: () -> Unit) {
                     label = { Text(stringResource(R.string.proxy_secret)) },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Ascii, imeAction = ImeAction.Done),
+                    // Said out loud, because the opposite was invisible: the
+                    // secret was accepted into the field, the app could not
+                    // read it, and the client turned the proxy off while the
+                    // screen went on showing it on. Three proxy links in a row
+                    // "did not work" with nothing pointing at the reason.
+                    isError = draft.secretUnreadable,
+                    supportingText = if (draft.secretUnreadable) {
+                        { Text(stringResource(R.string.proxy_secret_unreadable)) }
+                    } else null,
                     modifier = Modifier.fillMaxWidth(),
                 )
                 } else {

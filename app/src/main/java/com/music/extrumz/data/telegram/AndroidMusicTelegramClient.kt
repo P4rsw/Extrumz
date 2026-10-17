@@ -228,6 +228,18 @@ class AndroidMusicTelegramClient(
     fun applyProxy(settings: ProxySettings, resetNetwork: Boolean) {
         val c = client ?: return
         if (!settings.enabled || !settings.isUsable) {
+            // Never silently. An unreadable secret used to land here and the
+            // proxy was simply switched off: the app then connected directly,
+            // which on a filtered network reaches nothing, and nothing in the
+            // log or the UI said why. Three different links "did not work"
+            // because of it.
+            if (settings.enabled && settings.kind == ProxyKind.MTProto) {
+                TrackLog.w(
+                    TAG,
+                    "proxy disabled: secret unreadable (${settings.secret.length} chars) " +
+                        "- not a supported MTProto secret shape",
+                )
+            }
             runCatching { c.send(TdApi.DisableProxy(), null) }
             return
         }

@@ -726,4 +726,5 @@
     <string name="tg_qr_copy">کپی لینک</string>
     <string name="tg_qr_switch_to_phone">با شماره تلفن وارد شو</string>
     <string name="scan_waiting_for_telegram">منتظر تلگرام \u00b7 %1$d ثانیه</string>
+    <string name="proxy_secret_unreadable">این کلیدِ MTProto معتبر به نظر نمی‌رسد. به‌جای تایپِ دستی، کلِ لینکِ کانال را بچسبان.</string>
 </resources>

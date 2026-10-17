@@ -51,47 +51,66 @@ data class ProxySettings(
     /**
      * The secret in the form TDLib can actually use.
      *
-     * `proxyTypeMtproto` takes the secret "as hex or base64", and has to work
-     * out which. A base64 secret with its padding stripped — which is exactly
-     * what a `t.me/proxy` link carries, and what Telegram's own client accepts
-     * — is neither valid hex nor decodable base64, so TDLib either rejects it
-     * or derives the wrong key. Either way the proxy sees a client that cannot
-     * be decrypted and simply never answers: the connection reaches
-     * `ConnectionStateReady` because the TCP socket did open, and the device
-     * log shows `last read: never` underneath it. Every request then hangs.
+     * `proxyTypeMtproto` takes the secret in hex — the API says so, and it
+     * does not accept base64. A `t.me/proxy` link carries base64 with the
+     * padding stripped, so the decode has to happen here and the result has to
+     * reach TDLib as hex.
      *
-     * That is why a link that works in Telegram did not work here — Telegram
-     * restores the padding, and this did not.
+     * What this must not do is reject a secret it does not recognise, and the
+     * first version did exactly that. Its length test allowed 32 or 34
+     * characters, which is the plain and `dd` forms, and the FakeTLS shape —
+     * `ee` + 16 random bytes + the host name, hex, the one most Iranian
+     * channels hand out because it is what gets past DPI — is 36 or more. A
+     * base64url secret did not survive either, since the plain decoder refuses
+     * `-` and `_`. Both came back empty.
      *
-     * So: hex is passed through untouched (the `dd…` form is already hex), and
-     * anything else is padded and decoded here, then handed over as hex. Doing
-     * the decode ourselves removes the guess TDLib was making, which is the
-     * part that was wrong.
+     * Empty is the dangerous part, not merely wrong. An empty secret means
+     * `isUsable` is false, and the client answers that by calling DisableProxy
+     * and carrying on: the app connects directly, which on a filtered network
+     * reaches nothing, while the settings screen keeps showing the proxy as on.
+     * The user has no way to tell that from the network being down, which is
+     * how three different proxies in a row "did not work" with nothing
+     * pointing at the reason.
      */
     fun normalizedSecret(): String {
         val raw = secret.trim()
         if (raw.isEmpty()) return ""
 
-        // Already hex, either 16 bytes (32 chars) or the 16+17 form (34, "dd…").
-        if (raw.length in setOf(32, 34) && raw.all { it.isDigit() || it.lowercaseChar() in 'a'..'f' }) {
-            return raw.lowercase()
+        // Hex, in any of the shapes that are actually issued:
+        //
+        //   32   plain 16-byte
+        //   34   "dd" + 16-byte (the padded/"secure" form)
+        //   36+  FakeTLS -- "ee" + 16 random bytes + the host name, as hex.
+        //        This is what most Iranian channels hand out, because it is the
+        //        shape that gets past DPI, and the old length check (32 or 34
+        //        exactly) rejected every one of them.
+        //
+        // Only even-length lowercase hex gets here, so a base64 secret can
+        // never be mistaken for one: base64 of 16 bytes is 22 characters.
+        val isHex = raw.length >= 32 && raw.length % 2 == 0 &&
+            raw.all { it.isDigit() || it.lowercaseChar() in 'a'..'f' }
+        if (isHex) {
+            val lower = raw.lowercase()
+            if (lower.length == 32 || lower.length == 34 || lower.startsWith("ee")) {
+                return lower
+            }
         }
 
-        // java.util.Base64, not android.util: the Android one is a stub in JVM
-        // unit tests, which would leave the one piece of this with logic in it
-        // untestable on a desktop. Available on every API this app supports.
-        //
-        // The plain decoder, not the MIME one: MIME silently discards characters
-        // it does not recognise, so "!!!" would decode to nothing and be handed
-        // on as if it were a key. A secret that cannot be decoded has to come
-        // back empty so the caller refuses the proxy — connecting and then
-        // hanging silently is the exact failure this function exists to prevent.
-        val decoded = runCatching { java.util.Base64.getDecoder().decode(pad(raw)) }.getOrNull()
+        // Base64url, which is what a link carries when it uses - and _ where
+        // base64 uses + and /. The plain decoder rejects those characters
+        // outright, so the substitution is what makes these readable at all.
+        val normalised = raw.replace('-', '+').replace('_', '/')
+        val decoded = runCatching { java.util.Base64.getDecoder().decode(pad(normalised)) }.getOrNull()
             ?: return ""
 
-        // An MTProto secret is 16 bytes, or 17 with the "dd" flag in front.
-        // Anything else is not one, whatever it decoded to.
-        if (decoded.size !in setOf(16, 17)) return ""
+        // 16 bytes plain, 17 with the dd flag, or the FakeTLS form: more than
+        // 17, which must begin with the 0xee marker. The size test is kept
+        // because it is what turns a typo into a refusal instead of a silent
+        // hang -- see the doc comment above.
+        val plausible = decoded.size == 16 ||
+            decoded.size == 17 ||
+            (decoded.size > 17 && (decoded[0].toInt() and 0xFF) == 0xEE)
+        if (!plausible) return ""
 
         return decoded.joinToString("") { "%02x".format(it) }
     }
@@ -101,6 +120,17 @@ data class ProxySettings(
         val missing = (4 - value.length % 4) % 4
         return value + "=".repeat(missing)
     }
+
+    /**
+     * True when the secret is there but cannot be read.
+     *
+     * Distinct from a blank one, and worth its own state: unreadable means the
+     * user did supply something, the app cannot use it, and — until this
+     * existed — the client answered by disabling the proxy without saying so.
+     * The settings screen showed an enabled proxy over a direct connection.
+     */
+    val secretUnreadable: Boolean
+        get() = kind == ProxyKind.MTProto && secret.isNotBlank() && normalizedSecret().isBlank()
 
     /** One line for the settings row. Never includes the secret or the password. */
     val label: String
