@@ -75,13 +75,19 @@ fun LikedScreen(
         // The rating is held for the session — LikeState is cleared on sign
         // out — so this list is what has been liked since then. Writing it
         // through to the tracks column is the next step, and a bigger one.
-        val overrides by LikeState.overrides.collectAsState()
-        val likedIds = remember(overrides) {
-            overrides.filterValues { it == LikeStatus.LIKE }.keys
-        }
-        var songs by remember(likedIds) { mutableStateOf<List<Song>>(emptyList()) }
-        LaunchedEffect(likedIds) {
-            songs = likedIds.mapNotNull { videoId -> songFor(videoId) }
+        // The database, not LikeState. The map this used to read lasts only as
+        // long as the process, and the process does not last: device logs show
+        // MIUI killing this app with SwipeUpClean and OptimizationClean while
+        // it is merely backgrounded — four separate process starts in a day.
+        // A like that vanishes on the next launch is not a like.
+        val liked by TelegramDb.likedDao.observeAll()
+            .collectAsState(initial = emptyList())
+        // Resolved for playback only. The list itself renders from the stored
+        // row, because most liked songs have no `tracks` entry to join to.
+        var songs by remember(liked) { mutableStateOf<List<Song>>(emptyList()) }
+        LaunchedEffect(liked) {
+            songs = liked.map { row -> songFor(row.videoId) }
+                .filterNotNull()
         }
 
         Column(
@@ -90,13 +96,13 @@ fun LikedScreen(
                 .padding(top = contentPadding.calculateTopPadding()),
         ) {
             Text(
-                text = stringResource(R.string.playlists_count, songs.size),
+                text = stringResource(R.string.playlists_count, liked.size),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp),
             )
 
-            if (songs.isEmpty()) {
+            if (liked.isEmpty()) {
                 Column(
                     modifier = Modifier.fillMaxSize().padding(24.dp),
                     verticalArrangement = Arrangement.Center,
@@ -122,12 +128,16 @@ fun LikedScreen(
                         bottom = contentPadding.calculateBottomPadding() + 96.dp,
                     ),
                 ) {
-                    itemsIndexed(songs, key = { _, song -> song.videoId }) { index, song ->
+                    itemsIndexed(liked, key = { _, row -> row.videoId }) { index, row ->
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clickable { onPlay(songs, index) }
+                                .clickable {
+                                    if (songs.isNotEmpty()) {
+                                        onPlay(songs, index.coerceAtMost(songs.lastIndex))
+                                    }
+                                }
                                 .padding(horizontal = 16.dp, vertical = 10.dp),
                         ) {
                             Box(
@@ -137,10 +147,10 @@ fun LikedScreen(
                                     .background(MaterialTheme.colorScheme.surfaceVariant),
                                 contentAlignment = Alignment.Center,
                             ) {
-                                val cover = song.thumbnailUrl
+                                val cover = row.thumbnailUrl
                                 if (cover.isNullOrBlank()) {
                                     Text(
-                                        song.title.take(1),
+                                        row.title.take(1),
                                         style = MaterialTheme.typography.titleMedium,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     )
@@ -156,14 +166,14 @@ fun LikedScreen(
                             Spacer(Modifier.width(12.dp))
                             Column(Modifier.weight(1f)) {
                                 Text(
-                                    text = song.title,
+                                    text = row.title,
                                     style = MaterialTheme.typography.bodyLarge,
                                     color = MaterialTheme.colorScheme.onBackground,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis,
                                 )
                                 Text(
-                                    text = song.artist,
+                                    text = row.artist,
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     maxLines = 1,

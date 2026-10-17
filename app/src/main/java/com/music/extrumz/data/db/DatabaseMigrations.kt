@@ -326,7 +326,34 @@ object DatabaseMigrations {
         }
     }
 
-    val ALL: Array<Migration> = arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
+    /**
+     * Likes, kept. New table, so nothing to backfill: every existing database
+     * has zero liked rows by definition — the state they used to live in was
+     * never written down.
+     */
+    val MIGRATION_5_6: Migration = object : Migration(5, 6) {
+        override fun migrate(connection: SQLiteConnection) {
+            connection.execSQL(
+                "CREATE TABLE IF NOT EXISTS liked_videos (" +
+                    "videoId TEXT NOT NULL PRIMARY KEY, " +
+                    "title TEXT NOT NULL, " +
+                    "artist TEXT NOT NULL, " +
+                    "thumbnailUrl TEXT, " +
+                    "durationText TEXT, " +
+                    "sourceChatId INTEGER NOT NULL, " +
+                    "sourceMessageId INTEGER NOT NULL, " +
+                    "likedAt INTEGER NOT NULL)",
+            )
+        }
+    }
+
+    val ALL: Array<Migration> = arrayOf(
+        MIGRATION_1_2,
+        MIGRATION_2_3,
+        MIGRATION_3_4,
+        MIGRATION_4_5,
+        MIGRATION_5_6,
+    )
 
     /** One-shot FTS repair for pre-existing databases opened before FTS triggers existed. */
     val FTS_REPAIR = object : Migration(1, 1) {

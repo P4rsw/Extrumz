@@ -229,6 +229,8 @@ import com.extrumz.app.data.db.TelegramDb
 import com.extrumz.app.ui.components.AddToPlaylistSheet
 import com.extrumz.app.data.model.toSong
 import com.extrumz.app.ui.screens.LikedScreen
+import com.extrumz.app.data.model.telegramCoordsOf
+import com.extrumz.app.data.db.entity.LikedVideo
 
 /** A full first screen of a native YouTube Music radio before AutoPlay tops it up. */
 private const val INITIAL_RADIO_TRACKS = 24
@@ -2589,7 +2591,33 @@ private fun ExtrumzApp(
                     onDownload = { downloadSong(song) },
                     // The sheet stays up for a rating: it shows the new state
                     // in place, and people often thumb a song and then queue it.
-                    onToggleLike = { viewModel.toggleLike(song.videoId) },
+                    onToggleLike = {
+                        val wasLiked = viewModel.likeStatusOf(song.videoId) == LikeStatus.LIKE
+                        viewModel.toggleLike(song.videoId)
+                        // Written down as well as remembered. LikeState is a
+                        // map in memory and this process gets killed in the
+                        // background routinely, so a like that only lived
+                        // there was gone by the next launch.
+                        scope.launch {
+                            if (wasLiked) {
+                                TelegramDb.likedDao.delete(song.videoId)
+                            } else {
+                                val coords = telegramCoordsOf(song.videoId)
+                                TelegramDb.likedDao.upsert(
+                                    LikedVideo(
+                                        videoId = song.videoId,
+                                        title = song.title,
+                                        artist = song.artist,
+                                        thumbnailUrl = song.thumbnailUrl,
+                                        durationText = song.durationText,
+                                        sourceChatId = coords?.first ?: 0L,
+                                        sourceMessageId = coords?.second ?: 0L,
+                                        likedAt = System.currentTimeMillis(),
+                                    ),
+                                )
+                            }
+                        }
+                    },
                     onToggleDislike = {
                         val previousStatus = viewModel.toggleDislike(song.videoId)
                         if (

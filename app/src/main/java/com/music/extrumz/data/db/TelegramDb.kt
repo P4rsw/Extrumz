@@ -5,6 +5,7 @@ import androidx.room.Room
 import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import com.extrumz.app.data.db.dao.ChatDao
 import com.extrumz.app.data.db.dao.PlayHistoryDao
+import com.extrumz.app.data.db.dao.LikedDao
 import com.extrumz.app.data.db.dao.PlaylistDao
 import com.extrumz.app.data.db.dao.PendingOperationDao
 import com.extrumz.app.data.db.dao.TrackDao
@@ -40,6 +41,7 @@ object TelegramDb {
     val trackDao: TrackDao get() = database.trackDao()
     val chatDao: ChatDao get() = database.chatDao()
     val playlistDao: PlaylistDao get() = database.playlistDao()
+    val likedDao: LikedDao get() = database.likedDao()
     val playHistoryDao: PlayHistoryDao get() = database.playHistoryDao()
     val pendingOperationDao: PendingOperationDao get() = database.pendingOperationDao()
 }

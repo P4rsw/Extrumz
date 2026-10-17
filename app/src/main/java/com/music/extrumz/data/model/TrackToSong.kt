@@ -49,3 +49,22 @@ internal val Track.telegramTrackId: String
 /** `m:ss`, or empty when the row carries no duration. */
 internal fun formatTrackDuration(seconds: Int): String =
     if (seconds <= 0) "" else String.format(Locale.ROOT, "%d:%02d", seconds / 60, seconds % 60)
+
+
+/**
+ * The Telegram coordinates inside a `videoId`, or null when it is not one.
+ *
+ * A Telegram row's id is `src:<configId>::tg_<chatId>_<messageId>`. Three
+ * places had grown their own copy of this split — the liked list, the
+ * add-to-playlist sheet and this file — and three copies of a format is three
+ * places to be wrong about it.
+ */
+internal fun telegramCoordsOf(videoId: String): Pair<Long, Long>? {
+    val tail = videoId.substringAfterLast("::", missingDelimiterValue = "")
+        .ifEmpty { videoId }
+    if (!tail.startsWith("tg_")) return null
+    val parts = tail.removePrefix("tg_").split("_")
+    val chatId = parts.getOrNull(0)?.toLongOrNull() ?: return null
+    val messageId = parts.getOrNull(1)?.toLongOrNull() ?: return null
+    return chatId to messageId
+}
