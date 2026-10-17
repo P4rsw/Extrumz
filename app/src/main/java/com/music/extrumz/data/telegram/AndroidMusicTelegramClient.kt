@@ -155,8 +155,14 @@ class AndroidMusicTelegramClient(
                     params.deviceModel =
                         "${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}".trim()
                     params.applicationVersion = appVersion()
-                    client?.send(params, null)
+                    // Before the parameters, not after. TDLib queues what
+                    // arrives early, and sending it first means the proxy is
+                    // already in place when the first connection is attempted
+                    // -- on a filtered network the direct attempt does not just
+                    // fail, it spends the backoff budget before the proxy is
+                    // ever consulted.
                     configureProxyIfConfigured()
+                    client?.send(params, null)
                 }
             }
             is TdApi.AuthorizationStateWaitPhoneNumber ->
@@ -262,36 +268,63 @@ class AndroidMusicTelegramClient(
     }
 
     /**
-     * Makes TDLib re-evaluate the network right away.
+     * Nudges TDLib to re-evaluate the network without dropping it.
      *
      * Changing the proxy does not, on its own, disturb a connection attempt
-     * that is already backing off. The device log shows the cost of that: with
-     * a proxy whose round trip runs to 1.4 s, the config fetch fails and
-     * [ConfigManager] puts the next attempt 151 seconds away. Saving a
-     * corrected proxy during that window did nothing visible for two and a
-     * half minutes — which reads as the setting having been ignored.
+     * that is already backing off, and the device log shows the cost: with a
+     * proxy whose round trip runs to 1.4 s the config fetch fails and
+     * [ConfigManager] puts the next attempt 151 seconds away, so a corrected
+     * proxy saved during that window did nothing for two and a half minutes.
      *
-     * Dropping the network to none and handing it back is the way to ask for
-     * that retry without waiting it out. The gap between the two calls is not
-     * decoration: issuing them back to back leaves TDLib treating the second as
-     * a no-op because the first has not taken effect yet.
+     * This used to answer that by setting the network type to none and back.
+     * That was the wrong tool and it did damage: dropping the network kills
+     * queries that are mid-flight, including the handshakes of every session
+     * that was finally making progress, and they are not restarted where they
+     * were. Announcing the type on its own is enough to wake the client — it
+     * is the change TDLib listens for, not the gap — and it costs no
+     * connection to say it.
      */
     private fun forceReconnect(settings: ProxySettings) {
         val c = client ?: return
         appScope.launch {
             runCatching {
-                // Nothing is routed after this, so a query in flight is expected
-                // to fail — that is the point of the gap.
-                c.send(TdApi.SetNetworkType(TdApi.NetworkTypeNone()), null)
-                delay(350)
                 c.send(TdApi.SetNetworkType(TdApi.NetworkTypeOther()), null)
             }
             // Logged, because if this is the thing that stops working the app
             // looks exactly as it did before it was added: connected, silent.
             TrackLog.d(
                 "TelegramScan",
-                "proxy applied ${settings.host}:${settings.port} (${settings.kind}) — network reset",
+                "proxy applied ${settings.host}:${settings.port} (${settings.kind}) — network announced",
             )
+        }
+    }
+
+    /**
+     * Asks TDLib to try this proxy and report how long a round trip took, or
+     * -1.0 if it could not be reached.
+     *
+     * `testProxy` exists for exactly this: it opens the proxy, walks it through
+     * to a Telegram datacenter and times the answer, without touching the
+     * proxy the client is currently using. That makes it the one honest way to
+     * tell "this link is dead" from "this link is fine and something else is
+     * wrong", which is the question the last three attempts could not answer.
+     *
+     * DC 4, because the same call is what the scan leans on and a proxy that
+     * reaches one datacenter and not another is a real state.
+     */
+    suspend fun pingProxy(settings: ProxySettings, timeoutSeconds: Double = 5.0): Double {
+        val c = client ?: return -1.0
+        val type = when (settings.kind) {
+            ProxyKind.MTProto -> TdApi.ProxyTypeMtproto(settings.normalizedSecret())
+            ProxyKind.Socks5 -> TdApi.ProxyTypeSocks5(settings.username, settings.password)
+            ProxyKind.Http -> TdApi.ProxyTypeHttp(settings.username, settings.password, false)
+        }
+        return suspendCancellableCoroutine { cont ->
+            runCatching {
+                c.send(TdApi.TestProxy(settings.host, settings.port, type, 4, timeoutSeconds)) { result ->
+                    cont.resume(if (result is TdApi.Seconds) result.seconds else -1.0)
+                }
+            }.onFailure { cont.resume(-1.0) }
         }
     }
 

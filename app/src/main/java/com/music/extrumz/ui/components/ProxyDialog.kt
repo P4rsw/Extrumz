@@ -36,6 +36,8 @@ import com.extrumz.app.data.telegram.ProxySettings
 import com.extrumz.app.data.telegram.ProxyStore
 import com.extrumz.app.data.telegram.Telegram
 import com.extrumz.app.data.telegram.AndroidMusicTelegramClient
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 
 /**
  * The proxy editor.
@@ -68,6 +70,21 @@ fun ProxyDialog(onDismiss: () -> Unit) {
     var password by remember(stored) { mutableStateOf(stored.password) }
     var pasted by remember(stored) { mutableStateOf("") }
     var pasteError by remember(stored) { mutableStateOf<String?>(null) }
+    // null = not run; -1.0 = could not reach; anything else = round trip in seconds
+    var testResult by remember(stored) { mutableStateOf<Double?>(null) }
+    var testing by remember(stored) { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+
+    fun runTest(settings: ProxySettings) {
+        testing = true
+        testResult = null
+        scope.launch {
+            val seconds = (Telegram.client as? AndroidMusicTelegramClient)
+                ?.pingProxy(settings) ?: -1.0
+            testing = false
+            testResult = seconds
+        }
+    }
 
     val portNumber = port.toIntOrNull()
     val draft = ProxySettings(
@@ -216,6 +233,49 @@ fun ProxyDialog(onDismiss: () -> Unit) {
                     visualTransformation = PasswordVisualTransformation(),
                     modifier = Modifier.fillMaxWidth(),
                 )
+                }
+
+                // Test before saving, not after failing.
+                //
+                // A proxy is a link pasted from a channel, and whether it is
+                // alive is not something the user can tell by looking at it.
+                // Until now the only way to find out was to save it, wait, and
+                // guess -- which is how three links in a row got written off
+                // with nothing to point at. This asks TDLib to walk the proxy
+                // through to a datacenter and time it, without disturbing the
+                // proxy currently in use.
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    TextButton(
+                        enabled = !testing &&
+                            draft.host.isNotBlank() &&
+                            draft.port in 1..65535 &&
+                            draft.isUsable,
+                        onClick = { runTest(draft) },
+                    ) {
+                        Text(stringResource(R.string.proxy_test))
+                    }
+                    val result = testResult
+                    when {
+                        testing -> Text(
+                            text = stringResource(R.string.proxy_test_running),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        result != null && result > 0.0 -> Text(
+                            text = stringResource(R.string.proxy_test_ok, result),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.primary,
+                        )
+                        result != null -> Text(
+                            text = stringResource(R.string.proxy_test_failed),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                    }
                 }
             }
         },
