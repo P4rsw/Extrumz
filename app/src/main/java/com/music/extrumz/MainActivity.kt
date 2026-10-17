@@ -1588,7 +1588,29 @@ private fun ExtrumzApp(
         // covers it and breathes, so a slow start reads as working rather than
         // as a black screen that may or may not be the app.
         val telegramState by Telegram.client.authState.collectAsStateWithLifecycle()
-        ExtrumzSplash(visible = telegramState is TelegramAuthState.Initializing)
+        // The splash used to hang on the Telegram state alone, and that missed
+        // the case it exists for. A returning user -- already authorized --
+        // goes straight to Ready, so `is Initializing` was never true and the
+        // splash never appeared at all, even though the library is what takes
+        // the time on a cold start: ten thousand rows and their covers out of
+        // Room, with no Telegram handshake to wait for.
+        //
+        // So it covers the window in which the app has nothing to show yet,
+        // which is TDLib's boot *or* the library's first load, whichever is
+        // still running. The overlay's own cap is what keeps that honest -- it
+        // lets go after MAX_VISIBLE_MS however this answers.
+        var librarySettled by remember { mutableStateOf(false) }
+        // Flipped by the library's first content rather than by a timer where
+        // one is available; until then, a plain cold-start window covers the
+        // first composition, which is the part a returning user was seeing as
+        // a bare black screen.
+        LaunchedEffect(Unit) {
+            kotlinx.coroutines.delay(COLD_START_COVER_MS)
+            librarySettled = true
+        }
+        ExtrumzSplash(
+            visible = telegramState is TelegramAuthState.Initializing || !librarySettled,
+        )
         Row(Modifier.fillMaxSize()) {
             Box(Modifier.weight(1f).fillMaxHeight()) {
                 AnimatedContent(
@@ -3059,3 +3081,12 @@ private const val TAB_LIBRARY = 2
  * prefix has to be the one thing both the writing and the reading agree on.
  */
 private const val TAB_KEY = "tab:"
+
+/**
+ * How much of a cold start the splash covers on its own.
+ *
+ * Long enough to sit over the library's first load -- the frames between the
+ * window appearing and the first real content -- and short enough not to be
+ * felt as a delay. ExtrumzSplash caps the whole thing independently.
+ */
+private const val COLD_START_COVER_MS = 1_200L
