@@ -103,7 +103,19 @@ class LibraryScanner(
     private val client: MusicTelegramClient,
     private val trackDao: TrackDao,
     private val chatDao: ChatDao,
-    private val timeSource: () -> Long = { System.currentTimeMillis() }
+    /**
+     * How long one chat may hold the scan before it is let go.
+     *
+     * A parameter rather than a constant so a test can hold it to something it
+     * can afford to wait for: the guard protects songs from being skipped when
+     * a walk is abandoned, and a guard that cannot be exercised is a comment.
+     *
+     * Before timeSource, not after: that one is the last parameter so callers
+     * can pass it as a trailing lambda, and putting anything behind it silently
+     * rebinds those call sites.
+     */
+    private val chatTimeLimitMs: Long = DEFAULT_CHAT_TIME_LIMIT_MS,
+    private val timeSource: () -> Long = { System.currentTimeMillis() },
 ) {
 
     /** Chats already file-probed this process — one GetFile verdict per chat. */
@@ -1142,7 +1154,7 @@ class LibraryScanner(
         // Set when the walk gives up on this chat rather than finishing it.
         // The boundary must not move for an abandoned chat -- see below.
         var abandoned = false
-        val chatDeadline = startedAt + CHAT_TIME_LIMIT_MS
+        val chatDeadline = startedAt + chatTimeLimitMs
         while (emptyPages < 2) {
             pagesFetched++
             // A chat that has spent this long is not going to earn it back.
@@ -1152,11 +1164,26 @@ class LibraryScanner(
             // and the quiet re-pass retries what was left behind.
             if (timeSource() > chatDeadline) {
                 abandoned = true
-                TrackLog.d(TAG, "chat $chatId abandoned after ${CHAT_TIME_LIMIT_MS}ms")
+                TrackLog.d(TAG, "chat $chatId abandoned after ${chatTimeLimitMs}ms")
                 break
             }
             val pageAt = timeSource()
             _progress.update { it.copy(pageStartedAt = pageAt) }
+            // Measured on device: this bounds a chat to ONE over-long page,
+            // not to the limit, because it can only be consulted once the call
+            // in flight has answered. A flooded GetChatAudio sits for 19-22
+            // seconds and returns nothing, so a chat that meets one still
+            // spends that page -- but it does not spend a second one, which is
+            // what four abandons in a single scan showed.
+            //
+            // Putting the deadline on the call itself (withTimeout) would
+            // bound it properly and was tried. It cannot land as things stand:
+            // two existing tests park the scan inside a chat that never
+            // answers, to prove the one-scan-at-a-time gate holds, and
+            // advanceUntilIdle() moves the virtual clock to the next scheduled
+            // deadline -- so any timeout at all fires and the hang ends,
+            // whatever value is passed. Those tests need a different fixture
+            // before the call can be bounded from inside.
             val page = client.getChatAudio(chatId, cursor, limit = TelegramConfig.DEFAULT_PAGE_LIMIT)
             _progress.update { it.copy(pageStartedAt = null) }
             TrackLog.d(
@@ -1344,7 +1371,12 @@ class LibraryScanner(
      * channel still finishes -- this is twenty times the healthy page median
      * and a 2,000-track chat pages in well under it on a good connection.
      */
-    private const val CHAT_TIME_LIMIT_MS = 8_000L
+    /**
+     * Eight seconds is twenty times the healthy page median (~180-250ms on
+     * this account) and a 2,000-track channel pages well under it on a working
+     * connection, so a chat that has spent this long is waiting, not working.
+     */
+    private const val DEFAULT_CHAT_TIME_LIMIT_MS = 8_000L
 
     private const val FLOOD_SUSPECT_MS = 3_000L
 
