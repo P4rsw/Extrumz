@@ -44,6 +44,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.Box
 
 /**
  * Persian phone/code/password/QR login flow, ported from the old project's
@@ -102,7 +103,7 @@ fun TelegramAuthDialog(onDismiss: () -> Unit) {
                             style = MaterialTheme.typography.bodySmall,
                         )
                         Button(
-                            onClick = { TelegramAuthController.ensureStarted() },
+                            onClick = { TelegramAuthController.restartAuthorization() },
                             modifier = Modifier.fillMaxWidth(),
                         ) { Text(stringResource(R.string.tg_retry)) }
                     }
@@ -193,15 +194,31 @@ fun TelegramAuthDialog(onDismiss: () -> Unit) {
                             stringResource(R.string.tg_qr_link),
                             style = MaterialTheme.typography.bodySmall,
                         )
-                        // Selectable, and with a button beside it. The link is
-                        // the whole of this screen -- it is what the user has
-                        // to carry to another device -- and it was plain text
-                        // that could not even be highlighted.
+                        // The screen is called "sign in with a QR code" and
+                        // offered a URL. QrCode has existed beside this dialog
+                        // the whole time and nothing called it, so the one
+                        // thing the flow needs — something the other device's
+                        // camera can read — was the one thing missing.
+                        Box(
+                            modifier = Modifier.fillMaxWidth(),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            QrCode(
+                                content = state.link,
+                                size = 180.dp,
+                                foreground = MaterialTheme.colorScheme.onSurface,
+                                background = MaterialTheme.colorScheme.surface,
+                            )
+                        }
+                        // Kept below the code, and selectable with a copy
+                        // button: a camera is not always the way, and a link
+                        // that cannot be copied or highlighted is not an
+                        // alternative, it is decoration.
                         SelectionContainer {
                             Text(
                                 state.link,
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.primary,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }
                         Row(
@@ -242,7 +259,7 @@ fun TelegramAuthDialog(onDismiss: () -> Unit) {
                     is TelegramAuthState.Closed -> {
                         Text(stringResource(R.string.tg_login))
                         Button(
-                            onClick = { TelegramAuthController.ensureStarted() },
+                            onClick = { TelegramAuthController.restartAuthorization() },
                             modifier = Modifier.fillMaxWidth(),
                         ) { Text(stringResource(R.string.tg_retry)) }
                     }

@@ -55,6 +55,25 @@ object TelegramAuthController {
      * is safe here because nothing has been confirmed yet: no session exists
      * to lose.
      */
+    /**
+     * Starts authorization over, discarding a session that never got anywhere.
+     *
+     * [ensureStarted] returns the existing starter, which is right for its
+     * name: it is the "make sure something is running" call, and calling it
+     * from a button that means "try again" did nothing at all -- the starter
+     * was already there, so the client was never asked to start again, and a
+     * Closed client stayed closed behind a button that looked live.
+     *
+     * Both paths that follow a dead end go through here: the retry button on a
+     * failed or closed state, and the switch out of QR.
+     */
+    @Synchronized
+    fun restartAuthorization() {
+        starter = null
+        _showAuth.value = true
+        ensureStarted()
+    }
+
     fun usePhoneNumberInstead() {
         // Guarded on the state rather than trusted: logOut is the only call
         // TDLib offers that returns to WaitPhoneNumber, and on an authorized
@@ -66,6 +85,7 @@ object TelegramAuthController {
         scope.launch {
             runCatching { Telegram.client.logout() }
                 .onFailure { TrackLog.w(TAG, "QR→phone switch failed: ${it.message}") }
+            restartAuthorization()
         }
     }
 
