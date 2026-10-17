@@ -16,6 +16,11 @@ import org.drinkless.tdlib.TdApi
 import java.io.File
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 private const val TAG = "TelegramClient"
 /** Contacts resolved concurrently; capped because the server flood-controls this. */
@@ -54,6 +59,9 @@ class AndroidMusicTelegramClient(
 ) : BaseMusicTelegramClient() {
 
     private val appContext = context.applicationContext
+
+    /** For the few calls that must outlive the caller, like a network reset. */
+    private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     private val dataDir: File =
         File(context.filesDir, "extrumz").apply { mkdirs() }
@@ -211,9 +219,45 @@ class AndroidMusicTelegramClient(
         runCatching {
             c.send(TdApi.AddProxy(settings.host, settings.port, true, type)) { result ->
                 if (result is TdApi.Proxy) {
-                    c.send(TdApi.EnableProxy(result.id), null)
+                    c.send(TdApi.EnableProxy(result.id)) { enabled ->
+                        if (enabled is TdApi.Ok) forceReconnect(settings)
+                    }
                 }
             }
+        }
+    }
+
+    /**
+     * Makes TDLib re-evaluate the network right away.
+     *
+     * Changing the proxy does not, on its own, disturb a connection attempt
+     * that is already backing off. The device log shows the cost of that: with
+     * a proxy whose round trip runs to 1.4 s, the config fetch fails and
+     * [ConfigManager] puts the next attempt 151 seconds away. Saving a
+     * corrected proxy during that window did nothing visible for two and a
+     * half minutes — which reads as the setting having been ignored.
+     *
+     * Dropping the network to none and handing it back is the way to ask for
+     * that retry without waiting it out. The gap between the two calls is not
+     * decoration: issuing them back to back leaves TDLib treating the second as
+     * a no-op because the first has not taken effect yet.
+     */
+    private fun forceReconnect(settings: ProxySettings) {
+        val c = client ?: return
+        appScope.launch {
+            runCatching {
+                // Nothing is routed after this, so a query in flight is expected
+                // to fail — that is the point of the gap.
+                c.send(TdApi.SetNetworkType(TdApi.NetworkTypeNone()), null)
+                delay(350)
+                c.send(TdApi.SetNetworkType(TdApi.NetworkTypeOther()), null)
+            }
+            // Logged, because if this is the thing that stops working the app
+            // looks exactly as it did before it was added: connected, silent.
+            TrackLog.d(
+                "TelegramScan",
+                "proxy applied ${settings.host}:${settings.port} (${settings.kind}) — network reset",
+            )
         }
     }
 
