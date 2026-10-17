@@ -13,6 +13,10 @@ object Telegram {
 
     fun init(context: Context) {
         appContext = context.applicationContext
+        // Before the client can connect: the proxy has to be readable by the
+        // time TDLib is told to start, or the first attempt goes out direct
+        // and fails on a network that needs one.
+        ProxyStore.init(appContext)
     }
 
     /** App context for pieces that need one without a DI graph (MediaStore lookups). */

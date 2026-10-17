@@ -170,20 +170,48 @@ class AndroidMusicTelegramClient(
     }
 
     /**
-     * Routes TDLib through the local SOCKS5 proxy from local.properties when
-     * configured (BuildConfig.PROXY_HOST/PROXY_PORT). Functions sent before
-     * SetTdlibParameters completes are queued by TDLib, so the proxy is in
-     * place for the first connection attempt whenever possible. Blank host
-     * (dev/prod default) keeps the direct connection.
+     * Routes TDLib through the user's proxy.
+     *
+     * This used to read BuildConfig.PROXY_HOST/PORT — a value baked in from
+     * local.properties at build time — and hardcode SOCKS5. Both were wrong
+     * for the people this app is for. A user in Iran reaches nothing without a
+     * proxy, so a proxy they cannot enter is a proxy they do not have; and
+     * SOCKS5 is what produced the flood the scan died on. The settings now
+     * live in [ProxyStore], pasted straight from a t.me link, and MTProto is
+     * among the kinds that can be saved.
+     *
+     * Functions sent before SetTdlibParameters completes are queued by TDLib,
+     * so the proxy is in place for the first connection attempt whenever
+     * possible. Nothing configured keeps the direct connection.
      */
     private fun configureProxyIfConfigured() {
-        val host = BuildConfig.PROXY_HOST
-        val port = BuildConfig.PROXY_PORT
-        if (host.isBlank() || port <= 0) return
+        val settings = runCatching { ProxyStore.current }.getOrNull() ?: return
+        applyProxy(settings)
+    }
+
+    /**
+     * Applies [settings] to the running client, or clears the proxy when they
+     * are not usable. Safe to call while connected — this is the entry point
+     * the settings screen uses, so a corrected proxy takes effect without a
+     * restart.
+     */
+    fun applyProxy(settings: ProxySettings) {
+        val c = client ?: return
+        if (!settings.enabled || !settings.isUsable) {
+            runCatching { c.send(TdApi.DisableProxy(), null) }
+            return
+        }
+        val type = when (settings.kind) {
+            ProxyKind.MTProto -> TdApi.ProxyTypeMtproto(settings.secret)
+            ProxyKind.Socks5 ->
+                TdApi.ProxyTypeSocks5(settings.username, settings.password)
+            ProxyKind.Http ->
+                TdApi.ProxyTypeHttp(settings.username, settings.password, false)
+        }
         runCatching {
-            client?.send(TdApi.AddProxy(host, port, true, TdApi.ProxyTypeSocks5())) { result ->
+            c.send(TdApi.AddProxy(settings.host, settings.port, true, type)) { result ->
                 if (result is TdApi.Proxy) {
-                    client?.send(TdApi.EnableProxy(result.id), null)
+                    c.send(TdApi.EnableProxy(result.id), null)
                 }
             }
         }
