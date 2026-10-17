@@ -22,6 +22,9 @@ abstract class BaseMusicTelegramClient : MusicTelegramClient {
         MutableStateFlow<TelegramAuthState>(TelegramAuthState.Uninitialized)
     override val authState: StateFlow<TelegramAuthState> = _authState.asStateFlow()
 
+    /** Overridden by the Android client, which owns the TDLib instance. */
+    override fun applyProxy(settings: ProxySettings) = Unit
+
     protected val _connectionState =
         MutableStateFlow(TelegramConnectionState.CONNECTING)
     override val connectionState: StateFlow<TelegramConnectionState> =

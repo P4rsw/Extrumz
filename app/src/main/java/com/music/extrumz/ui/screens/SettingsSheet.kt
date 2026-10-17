@@ -131,6 +131,9 @@ import kotlin.math.roundToInt
 import java.util.Locale
 import androidx.compose.runtime.setValue
 import com.extrumz.app.ui.util.ProvideLocaleDirection
+import com.extrumz.app.data.telegram.ProxyStore
+import com.extrumz.app.ui.components.ProxyDialog
+import androidx.compose.material.icons.rounded.Security
 
 /**
  * Grouped settings, in the shape phones have taught people to expect: inset
@@ -354,6 +357,35 @@ fun SettingsScreen(
                         subtitle = "Music/Extrumz".takeIf { exportDownloads },
                     )
                 }
+            }
+
+            // The connection settings, above playback: on a network that
+            // blocks Telegram this is the row that makes the rest of the app
+            // work at all, and burying it under playback would be answering
+            // the wrong question.
+            var showProxyDialog by remember { mutableStateOf(false) }
+            val proxySettings by ProxyStore.settings.collectAsStateWithLifecycle()
+
+            SearchableSettingsGroup(
+                search,
+                header = stringResource(R.string.proxy),
+                footer = stringResource(R.string.proxy_kind_mtproto_hint),
+            ) {
+                row("proxy", "vpn", "socks", "mtproto", "پروکسی", "فیلترشکن") {
+                    SettingsRow(
+                        icon = Icons.Rounded.Security,
+                        title = stringResource(R.string.proxy),
+                        subtitle = when {
+                            !proxySettings.enabled -> stringResource(R.string.proxy_off)
+                            proxySettings.isUsable -> proxySettings.label
+                            else -> stringResource(R.string.proxy_incomplete)
+                        },
+                        onClick = { showProxyDialog = true },
+                    )
+                }
+            }
+            if (showProxyDialog) {
+                ProxyDialog(onDismiss = { showProxyDialog = false })
             }
 
             SearchableSettingsGroup(search, header = stringResource(R.string.playback)) {

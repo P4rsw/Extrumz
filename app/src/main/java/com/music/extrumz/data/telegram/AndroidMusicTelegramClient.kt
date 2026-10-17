@@ -195,7 +195,7 @@ class AndroidMusicTelegramClient(
      * the settings screen uses, so a corrected proxy takes effect without a
      * restart.
      */
-    fun applyProxy(settings: ProxySettings) {
+    override fun applyProxy(settings: ProxySettings) {
         val c = client ?: return
         if (!settings.enabled || !settings.isUsable) {
             runCatching { c.send(TdApi.DisableProxy(), null) }

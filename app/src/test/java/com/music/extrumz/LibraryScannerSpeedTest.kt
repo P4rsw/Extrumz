@@ -41,6 +41,7 @@ import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import com.extrumz.app.data.telegram.ProxySettings
 
 /**
  * The scan-speed contract of [LibraryScanner] (stage 2): bounded chat-level
@@ -265,6 +266,13 @@ class LibraryScannerSpeedTest {
         private val listFailsWith: String? = null,
     ) : MusicTelegramClient {
         private val chats = chats
+
+        /** What the settings screen pushed through, in order. */
+        val proxied = mutableListOf<ProxySettings>()
+
+        override fun applyProxy(settings: ProxySettings) {
+            proxied += settings
+        }
 
         override suspend fun countCandidateChatIds(): Int = chats.size
         override val authState: StateFlow<TelegramAuthState> =

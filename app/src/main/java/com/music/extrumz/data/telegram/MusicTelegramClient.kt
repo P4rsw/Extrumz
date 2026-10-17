@@ -95,6 +95,13 @@ interface MusicTelegramClient {
     /** Authorization progress (phone/code/QR/password → [TelegramAuthState.Ready]). */
     val authState: StateFlow<TelegramAuthState>
 
+    /**
+     * Routes the connection through [settings], or clears the proxy when it is
+     * disabled or incomplete. Called from the settings screen, so a corrected
+     * proxy takes effect without restarting the app.
+     */
+    fun applyProxy(settings: ProxySettings)
+
     /** TDLib connection quality; independent from authorization. */
     val connectionState: StateFlow<TelegramConnectionState>
 

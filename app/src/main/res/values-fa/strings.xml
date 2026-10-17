@@ -706,4 +706,21 @@
     <string name="liked">پسندیده‌ها</string>
     <string name="liked_empty">هنوز چیزی را نپسندیدی</string>
     <string name="liked_empty_hint">یک آهنگ را نگه دار و قلب را بزن تا اینجا بماند.</string>
+
+    <!-- پروکسی. عدد و آدرس دست‌نخورده می‌مانند؛ فقط توضیح ترجمه شده. -->
+    <string name="proxy">پروکسی</string>
+    <string name="proxy_title">پروکسی</string>
+    <string name="proxy_enable">استفاده از پروکسی</string>
+    <string name="proxy_paste_link">چسباندن لینک پروکسی</string>
+    <string name="proxy_kind_mtproto">MTProto</string>
+    <string name="proxy_kind_socks5">SOCKS5</string>
+    <string name="proxy_kind_http">HTTP</string>
+    <string name="proxy_kind_mtproto_hint">پیشنهادشده — پروتکل خود تلگرام. تونل SOCKS5 برای هر دیتاسنتر یک اتصال جدا می‌سازد و تلگرام محدودش می‌کند.</string>
+    <string name="proxy_host">نشانی سرور</string>
+    <string name="proxy_port">پورت</string>
+    <string name="proxy_secret">کلید مخفی</string>
+    <string name="proxy_username">نام کاربری</string>
+    <string name="proxy_password">گذرواژه</string>
+    <string name="proxy_off">خاموش</string>
+    <string name="proxy_incomplete">نشانی، پورت و کلید مخفی را پر کن، یا یک لینک بچسبان.</string>
 </resources>

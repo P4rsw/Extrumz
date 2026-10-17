@@ -1183,4 +1183,22 @@
     <string name="liked">Liked</string>
     <string name="liked_empty">Nothing liked yet</string>
     <string name="liked_empty_hint">Hold a song and tap the heart to keep it here.</string>
+
+    <!-- Proxy. See ProxyDialog and ProxySettings: the settings a user needs to
+         reach Telegram at all on a network that blocks it. -->
+    <string name="proxy">Proxy</string>
+    <string name="proxy_title">Proxy</string>
+    <string name="proxy_enable">Use a proxy</string>
+    <string name="proxy_paste_link">Paste a proxy link</string>
+    <string name="proxy_kind_mtproto">MTProto</string>
+    <string name="proxy_kind_socks5">SOCKS5</string>
+    <string name="proxy_kind_http">HTTP</string>
+    <string name="proxy_kind_mtproto_hint">Recommended \u2014 Telegram\u2019s own protocol. A SOCKS5 tunnel opens a separate connection per datacenter and Telegram throttles it.</string>
+    <string name="proxy_host">Server</string>
+    <string name="proxy_port">Port</string>
+    <string name="proxy_secret">Secret</string>
+    <string name="proxy_username">Username</string>
+    <string name="proxy_password">Password</string>
+    <string name="proxy_off">Off</string>
+    <string name="proxy_incomplete">Fill in the server, port and secret, or paste a link.</string>
 </resources>
