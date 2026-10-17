@@ -731,4 +731,18 @@
     <string name="proxy_test_running">در حال تست\u2026</string>
     <string name="proxy_test_ok">به تلگرام رسید — %1$.2f ثانیه</string>
     <string name="proxy_test_failed">از طریق این پروکسی به تلگرام نرسید</string>
+    <string name="proxy_add">افزودن پروکسی</string>
+    <string name="proxy_edit">ویرایش پروکسی</string>
+    <string name="proxy_delete">حذف پروکسی</string>
+    <string name="proxy_delete_confirm">آیا از حذف این پروکسی مطمئن هستید؟</string>
+    <string name="proxy_saved_list">ذخیره‌شده</string>
+    <string name="proxy_empty">هنوز پروکسی ذخیره نشده است</string>
+    <string name="proxy_empty_hint">روی «افزودن پروکسی» بزن یا یک لینک بچسبان تا شروع شود.</string>
+    <string name="proxy_copy">کپی</string>
+    <string name="proxy_copied">لینک در حافظه کپی شد</string>
+    <string name="proxy_direct_failed">مستقیم ❌</string>
+    <string name="proxy_direct_ok">مستقیم %1$.1fs</string>
+    <string name="proxy_proxied_failed">پروکسی ❌</string>
+    <string name="proxy_proxied_ok">پروکسی %1$.1fs</string>
+    <string name="proxy_untested">هنوز تست نشده</string>
 </resources>

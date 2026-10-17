@@ -21,6 +21,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 
 private const val TAG = "TelegramClient"
 /** Contacts resolved concurrently; capped because the server flood-controls this. */
@@ -338,6 +339,66 @@ class AndroidMusicTelegramClient(
                 }
             }.onFailure { cont.resume(-1.0) }
         }
+    }
+
+    private var lastDirectPing: Pair<Long, Double>? = null
+
+    /**
+     * Measures comparative ping: direct vs. proxied.
+     * Returns [ProxyVerdict] with directSeconds (-1.0 if unreachable) and proxiedSeconds (-1.0 if unreachable).
+     */
+    suspend fun pingProxyVerdict(settings: ProxySettings, timeoutSeconds: Double = 15.0): ProxyVerdict {
+        val proxiedSeconds = pingProxy(settings, timeoutSeconds)
+        val c = client ?: return ProxyVerdict(-1.0, proxiedSeconds)
+
+        // If scanning is active, skip direct measurement to avoid disrupting ongoing scan queries
+        val isScanning = runCatching { Telegram.scanner.progress.value.isRunning }.getOrDefault(false)
+        if (isScanning) {
+            return ProxyVerdict(directSeconds = -1.0, proxiedSeconds = proxiedSeconds)
+        }
+
+        val cached = lastDirectPing
+        val now = System.currentTimeMillis()
+        if (cached != null && now - cached.first < 30_000L) {
+            return ProxyVerdict(directSeconds = cached.second, proxiedSeconds = proxiedSeconds)
+        }
+
+        val currentSettings = runCatching { ProxyStore.current }.getOrNull()
+        val hadProxyActive = currentSettings != null && currentSettings.enabled && currentSettings.isUsable
+
+        var directSeconds = -1.0
+        try {
+            if (hadProxyActive) {
+                suspendCancellableCoroutine<Unit> { cont ->
+                    c.send(TdApi.DisableProxy()) { cont.resume(Unit) }
+                }
+            }
+            val directStart = System.currentTimeMillis()
+            directSeconds = withTimeoutOrNull(5000L) {
+                suspendCancellableCoroutine<Double> { cont ->
+                    runCatching {
+                        c.send(TdApi.TestNetwork()) { result ->
+                            cont.resume(
+                                if (result is TdApi.Ok) {
+                                    (System.currentTimeMillis() - directStart) / 1000.0
+                                } else {
+                                    -1.0
+                                },
+                            )
+                        }
+                    }.onFailure { cont.resume(-1.0) }
+                }
+            } ?: -1.0
+            lastDirectPing = now to directSeconds
+        } catch (e: Exception) {
+            directSeconds = -1.0
+        } finally {
+            if (hadProxyActive && currentSettings != null) {
+                applyProxy(currentSettings, resetNetwork = false)
+            }
+        }
+
+        return ProxyVerdict(directSeconds = directSeconds, proxiedSeconds = proxiedSeconds)
     }
 
     private suspend fun <T : TdApi.Object> send(function: TdApi.Function<T>): T {

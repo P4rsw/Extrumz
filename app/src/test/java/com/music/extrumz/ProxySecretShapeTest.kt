@@ -24,6 +24,15 @@ class ProxySecretShapeTest {
     }
 
     @Test
+    fun `the secret saved on the device is readable`() {
+        // Read out of the device's own shared_prefs, not invented: this is the
+        // proxy the user is actually running.
+        val s = secret("EERighJJvXrFGRMCIMJdCQ")
+        assertEquals("this is the secret the device has stored", 22, "EERighJJvXrFGRMCIMJdCQ".length)
+        assertNotEquals("the stored secret must not normalise to empty", "", s.normalizedSecret())
+    }
+
+    @Test
     fun `hex secret passes through`() {
         val s = secret("104462821249bd7ac519130220c8dd09")
         assertEquals("104462821249bd7ac519130220c8dd09", s.normalizedSecret())

@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
@@ -19,70 +20,56 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.extrumz.app.R
+import com.extrumz.app.data.telegram.AndroidMusicTelegramClient
 import com.extrumz.app.data.telegram.ProxyKind
 import com.extrumz.app.data.telegram.ProxyLink
 import com.extrumz.app.data.telegram.ProxySettings
 import com.extrumz.app.data.telegram.ProxyStore
+import com.extrumz.app.data.telegram.ProxyVerdict
 import com.extrumz.app.data.telegram.Telegram
-import com.extrumz.app.data.telegram.AndroidMusicTelegramClient
-import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.coroutines.launch
 
 /**
- * The proxy editor.
- *
- * Two ways in, because there are two kinds of user. Most people have a link —
- * every channel that shares proxies shares a `t.me/proxy` URL — and for them the
- * paste field is the whole feature: it accepts the link, fills the form, and
- * saves. Everyone else can type host, port and secret by hand.
- *
- * The form is the same either way. The paste field fills it rather than
- * replacing it, so a link that parses but is wrong is still visible and still
- * editable instead of being silently saved.
- *
- * Saving does not just store: it calls through to the running client, so a
- * proxy entered here takes effect without a restart. That matters more than it
- * sounds — the connection is the thing that is broken, and asking someone to
- * close and reopen the app to find out whether they fixed it is the difference
- * between a setting and a guess.
+ * Reusable dialog for adding a new proxy or editing an existing one.
  */
 @Composable
-fun ProxyDialog(onDismiss: () -> Unit) {
-    val stored by ProxyStore.settings.collectAsStateWithLifecycle()
-
-    var enabled by remember(stored) { mutableStateOf(stored.enabled) }
-    var kind by remember(stored) { mutableStateOf(stored.kind) }
-    var host by remember(stored) { mutableStateOf(stored.host) }
-    var port by remember(stored) { mutableStateOf(if (stored.port > 0) stored.port.toString() else "") }
-    var secret by remember(stored) { mutableStateOf(stored.secret) }
-    var username by remember(stored) { mutableStateOf(stored.username) }
-    var password by remember(stored) { mutableStateOf(stored.password) }
-    var pasted by remember(stored) { mutableStateOf("") }
-    var pasteError by remember(stored) { mutableStateOf<String?>(null) }
-    // null = not run; -1.0 = could not reach; anything else = round trip in seconds
-    var testResult by remember(stored) { mutableStateOf<Double?>(null) }
-    var testing by remember(stored) { mutableStateOf(false) }
+fun ProxyEditDialog(
+    initial: ProxySettings? = null,
+    onDismiss: () -> Unit,
+    onSave: (ProxySettings) -> Unit,
+) {
+    val isEdit = initial != null
+    var enabled by remember(initial) { mutableStateOf(initial?.enabled ?: true) }
+    var kind by remember(initial) { mutableStateOf(initial?.kind ?: ProxyKind.MTProto) }
+    var host by remember(initial) { mutableStateOf(initial?.host.orEmpty()) }
+    var port by remember(initial) { mutableStateOf(if ((initial?.port ?: 0) > 0) initial?.port.toString() else "") }
+    var secret by remember(initial) { mutableStateOf(initial?.secret.orEmpty()) }
+    var username by remember(initial) { mutableStateOf(initial?.username.orEmpty()) }
+    var password by remember(initial) { mutableStateOf(initial?.password.orEmpty()) }
+    var pasted by remember(initial) { mutableStateOf("") }
+    var pasteError by remember(initial) { mutableStateOf<String?>(null) }
+    var testResult by remember(initial) { mutableStateOf<ProxyVerdict?>(null) }
+    var testing by remember(initial) { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
     fun runTest(settings: ProxySettings) {
         testing = true
         testResult = null
         scope.launch {
-            val seconds = (Telegram.client as? AndroidMusicTelegramClient)
-                ?.pingProxy(settings) ?: -1.0
+            val verdict = (Telegram.client as? AndroidMusicTelegramClient)
+                ?.pingProxyVerdict(settings) ?: ProxyVerdict(-1.0, -1.0)
             testing = false
-            testResult = seconds
+            testResult = verdict
         }
     }
 
@@ -100,7 +87,7 @@ fun ProxyDialog(onDismiss: () -> Unit) {
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.proxy_title)) },
+        title = { Text(stringResource(if (isEdit) R.string.proxy_edit else R.string.proxy_add)) },
         text = {
             Column(
                 modifier = Modifier
@@ -108,18 +95,6 @@ fun ProxyDialog(onDismiss: () -> Unit) {
                     .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                ) {
-                    Text(
-                        text = stringResource(R.string.proxy_enable),
-                        style = MaterialTheme.typography.bodyMedium,
-                    )
-                    Switch(checked = enabled, onCheckedChange = { enabled = it })
-                }
-
                 // The paste field. Deliberately first: it is how nearly everyone
                 // will use this, and it makes the form below a confirmation
                 // rather than data entry.
@@ -152,10 +127,7 @@ fun ProxyDialog(onDismiss: () -> Unit) {
                     )
                 }
 
-                // Kind. MTProto first and described, because it is the one that
-                // works: a SOCKS5 tunnel opens a raw socket per datacenter and
-                // Telegram answers DC 4 with a flood, which is what made the
-                // scan stop dead. Saying so here is cheaper than the support.
+                // Kind. MTProto first and described.
                 ProxyKind.entries.forEach { option ->
                     Row(
                         modifier = Modifier
@@ -199,51 +171,38 @@ fun ProxyDialog(onDismiss: () -> Unit) {
                 )
                 if (kind == ProxyKind.MTProto) {
                     OutlinedTextField(
-                    value = secret,
-                    onValueChange = { secret = it },
-                    label = { Text(stringResource(R.string.proxy_secret)) },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Ascii, imeAction = ImeAction.Done),
-                    // Said out loud, because the opposite was invisible: the
-                    // secret was accepted into the field, the app could not
-                    // read it, and the client turned the proxy off while the
-                    // screen went on showing it on. Three proxy links in a row
-                    // "did not work" with nothing pointing at the reason.
-                    isError = draft.secretUnreadable,
-                    supportingText = if (draft.secretUnreadable) {
-                        { Text(stringResource(R.string.proxy_secret_unreadable)) }
-                    } else null,
-                    modifier = Modifier.fillMaxWidth(),
-                )
+                        value = secret,
+                        onValueChange = { secret = it },
+                        label = { Text(stringResource(R.string.proxy_secret)) },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Ascii, imeAction = ImeAction.Done),
+                        isError = draft.secretUnreadable,
+                        supportingText = if (draft.secretUnreadable) {
+                            { Text(stringResource(R.string.proxy_secret_unreadable)) }
+                        } else null,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
                 } else {
                     OutlinedTextField(
-                    value = username,
-                    onValueChange = { username = it },
-                    label = { Text(stringResource(R.string.proxy_username)) },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Ascii, imeAction = ImeAction.Next),
-                    modifier = Modifier.fillMaxWidth(),
-                )
+                        value = username,
+                        onValueChange = { username = it },
+                        label = { Text(stringResource(R.string.proxy_username)) },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Ascii, imeAction = ImeAction.Next),
+                        modifier = Modifier.fillMaxWidth(),
+                    )
                     OutlinedTextField(
-                    value = password,
-                    onValueChange = { password = it },
-                    label = { Text(stringResource(R.string.proxy_password)) },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
-                    visualTransformation = PasswordVisualTransformation(),
-                    modifier = Modifier.fillMaxWidth(),
-                )
+                        value = password,
+                        onValueChange = { password = it },
+                        label = { Text(stringResource(R.string.proxy_password)) },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
+                        visualTransformation = PasswordVisualTransformation(),
+                        modifier = Modifier.fillMaxWidth(),
+                    )
                 }
 
-                // Test before saving, not after failing.
-                //
-                // A proxy is a link pasted from a channel, and whether it is
-                // alive is not something the user can tell by looking at it.
-                // Until now the only way to find out was to save it, wait, and
-                // guess -- which is how three links in a row got written off
-                // with nothing to point at. This asks TDLib to walk the proxy
-                // through to a datacenter and time it, without disturbing the
-                // proxy currently in use.
+                // Test button
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -265,11 +224,19 @@ fun ProxyDialog(onDismiss: () -> Unit) {
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
-                        result != null && result > 0.0 -> Text(
-                            text = stringResource(R.string.proxy_test_ok, result),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.primary,
-                        )
+                        result != null && result.proxiedSeconds > 0.0 -> {
+                            val okText = stringResource(R.string.proxy_test_ok, result.proxiedSeconds)
+                            val directInfo = if (result.directSeconds > 0.0) {
+                                " (" + stringResource(R.string.proxy_direct_ok, result.directSeconds) + ")"
+                            } else {
+                                " (" + stringResource(R.string.proxy_direct_failed) + ")"
+                            }
+                            Text(
+                                text = okText + directInfo,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.primary,
+                            )
+                        }
                         result != null -> Text(
                             text = stringResource(R.string.proxy_test_failed),
                             style = MaterialTheme.typography.bodySmall,
@@ -281,24 +248,9 @@ fun ProxyDialog(onDismiss: () -> Unit) {
         },
         confirmButton = {
             TextButton(
-                enabled = !portBad,
+                enabled = !portBad && draft.isUsable,
                 onClick = {
-                    val final = if (enabled && !draft.isUsable) {
-                        // Asked for but incomplete: refused rather than saved,
-                        // because a proxy that looks configured and never
-                        // connects is harder to diagnose than one that is
-                        // plainly off.
-                        pasteError = null
-                        return@TextButton
-                    } else {
-                        draft
-                    }
-                    ProxyStore.save(final)
-                    // The one place a reset is wanted: the user just changed
-                    // something and should not have to wait out TDLib's own
-                    // backoff to find out whether it took.
-                    (Telegram.client as? AndroidMusicTelegramClient)
-                        ?.applyProxy(final, resetNetwork = true)
+                    onSave(draft)
                     onDismiss()
                 },
             ) {
@@ -309,6 +261,21 @@ fun ProxyDialog(onDismiss: () -> Unit) {
             TextButton(onClick = onDismiss) {
                 Text(stringResource(R.string.cancel))
             }
+        },
+    )
+}
+
+/** Legacy wrapper preserved for backwards compatibility. */
+@Deprecated("Use ProxyScreen or ProxyEditDialog")
+@Composable
+fun ProxyDialog(onDismiss: () -> Unit) {
+    ProxyEditDialog(
+        initial = ProxyStore.current.takeIf { it.isUsable },
+        onDismiss = onDismiss,
+        onSave = {
+            ProxyStore.save(it)
+            (Telegram.client as? AndroidMusicTelegramClient)
+                ?.applyProxy(it, resetNetwork = true)
         },
     )
 }

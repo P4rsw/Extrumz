@@ -148,6 +148,7 @@ fun SettingsScreen(
     /** The window's width, for the gates that depend on it. */
     windowWidth: Dp,
     onEqualizer: () -> Unit,
+    onProxy: () -> Unit,
     onOpenReplay: () -> Unit,
     onLyricsSources: () -> Unit,
     onTranslationLanguage: () -> Unit,
@@ -363,7 +364,6 @@ fun SettingsScreen(
             // blocks Telegram this is the row that makes the rest of the app
             // work at all, and burying it under playback would be answering
             // the wrong question.
-            var showProxyDialog by remember { mutableStateOf(false) }
             val proxySettings by ProxyStore.settings.collectAsStateWithLifecycle()
 
             SearchableSettingsGroup(
@@ -380,12 +380,9 @@ fun SettingsScreen(
                             proxySettings.isUsable -> proxySettings.label
                             else -> stringResource(R.string.proxy_incomplete)
                         },
-                        onClick = { showProxyDialog = true },
+                        onClick = onProxy,
                     )
                 }
-            }
-            if (showProxyDialog) {
-                ProxyDialog(onDismiss = { showProxyDialog = false })
             }
 
             SearchableSettingsGroup(search, header = stringResource(R.string.playback)) {

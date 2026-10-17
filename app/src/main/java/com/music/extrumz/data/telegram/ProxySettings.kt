@@ -1,10 +1,15 @@
 package com.extrumz.app.data.telegram
 
 import android.content.Context
+import android.content.SharedPreferences
 import com.extrumz.app.BuildConfig
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 
 /**
  * Which wire protocol the proxy speaks.
@@ -18,10 +23,51 @@ import kotlinx.coroutines.flow.asStateFlow
  * Telegram's own protocol: one tunnel, a client Telegram recognises, and no
  * flood.
  */
+@Serializable
 enum class ProxyKind {
     MTProto,
     Socks5,
     Http,
+}
+
+/**
+ * Comparative test verdict for a proxy.
+ *
+ * [directSeconds] is the round-trip time in seconds direct to Telegram without a proxy,
+ * or -1.0 if direct connection could not reach Telegram (e.g. filtered/blocked).
+ * [proxiedSeconds] is the round-trip time in seconds through this proxy, or -1.0 if unreachable.
+ */
+@Serializable
+data class ProxyVerdict(
+    val directSeconds: Double,
+    val proxiedSeconds: Double,
+) {
+    /** True when the proxy connects and direct is blocked or slower. */
+    val worthIt: Boolean
+        get() = proxiedSeconds > 0 && (directSeconds < 0 || proxiedSeconds < directSeconds)
+}
+
+/**
+ * A stored proxy, keeping a stable [id] independent of host:port so edits or renames
+ * preserve selection and history.
+ */
+@Serializable
+data class SavedProxy(
+    val id: String,
+    val settings: ProxySettings,
+    /** Last measured round-trip time in seconds, or null if never tested. */
+    val lastPingSeconds: Double? = null,
+    val lastPingAt: Long? = null,
+    /** Last measured direct round-trip time in seconds, or null if never tested. */
+    val lastDirectSeconds: Double? = null,
+) {
+    val verdict: ProxyVerdict?
+        get() = if (lastPingSeconds != null) {
+            ProxyVerdict(
+                directSeconds = lastDirectSeconds ?: -1.0,
+                proxiedSeconds = lastPingSeconds,
+            )
+        } else null
 }
 
 /**
@@ -34,6 +80,7 @@ enum class ProxyKind {
  * alongside the host and port. It is not a password and Telegram does not
  * treat it as one, but it is the part that must not be mistyped.
  */
+@Serializable
 data class ProxySettings(
     val enabled: Boolean = false,
     val kind: ProxyKind = ProxyKind.MTProto,
@@ -76,17 +123,6 @@ data class ProxySettings(
         val raw = secret.trim()
         if (raw.isEmpty()) return ""
 
-        // Hex, in any of the shapes that are actually issued:
-        //
-        //   32   plain 16-byte
-        //   34   "dd" + 16-byte (the padded/"secure" form)
-        //   36+  FakeTLS -- "ee" + 16 random bytes + the host name, as hex.
-        //        This is what most Iranian channels hand out, because it is the
-        //        shape that gets past DPI, and the old length check (32 or 34
-        //        exactly) rejected every one of them.
-        //
-        // Only even-length lowercase hex gets here, so a base64 secret can
-        // never be mistaken for one: base64 of 16 bytes is 22 characters.
         val isHex = raw.length >= 32 && raw.length % 2 == 0 &&
             raw.all { it.isDigit() || it.lowercaseChar() in 'a'..'f' }
         if (isHex) {
@@ -96,17 +132,10 @@ data class ProxySettings(
             }
         }
 
-        // Base64url, which is what a link carries when it uses - and _ where
-        // base64 uses + and /. The plain decoder rejects those characters
-        // outright, so the substitution is what makes these readable at all.
         val normalised = raw.replace('-', '+').replace('_', '/')
         val decoded = runCatching { java.util.Base64.getDecoder().decode(pad(normalised)) }.getOrNull()
             ?: return ""
 
-        // 16 bytes plain, 17 with the dd flag, or the FakeTLS form: more than
-        // 17, which must begin with the 0xee marker. The size test is kept
-        // because it is what turns a typo into a refusal instead of a silent
-        // hang -- see the doc comment above.
         val plausible = decoded.size == 16 ||
             decoded.size == 17 ||
             (decoded.size > 17 && (decoded[0].toInt() and 0xFF) == 0xEE)
@@ -139,18 +168,26 @@ data class ProxySettings(
             kind == ProxyKind.MTProto -> "MTProto · $host:$port"
             else -> "${kind.name} · $host:$port"
         }
+
+    /** Builds the Telegram proxy link for sharing/copying. */
+    fun toLink(): String = when (kind) {
+        ProxyKind.MTProto -> "https://t.me/proxy?server=$host&port=$port&secret=$secret"
+        ProxyKind.Socks5 -> {
+            val base = "https://t.me/socks?server=$host&port=$port"
+            val userParam = if (username.isNotBlank()) "&user=" + runCatching { java.net.URLEncoder.encode(username, "UTF-8") }.getOrDefault(username) else ""
+            val passParam = if (password.isNotBlank()) "&pass=" + runCatching { java.net.URLEncoder.encode(password, "UTF-8") }.getOrDefault(password) else ""
+            "$base$userParam$passParam"
+        }
+        ProxyKind.Http -> "http://$host:$port"
+    }
 }
 
 /**
- * Where the proxy lives between launches.
+ * Where proxies live between launches.
  *
- * It used to be BuildConfig.PROXY_HOST/PROXY_PORT, read from local.properties
- * at build time, which made it a developer's setting: a user who cannot reach
- * Telegram without a proxy — everyone this app is for — had no way to supply
- * one at all. This is the user-facing home for it.
- *
- * BuildConfig is still consulted as a fallback so an existing dev setup keeps
- * working untouched; anything saved here wins.
+ * Maintains a list of [SavedProxy] entries and an active proxy id.
+ * The active proxy is projected onto [current] and [settings] so the running
+ * client code consumes it without knowing multiple proxies are saved.
  */
 object ProxyStore {
 
@@ -163,7 +200,22 @@ object ProxyStore {
     private const val KEY_USER = "username"
     private const val KEY_PASS = "password"
 
-    private lateinit var prefs: android.content.SharedPreferences
+    private const val KEY_PROXIES_JSON = "proxies_json"
+    private const val KEY_ACTIVE_ID = "active_id"
+    private const val KEY_MASTER_ENABLED = "master_enabled"
+    private const val KEY_DEV_PROXY_SEEDED = "dev_proxy_seeded"
+
+    private lateinit var prefs: SharedPreferences
+    private val json = Json { ignoreUnknownKeys = true }
+
+    private val _all = MutableStateFlow<List<SavedProxy>>(emptyList())
+    val all: StateFlow<List<SavedProxy>> = _all.asStateFlow()
+
+    private val _activeId = MutableStateFlow<String?>(null)
+    val activeId: StateFlow<String?> = _activeId.asStateFlow()
+
+    private val _masterEnabled = MutableStateFlow(false)
+    val masterEnabled: StateFlow<Boolean> = _masterEnabled.asStateFlow()
 
     private val _settings = MutableStateFlow(ProxySettings())
 
@@ -173,51 +225,208 @@ object ProxyStore {
     /** The value the client reads when it is about to connect. */
     val current: ProxySettings get() = _settings.value
 
+    /** Hook invoked when the active proxy settings change so the client can apply them. */
+    var onProxyChanged: ((ProxySettings) -> Unit)? = null
+
     fun init(context: Context) {
         if (::prefs.isInitialized) return
-        prefs = context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-        _settings.value = read()
+        initWithPrefs(context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE))
+    }
+
+    internal fun initWithPrefs(preferences: SharedPreferences) {
+        prefs = preferences
+        read()
+    }
+
+    fun setEnabled(enabled: Boolean) {
+        _masterEnabled.value = enabled
+        if (enabled && _activeId.value == null && _all.value.isNotEmpty()) {
+            _activeId.value = _all.value.first().id
+        }
+        persist()
+        updateCurrentFlow()
+        onProxyChanged?.invoke(current)
+    }
+
+    fun add(settings: ProxySettings): String {
+        val id = java.util.UUID.randomUUID().toString()
+        val saved = SavedProxy(id = id, settings = settings.copy(enabled = true))
+        val updated = _all.value + saved
+        _all.value = updated
+        if (_activeId.value == null || !_masterEnabled.value) {
+            _activeId.value = id
+            _masterEnabled.value = true
+        }
+        persist()
+        updateCurrentFlow()
+        onProxyChanged?.invoke(current)
+        return id
+    }
+
+    fun update(id: String, settings: ProxySettings) {
+        val updated = _all.value.map {
+            if (it.id == id) it.copy(settings = settings.copy(enabled = true)) else it
+        }
+        _all.value = updated
+        persist()
+        updateCurrentFlow()
+        if (_activeId.value == id) {
+            onProxyChanged?.invoke(current)
+        }
+    }
+
+    fun remove(id: String) {
+        val updated = _all.value.filter { it.id != id }
+        _all.value = updated
+        val activeRemoved = _activeId.value == id
+        if (activeRemoved) {
+            _activeId.value = updated.firstOrNull()?.id
+            if (_activeId.value == null) {
+                _masterEnabled.value = false
+            }
+        }
+        persist()
+        updateCurrentFlow()
+        if (activeRemoved) {
+            onProxyChanged?.invoke(current)
+        }
+    }
+
+    fun activate(id: String?) {
+        _activeId.value = id
+        if (id != null) {
+            _masterEnabled.value = true
+        }
+        persist()
+        updateCurrentFlow()
+        onProxyChanged?.invoke(current)
+    }
+
+    fun recordPing(id: String, seconds: Double, directSeconds: Double? = null) {
+        val now = System.currentTimeMillis()
+        val updated = _all.value.map {
+            if (it.id == id) {
+                it.copy(
+                    lastPingSeconds = seconds,
+                    lastDirectSeconds = directSeconds ?: it.lastDirectSeconds,
+                    lastPingAt = now,
+                )
+            } else it
+        }
+        _all.value = updated
+        persist()
+    }
+
+    fun recordPing(id: String, verdict: ProxyVerdict) {
+        recordPing(id, verdict.proxiedSeconds, verdict.directSeconds)
     }
 
     fun save(settings: ProxySettings) {
-        prefs.edit()
-            .putBoolean(KEY_ENABLED, settings.enabled)
-            .putString(KEY_KIND, settings.kind.name)
-            .putString(KEY_HOST, settings.host)
-            .putInt(KEY_PORT, settings.port)
-            .putString(KEY_SECRET, settings.secret)
-            .putString(KEY_USER, settings.username)
-            .putString(KEY_PASS, settings.password)
-            .apply()
-        _settings.value = settings
+        val active = _activeId.value
+        if (active != null && _all.value.any { it.id == active }) {
+            update(active, settings)
+        } else {
+            add(settings)
+        }
     }
 
-    private fun read(): ProxySettings {
-        val stored = ProxySettings(
-            enabled = prefs.getBoolean(KEY_ENABLED, false),
-            kind = runCatching { ProxyKind.valueOf(prefs.getString(KEY_KIND, null) ?: "") }
-                .getOrDefault(ProxyKind.MTProto),
-            host = prefs.getString(KEY_HOST, "").orEmpty(),
-            port = prefs.getInt(KEY_PORT, 0),
-            secret = prefs.getString(KEY_SECRET, "").orEmpty(),
-            username = prefs.getString(KEY_USER, "").orEmpty(),
-            password = prefs.getString(KEY_PASS, "").orEmpty(),
-        )
-        if (stored.host.isNotBlank()) return stored
+    private fun persist() {
+        if (!::prefs.isInitialized) return
+        runCatching {
+            val jsonStr = json.encodeToString(_all.value)
+            prefs.edit()
+                .putString(KEY_PROXIES_JSON, jsonStr)
+                .putString(KEY_ACTIVE_ID, _activeId.value)
+                .putBoolean(KEY_MASTER_ENABLED, _masterEnabled.value)
+                .apply()
+        }
+    }
 
-        // Nothing saved yet: an existing build-time proxy, if the developer set one.
+    private fun updateCurrentFlow() {
+        val active = _activeId.value
+        val found = _all.value.firstOrNull { it.id == active }
+        _settings.value = if (_masterEnabled.value && found != null) {
+            found.settings.copy(enabled = true)
+        } else {
+            ProxySettings(enabled = false)
+        }
+    }
+
+    private fun read() {
+        val proxiesJson = prefs.getString(KEY_PROXIES_JSON, null)
+        if (proxiesJson != null) {
+            val list = runCatching {
+                json.decodeFromString<List<SavedProxy>>(proxiesJson)
+            }.getOrDefault(emptyList())
+            _all.value = list
+            val savedActive = prefs.getString(KEY_ACTIVE_ID, null)
+            _activeId.value = if (list.any { it.id == savedActive }) savedActive else list.firstOrNull()?.id
+            _masterEnabled.value = prefs.getBoolean(KEY_MASTER_ENABLED, true)
+            updateCurrentFlow()
+            return
+        }
+
+        // Migration from old single-proxy SharedPreferences:
+        val oldHost = prefs.getString(KEY_HOST, "").orEmpty()
+        val oldPort = prefs.getInt(KEY_PORT, 0)
+        if (oldHost.isNotBlank() && oldPort in 1..65535) {
+            val oldKind = runCatching { ProxyKind.valueOf(prefs.getString(KEY_KIND, null) ?: "") }
+                .getOrDefault(ProxyKind.MTProto)
+            val oldSecret = prefs.getString(KEY_SECRET, "").orEmpty()
+            val oldUser = prefs.getString(KEY_USER, "").orEmpty()
+            val oldPass = prefs.getString(KEY_PASS, "").orEmpty()
+            val oldEnabled = prefs.getBoolean(KEY_ENABLED, false)
+
+            val migrated = SavedProxy(
+                id = java.util.UUID.randomUUID().toString(),
+                settings = ProxySettings(
+                    enabled = oldEnabled,
+                    kind = oldKind,
+                    host = oldHost,
+                    port = oldPort,
+                    secret = oldSecret,
+                    username = oldUser,
+                    password = oldPass,
+                ),
+            )
+            val list = listOf(migrated)
+            _all.value = list
+            _activeId.value = migrated.id
+            _masterEnabled.value = oldEnabled
+            persist()
+            prefs.edit().putBoolean(KEY_DEV_PROXY_SEEDED, true).apply()
+            updateCurrentFlow()
+            return
+        }
+
+        // Nothing saved yet: seed dev proxy if configured and not previously seeded
         val devHost = BuildConfig.PROXY_HOST
         val devPort = BuildConfig.PROXY_PORT
-        return if (devHost.isNotBlank() && devPort > 0) {
-            ProxySettings(
-                enabled = true,
-                kind = ProxyKind.Socks5,
-                host = devHost,
-                port = devPort,
+        val seeded = prefs.getBoolean(KEY_DEV_PROXY_SEEDED, false)
+        if (!seeded && devHost.isNotBlank() && devPort in 1..65535) {
+            val devProxy = SavedProxy(
+                id = java.util.UUID.randomUUID().toString(),
+                settings = ProxySettings(
+                    enabled = true,
+                    kind = ProxyKind.Socks5,
+                    host = devHost,
+                    port = devPort,
+                ),
             )
-        } else {
-            stored
+            val list = listOf(devProxy)
+            _all.value = list
+            _activeId.value = devProxy.id
+            _masterEnabled.value = true
+            persist()
+            prefs.edit().putBoolean(KEY_DEV_PROXY_SEEDED, true).apply()
+            updateCurrentFlow()
+            return
         }
+
+        _all.value = emptyList()
+        _activeId.value = null
+        _masterEnabled.value = false
+        updateCurrentFlow()
     }
 }
 

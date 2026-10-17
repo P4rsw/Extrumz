@@ -133,6 +133,7 @@ import com.extrumz.app.data.settings.ThemeMode
 import com.extrumz.app.ui.screens.ChannelsScreen
 import com.extrumz.app.ui.screens.EqualizerScreen
 import com.extrumz.app.ui.screens.HistoryScreen
+import com.extrumz.app.ui.screens.ProxyScreen
 import com.extrumz.app.ui.screens.SettingsScreen
 import com.extrumz.app.ui.screens.SongsScreen
 import com.extrumz.app.playback.AudioCache
@@ -234,7 +235,6 @@ import com.extrumz.app.data.db.entity.LikedVideo
 import com.extrumz.app.ui.components.ExtrumzSplash
 import com.extrumz.app.data.telegram.Telegram
 import com.extrumz.app.data.telegram.TelegramAuthState
-import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.flow.MutableStateFlow
 
@@ -247,20 +247,8 @@ internal fun shouldSkipAfterDislike(
     currentVideoId: String?,
 ): Boolean = previousStatus != LikeStatus.DISLIKE && targetVideoId == currentVideoId
 
-private val splashDone = MutableStateFlow(false)
-
 class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
-        // Held until the app says it is ready, rather than for a fixed time.
-        // The platform draws this before any Compose code exists, which is the
-        // whole reason it is used here: the overlay in the tree cannot cover
-        // the window it is drawn into.
-        val splash = installSplashScreen()
-        splash.setKeepOnScreenCondition { !splashDone.value }
-        lifecycleScope.launch {
-            delay(COLD_START_COVER_MS)
-            splashDone.value = true
-        }
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         // Before the composition, so a cold launch from a widget's artwork has
@@ -435,6 +423,7 @@ private fun ExtrumzApp(
     /** Which story card the share sheet is for, or null for the whole Replay. */
     var replaySharePage by remember { mutableStateOf<ReplayStoryPage?>(null) }
     var showEqualizer by remember { mutableStateOf(false) }
+    var showProxyScreen by remember { mutableStateOf(false) }
 
     var showHistory by remember { mutableStateOf(false) }
     // The full-screen channel picker (see [ChannelsScreen]), reached from the
@@ -1489,6 +1478,7 @@ private fun ExtrumzApp(
                 viewModel.clearDetail()
                 showSettings = false
                 showEqualizer = false
+                showProxyScreen = false
                 showReplay = false
                 showHistory = false
                 showChannels = false
@@ -1554,15 +1544,18 @@ private fun ExtrumzApp(
         }
         BackHandler(
             enabled = detail != null && !showSettings &&
-                !showEqualizer && !showReplay,
+                !showEqualizer && !showProxyScreen && !showReplay,
         ) { viewModel.closeDetail() }
         BackHandler(enabled = showEqualizer) {
             showEqualizer = false
         }
+        BackHandler(enabled = showProxyScreen) {
+            showProxyScreen = false
+        }
         // One back step out of Settings, or out of any tab but Home, lands on
         // Home rather than exiting — only Home itself hands back to the system,
         // which is what actually closes/minimizes the app.
-        BackHandler(enabled = showSettings && !showEqualizer) {
+        BackHandler(enabled = showSettings && !showEqualizer && !showProxyScreen) {
             showSettings = false
             // Only when Settings was the whole of what was on screen. Opened
             // over Replay or over a release page, closing it reveals that again
@@ -1571,7 +1564,7 @@ private fun ExtrumzApp(
         }
         BackHandler(
             enabled = detail == null && !showSettings &&
-                !showEqualizer && !showReplay && !showChannels && !showPlaylists &&
+                !showEqualizer && !showProxyScreen && !showReplay && !showChannels && !showPlaylists &&
                 selectedTab != TAB_HOME,
         ) {
             selectedTab = TAB_HOME
@@ -1641,6 +1634,7 @@ private fun ExtrumzApp(
                         // rather than keep showing the grid underneath.
                         libraryShowAll != null && detail == null -> "library_show_all"
                         showEqualizer -> "equalizer"
+                        showProxyScreen -> "proxy"
                         // Above Replay, not below it. The top bar's account
                         // button sets `showSettings` from every page including
                         // this one, so with Replay winning the tie the button
@@ -1858,6 +1852,12 @@ private fun ExtrumzApp(
                         }
                     } else if (key == "equalizer") {
                         EqualizerScreen(contentPadding = listPadding)
+                    } else if (key == "proxy") {
+                        CompositionLocalProvider(
+                            LocalLayoutDirection provides LayoutDirection.Rtl,
+                        ) {
+                            ProxyScreen(contentPadding = listPadding)
+                        }
                     } else if (key == "settings") {
                     // Settings the same — read from the right, one screen at a
                     // time, so nothing else moves.
@@ -1868,6 +1868,7 @@ private fun ExtrumzApp(
                         SettingsScreen(
                             windowWidth = windowWidth,
                             onEqualizer = { showEqualizer = true },
+                            onProxy = { showProxyScreen = true },
                             onOpenReplay = {
                             showSettings = false
                             replayLandingPage = ReplayStoryPage.INTRO
@@ -2214,10 +2215,10 @@ private fun ExtrumzApp(
                         detail.type == BrowseType.PLAYLIST ||
                         detail.type == BrowseType.ARTIST) &&
                     !isLocalDetail && !showHistory && !showSettings &&
-                    !showEqualizer && !showReplay
+                    !showEqualizer && !showProxyScreen && !showReplay
                 val isReplayVisible = showReplay && !showHistory &&
                     !(libraryShowAll != null && detail == null) &&
-                    !showEqualizer && !showSettings
+                    !showEqualizer && !showProxyScreen && !showSettings
                 val chromePageColor = if (isDetailVisible) {
                     detailPalette.background
                 } else {
@@ -2252,6 +2253,7 @@ private fun ExtrumzApp(
                             showPlaylists -> stringResource(R.string.playlists)
                             libraryShowAll != null && detail == null -> libraryShowAll?.title.orEmpty()
                         showEqualizer -> stringResource(R.string.equalizer)
+                        showProxyScreen -> stringResource(R.string.proxy)
                         showSettings -> stringResource(R.string.settings)
                         showReplay -> stringResource(R.string.replay)
                         detail != null && detailActiveShelf != null -> detailActiveShelf?.title.orEmpty()
@@ -2283,6 +2285,7 @@ private fun ExtrumzApp(
                         showPlaylists -> false
                         showSettings ||
                             showEqualizer ||
+                            showProxyScreen ||
                             showHistory ||
                             (libraryShowAll != null && detail == null) ||
                             (detail != null && detailActiveShelf != null) -> true
@@ -2302,6 +2305,7 @@ private fun ExtrumzApp(
                         showPlaylists -> ({ showPlaylists = false })
                         libraryShowAll != null && detail == null -> ({ libraryShowAll = null })
                         showEqualizer -> ({ showEqualizer = false })
+                        showProxyScreen -> ({ showProxyScreen = false })
                         showSettings -> ({ showSettings = false })
                         showReplay -> ({ showReplay = false })
                         detailActiveShelf != null -> ({ detailActiveShelf = null })
@@ -2416,6 +2420,7 @@ private fun ExtrumzApp(
                     viewModel.clearDetail()
                     showSettings = false
                     showEqualizer = false
+                    showProxyScreen = false
                     showReplay = false
                     showHistory = false
                     showChannels = false

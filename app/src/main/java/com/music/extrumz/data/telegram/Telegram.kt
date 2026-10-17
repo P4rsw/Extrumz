@@ -17,6 +17,9 @@ object Telegram {
         // time TDLib is told to start, or the first attempt goes out direct
         // and fails on a network that needs one.
         ProxyStore.init(appContext)
+        ProxyStore.onProxyChanged = { settings ->
+            (client as? AndroidMusicTelegramClient)?.applyProxy(settings, resetNetwork = true)
+        }
     }
 
     /** App context for pieces that need one without a DI graph (MediaStore lookups). */
