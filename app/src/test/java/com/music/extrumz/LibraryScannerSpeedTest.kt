@@ -409,7 +409,7 @@ class LibraryScannerSpeedTest {
     // --- س۱: chat-level parallelism -----------------------------------------
 
     @Test
-    fun `chats scan in parallel bounded by six and start in list order`() = runTest {
+    fun `chats scan in parallel bounded by three and start in list order`() = runTest {
         val ids = (1L..12L).toList()
         val client = FakeTelegramClient(
             chats = ids.map { chatInfo(it) },
@@ -426,8 +426,10 @@ class LibraryScannerSpeedTest {
         assertEquals(12, progress.totalChats)
         assertEquals(12, progress.chatsScanned)
         assertNull(progress.lastError)
-        // The semaphore bound holds and the chats really did overlap.
-        assertEquals(6, client.maxInFlight)
+        // The semaphore bound holds and the chats really did overlap. Three,
+        // not six: the workers all write into one database, so the extra three
+        // bought no throughput and tripled the table wake-ups.
+        assertEquals(3, client.maxInFlight)
         assertEquals(ids, client.firstRequestOrder)
         // 24, not 12: ingestDiscovered writes each newly found row (12), then
         // scanOneChat writes it again carrying its own fields. That second

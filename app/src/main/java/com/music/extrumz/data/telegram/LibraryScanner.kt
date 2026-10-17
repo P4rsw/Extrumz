@@ -688,7 +688,15 @@ class LibraryScanner(
      * nothing reaching the UI.
      */
     private suspend fun discoverFromLists(): List<ChatInfo> {
-        val deadline = timeSource() + CHATS_LOAD_TIMEOUT_MS
+        // The wait is only worth its cost on a first run. With rows already in
+        // Room the scan knows what to index before it starts, and the thing
+        // the poll is really for — catching a chat joined since last time — is
+        // something the quiet re-pass does anyway on its own schedule. Paying
+        // the full two minutes on every launch was the longest stretch in the
+        // whole scan and it bought almost nothing after the first one.
+        val known = runCatching { chatDao.getTrackedOnce().size }.getOrDefault(0)
+        val deadline = timeSource() +
+            if (known == 0) CHATS_LOAD_TIMEOUT_MS else CHATS_SETTLED_TIMEOUT_MS
         var attempt = 0
         var lastCount = -1
         var stable = 0
@@ -1234,6 +1242,8 @@ class LibraryScanner(
 
         /** How long to wait for TDLib's dialogs to load before giving up. */
         private const val CHATS_LOAD_TIMEOUT_MS = 120_000L
+    /** With rows already in Room: long enough for a fresh answer, not for a full sync. */
+    private const val CHATS_SETTLED_TIMEOUT_MS = 8_000L
 
         /** Pause between GetChats attempts while dialogs are still loading. */
         private const val CHATS_RETRY_DELAY_MS = 1_000L
@@ -1258,7 +1268,14 @@ class LibraryScanner(
     private const val CHATS_STABLE_POLLS = 2
 
         /** Chats scanned at once by [fullScan] (approved range: 4–8). */
-        private const val SCAN_PARALLEL_CHATS = 6
+        /**
+         * Three, not six. Network was never the bottleneck — every worker
+         * writes pages into one Room database, and each write invalidates the
+         * tracks table, so six workers meant six times the wake-ups for the
+         * list the user is looking at. Halving them halves the churn and costs
+         * no throughput.
+         */
+        private const val SCAN_PARALLEL_CHATS = 3
 
         /**
          * Quiet re-pass schedule: one round a minute after the scan (the

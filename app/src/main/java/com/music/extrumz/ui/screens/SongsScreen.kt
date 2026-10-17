@@ -67,6 +67,8 @@ import com.extrumz.app.ui.util.ProvideLocaleDirection
 import com.extrumz.app.ui.components.ScanStatusBanner
 import com.extrumz.app.data.model.toSong
 import androidx.compose.foundation.combinedClickable
+import kotlinx.coroutines.flow.sample
+import kotlinx.coroutines.flow.map
 
 /**
  * The offline Telegram library: every track the scanner has indexed in Room,
@@ -109,8 +111,19 @@ fun SongsScreen(
     val authState by Telegram.client.authState.collectAsState()
     val scan by Telegram.scanner.progress.collectAsState()
 
-    val allTracks by produceState<List<Track>>(initialValue = emptyList()) {
-        TelegramDb.trackDao.observeAll().collect { value = it }
+    // Sampled while a scan runs. Every page the scanner writes invalidates the
+    // tracks table, so a rescan of a ten-thousand-song library resolved this
+    // query — all of it, off disk — and rebuilt the list on every page, six
+    // workers at a time. That is what the lag was. Twice a second is still
+    // visibly live and costs a fraction of it; `sample` rather than `debounce`
+    // because intermediate states should be dropped, not deferred.
+    val isScanning by Telegram.scanner.progress
+        .map { it.isRunning }
+        .collectAsState(initial = false)
+    val allTracks by produceState<List<Track>>(initialValue = emptyList(), isScanning) {
+        val source = TelegramDb.trackDao.observeAll()
+        val flow = if (isScanning) source.sample(500) else source
+        flow.collect { value = it }
     }
 
     val filteredChatName by produceState<String?>(initialValue = null, chatFilter) {
@@ -301,7 +314,13 @@ fun SongsScreen(
                     // before any RPC. The delay is the fling guard: a row
                     // passed at speed unbinds before it expires, so only rows
                     // that stay put on the screen ever ask the network.
-                    LaunchedEffect(song.videoId, song.thumbnailUrl) {
+                    LaunchedEffect(song.videoId, song.thumbnailUrl, isScanning) {
+                        // Nothing while a scan is indexing: every row arriving
+                        // is a row the user has not looked at yet, and the
+                        // fetch queue it fills is the one the covers they ARE
+                        // looking at are waiting in. The row fetches on the
+                        // next pass once the scan settles.
+                        if (isScanning) return@LaunchedEffect
                         delay(ROW_FETCH_DELAY_MS)
                         Covers.improveTrackCover(song.videoId, song.thumbnailUrl, song.title, song.artist)
                     }
