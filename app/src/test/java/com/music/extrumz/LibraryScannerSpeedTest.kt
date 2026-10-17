@@ -495,7 +495,7 @@ class LibraryScannerSpeedTest {
         val chats = FakeChatDao()
         val scanner = LibraryScanner(
             client, FakeTrackDao(), chats,
-            chatTimeLimitMs = 50L,
+            pageTimeLimitMs = 50L,
         )
 
         scanner.fullScan()

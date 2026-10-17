@@ -106,7 +106,11 @@ class LibraryScanner(
     private val trackDao: TrackDao,
     private val chatDao: ChatDao,
     /**
-     * How long one chat may hold the scan before it is let go.
+     * How long a single page may hold the walk before the chat is let go.
+     *
+     * Per page, not per chat: a big healthy chat needs many pages, and eight
+     * seconds of them is ordinary work rather than a stall. Only one page that
+     * has spent this long is waiting rather than working.
      *
      * A parameter rather than a constant so a test can hold it to something it
      * can afford to wait for: the guard protects songs from being skipped when
@@ -116,7 +120,7 @@ class LibraryScanner(
      * can pass it as a trailing lambda, and putting anything behind it silently
      * rebinds those call sites.
      */
-    private val chatTimeLimitMs: Long = DEFAULT_CHAT_TIME_LIMIT_MS,
+    private val pageTimeLimitMs: Long = DEFAULT_PAGE_TIME_LIMIT_MS,
     private val timeSource: () -> Long = { System.currentTimeMillis() },
 ) {
 
@@ -1156,40 +1160,38 @@ class LibraryScanner(
         // Set when the walk gives up on this chat rather than finishing it.
         // The boundary must not move for an abandoned chat -- see below.
         var abandoned = false
-        val chatDeadline = startedAt + chatTimeLimitMs
         while (emptyPages < 2) {
             pagesFetched++
-            // A chat that has spent this long is not going to earn it back.
-            // The nine pages that stall in a scan take 178 of its 265 seconds
-            // -- 67% -- and return nothing, because the wait is Telegram
-            // throttling rather than work being done. Giving up frees the time,
-            // and the quiet re-pass retries what was left behind.
-            if (timeSource() > chatDeadline) {
-                abandoned = true
-                TrackLog.d(TAG, "chat $chatId abandoned after ${chatTimeLimitMs}ms")
-                break
-            }
             val pageAt = timeSource()
             _progress.update { it.copy(pageStartedAt = pageAt) }
-            // The deadline has to sit on the call, not only between calls. The
-            // check above is only consulted once the call in flight has
-            // answered, and the stall is inside one: a flooded GetChatAudio
-            // sits for 19-22 seconds and returns nothing, which is how a chat
-            // met its eight-second limit on the device and still spent 21
-            // seconds inside it.
+            // The limit belongs on ONE page, not on the chat's total.
+            //
+            // Bounding the total was the first attempt and it was wrong: a big
+            // healthy chat needs to read many pages, and forty of them at the
+            // healthy 200ms median is already eight seconds, so the walk was
+            // abandoning chats that were working fine. The re-pass then picked
+            // them up, ran out of budget again, and the same chat stalled twice
+            // in a row -- which is exactly the stutter that showed up on the
+            // device.
+            //
+            // What needs bounding is the flood: a throttled GetChatAudio sits
+            // for 19-22 seconds and returns nothing, and the healthy median is
+            // 180-250ms, so one page that has spent eight seconds is waiting
+            // and not working. A page that is served costs its own time and the
+            // next page gets a fresh budget.
             //
             // Only TimeoutCancellationException is caught. It is a
             // CancellationException, so a bare catch would also swallow the
             // real cancellation that stops a scan, and the walk would carry on
             // chatting after being told to stop.
             val page = try {
-                withTimeout((chatDeadline - pageAt).coerceAtLeast(1L)) {
+                withTimeout(pageTimeLimitMs) {
                     client.getChatAudio(chatId, cursor, limit = TelegramConfig.DEFAULT_PAGE_LIMIT)
                 }
             } catch (timeout: TimeoutCancellationException) {
                 _progress.update { it.copy(pageStartedAt = null) }
                 abandoned = true
-                TrackLog.d(TAG, "chat $chatId page timed out after ${chatTimeLimitMs}ms")
+                TrackLog.d(TAG, "chat $chatId page timed out after ${pageTimeLimitMs}ms")
                 break
             }
             _progress.update { it.copy(pageStartedAt = null) }
@@ -1379,11 +1381,11 @@ class LibraryScanner(
      * and a 2,000-track chat pages in well under it on a good connection.
      */
     /**
-     * Eight seconds is twenty times the healthy page median (~180-250ms on
-     * this account) and a 2,000-track channel pages well under it on a working
-     * connection, so a chat that has spent this long is waiting, not working.
+     * Eight seconds is forty times the healthy page median (~180-250ms on this
+     * account), and the flooded pages cluster at 19-22 seconds with nothing in
+     * between, so one page that has spent this long is unambiguously waiting.
      */
-    private const val DEFAULT_CHAT_TIME_LIMIT_MS = 8_000L
+    private const val DEFAULT_PAGE_TIME_LIMIT_MS = 8_000L
 
     private const val FLOOD_SUSPECT_MS = 3_000L
 
