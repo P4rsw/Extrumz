@@ -671,7 +671,7 @@
     <string name="scan_stage_sources">در حال یافتن منابع موسیقی…</string>
     <string name="scan_stage_sources_count">%1$d منبع پیدا شد</string>
     <string name="scan_stage_indexing">در حال ایندکس کردن موسیقی…</string>
-    <string name="scan_stage_indexing_detail">%1$d از %2$d گپ · %3$d آهنگ</string>
+    <string name="scan_stage_indexing_detail">%3$d آهنگ · %1$d از %2$d چت</string>
     <string name="scan_stage_finished">کتابخانه به‌روز است · %1$d آهنگ</string>
     <string name="scan_dismiss">پنهان کن</string>
     <string name="scan_retry">تلاش دوباره</string>

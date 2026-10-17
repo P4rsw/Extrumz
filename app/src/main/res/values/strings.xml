@@ -1148,7 +1148,7 @@
     <string name="scan_stage_sources">Finding music sources\u2026</string>
     <string name="scan_stage_sources_count">%1$d sources found</string>
     <string name="scan_stage_indexing">Indexing music\u2026</string>
-    <string name="scan_stage_indexing_detail">%1$d of %2$d chats \u00b7 %3$d tracks</string>
+    <string name="scan_stage_indexing_detail">%3$d tracks \u00b7 %1$d of %2$d chats</string>
     <string name="scan_stage_finished">Library up to date \u00b7 %1$d tracks</string>
     <string name="scan_dismiss">Hide</string>
     <string name="scan_retry">Try again</string>

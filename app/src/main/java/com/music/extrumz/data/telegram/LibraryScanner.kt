@@ -700,6 +700,7 @@ class LibraryScanner(
         var attempt = 0
         var lastCount = -1
         var stable = 0
+        val recent = ArrayDeque<Int>()
         // NOTE: an earlier version compared countCandidateChatIds() against
         // chatDao.getTrackedOnce().size here, and it could never fire:
         // countCandidateChatIds() reads Main+Archive only (~240 on this
@@ -722,7 +723,19 @@ class LibraryScanner(
             if (count == 0) {
                 return client.listTrackedCandidateChats()
             }
-            if (count == lastCount) stable++ else stable = 0
+            // Growth, not equality. An exact-match test needs the count to
+            // repeat, and on this account it does not: TDLib drips entities in
+            // one and two at a time, so `stable` was reset on almost every
+            // poll and the loop always ran to its deadline. A window that has
+            // stopped moving *meaningfully* is the same evidence with a
+            // trigger that can actually fire. The last few counts are kept and
+            // the poll settles when their spread is within CHATS_SETTLE_SLACK.
+            recent.addLast(count)
+            if (recent.size > CHATS_SETTLE_WINDOW) recent.removeFirst()
+            if (recent.size == CHATS_SETTLE_WINDOW) {
+                val spread = (recent.max() - recent.min())
+                if (spread <= CHATS_SETTLE_SLACK) stable++
+            }
             lastCount = count
             // One honest number per poll instead of a bare attempt counter.
             // The old label kept its last value forever, so "Attempt 4" stayed
@@ -1244,6 +1257,14 @@ class LibraryScanner(
         private const val CHATS_LOAD_TIMEOUT_MS = 120_000L
     /** With rows already in Room: long enough for a fresh answer, not for a full sync. */
     private const val CHATS_SETTLED_TIMEOUT_MS = 8_000L
+    /** Polls kept for the settle test: six samples, one a second. */
+    private const val CHATS_SETTLE_WINDOW = 6
+    /**
+     * How much the candidate count may drift across [CHATS_SETTLE_WINDOW]
+     * polls and still count as settled. One, because TDLib's drips are single
+     * chats — a real wave arrives in tens.
+     */
+    private const val CHATS_SETTLE_SLACK = 1
 
         /** Pause between GetChats attempts while dialogs are still loading. */
         private const val CHATS_RETRY_DELAY_MS = 1_000L
