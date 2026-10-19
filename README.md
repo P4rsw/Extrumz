@@ -10,7 +10,7 @@
 
 </div>
 
-
+<img src="social-preview.png" alt="Extrumz — your Telegram, as a music library" width="100%" />
 
 ---
 
