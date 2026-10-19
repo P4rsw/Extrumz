@@ -137,13 +137,19 @@ two can run together.
 
 <br/>
 
+## Download
+
+The latest signed APK is on the [Releases](https://github.com/P4rsw/Extrumz/releases)
+page. Sideloading needs "Install unknown apps" enabled for whatever you download
+it with.
+
 ## Build
 
 Requires **JDK 21** and the Android SDK (compile SDK 37, minimum Android 8.0).
 
 ```bash
-git clone <your-fork>
-cd bitchord-telegram
+git clone https://github.com/P4rsw/Extrumz.git
+cd Extrumz
 
 # put your api_id / api_hash in local.properties first — see above
 
