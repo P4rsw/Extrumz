@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <style name="Theme.Extrumz" parent="Theme.AppCompat.DayNight.NoActionBar">
-        <item name="android:windowBackground">@color/extrumz_base</item>
+        <item name="android:windowBackground">@drawable/splash_window</item>
     </style>
 
 </resources>
