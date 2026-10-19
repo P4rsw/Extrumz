@@ -17,7 +17,7 @@
 <br/>
 
 <p align="center">
-  <img src="social-preview.png" alt="Extrumz" width="100%" />
+  <img src="Banner.png" alt="Extrumz — your Telegram, as a music library" width="100%" />
 </p>
 
 ---
