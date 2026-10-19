@@ -399,11 +399,19 @@ object ProxyStore {
             return
         }
 
-        // Nothing saved yet: seed dev proxy if configured and not previously seeded
+        // Nothing saved yet: seed dev proxy if configured and not previously seeded.
+        //
+        // Debug builds only. A public release carries whatever PROXY_HOST was in
+        // local.properties at the time it was built, and this seeds it *and turns
+        // it on* for everyone who installs: a proxy at 127.0.0.1 that is not
+        // listening on their phone, so TDLib waits for a network that never
+        // arrives and the app looks broken before the user has done anything.
+        // The gate is the build type, not the value, so a release can never
+        // inherit it by accident.
         val devHost = BuildConfig.PROXY_HOST
         val devPort = BuildConfig.PROXY_PORT
         val seeded = prefs.getBoolean(KEY_DEV_PROXY_SEEDED, false)
-        if (!seeded && devHost.isNotBlank() && devPort in 1..65535) {
+        if (BuildConfig.DEBUG && !seeded && devHost.isNotBlank() && devPort in 1..65535) {
             val devProxy = SavedProxy(
                 id = java.util.UUID.randomUUID().toString(),
                 settings = ProxySettings(
