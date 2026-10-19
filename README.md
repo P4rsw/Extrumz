@@ -10,7 +10,7 @@
 
 </div>
 
-<img src="Banner.png" alt="" width="100%" />
+
 
 ---
 
