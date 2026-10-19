@@ -16,6 +16,13 @@
 # ---- Native -------------------------------------------------------------------
 # ONNX Runtime is called from JNI, which R8 cannot see.
 -keep class ai.onnxruntime.** { *; }
+
+# TDLib is called from JNI the same way, and for the same reason. Its native
+# library looks these classes up by name, so R8 renaming them is invisible to
+# the build and fatal at run time: "JNI FatalError called: Can't find class
+# [org/drinkless/tdlib/TdApi]", and the app dies on launch with no stack trace
+# to explain it. A debug build never shows this, because R8 does not run.
+-keep class org.drinkless.tdlib.** { *; }
 -keepclasseswithmembernames,includedescriptorclasses class * { native <methods>; }
 
 # ---- Serialization --------------------------------------------------------------
