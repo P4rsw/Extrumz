@@ -135,7 +135,6 @@ import java.util.Locale
 import androidx.compose.runtime.setValue
 import com.extrumz.app.ui.util.ProvideLocaleDirection
 import com.extrumz.app.data.telegram.ProxyStore
-import com.extrumz.app.ui.components.ProxyDialog
 import androidx.compose.material.icons.rounded.Security
 
 /**

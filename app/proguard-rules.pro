@@ -42,3 +42,16 @@
 -dontwarn javax.script.**
 -dontwarn jdk.dynalink.**
 -dontwarn org.ietf.jgss.**
+
+# ---------------------------------------------------------------------------
+# Log calls, out of release builds
+#
+# A log line that names a file path, a chat id or a proxy secret is a leak once
+# the APK is public, and R8 will remove these for free because they have no
+# side effects. v/d/i only: w and e are how a field report explains itself, and
+# a release that silently swallows its own errors is worse than a noisy one.
+-assumenosideeffects class android.util.Log {
+    public static int v(...);
+    public static int d(...);
+    public static int i(...);
+}
