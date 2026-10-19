@@ -59,12 +59,15 @@ import androidx.compose.material.icons.rounded.VolumeOff
 import androidx.compose.material.icons.rounded.VolumeUp
 import androidx.compose.material.icons.rounded.Waves
 import androidx.compose.material.icons.rounded.Wifi
+import androidx.compose.material.icons.rounded.BatteryChargingFull
 import androidx.compose.material.icons.rounded.ChevronRight
+import androidx.compose.material.icons.rounded.Speed
+import androidx.compose.material.icons.rounded.Warning
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatDelegate
 import com.extrumz.app.data.lyrics.translationLanguageName
-import androidx.compose.material3.AlertDialog
+import com.extrumz.app.ui.components.ExtrumzConfirmDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -1146,76 +1149,52 @@ fun SettingsScreen(
         // thing being confirmed is that this device's own history is about to be
         // thrown away, and that is true whichever file gets picked.
         if (confirmImport) {
-            AlertDialog(
+            ExtrumzConfirmDialog(
                 onDismissRequest = { confirmImport = false },
-                title = { Text(stringResource(R.string.import_backup_title)) },
-                text = {
-                    Text(stringResource(R.string.import_backup_warning))
-                },
-                confirmButton = {
-                    TextButton(onClick = {
-                        confirmImport = false
-                        importPicker.launch(arrayOf("application/json", "text/plain", "*/*"))
-                    }) {
-                        Text(stringResource(R.string.choose_file))
-                    }
-                },
-                dismissButton = {
-                    TextButton(onClick = { confirmImport = false }) {
-                        Text(stringResource(R.string.cancel))
-                    }
+                title = stringResource(R.string.import_backup_title),
+                message = stringResource(R.string.import_backup_warning),
+                confirmText = stringResource(R.string.choose_file),
+                dismissText = stringResource(R.string.cancel),
+                icon = Icons.Rounded.Warning,
+                onConfirm = {
+                    confirmImport = false
+                    importPicker.launch(arrayOf("application/json", "text/plain", "*/*"))
                 },
             )
         }
 
         if (showPerformanceWarning) {
-            AlertDialog(
+            ExtrumzConfirmDialog(
                 onDismissRequest = { showPerformanceWarning = false },
-                title = { Text(stringResource(R.string.high_performance_before_enabling)) },
-                text = { Text(stringResource(R.string.high_performance_battery_warning)) },
-                confirmButton = {
-                    TextButton(
-                        onClick = {
-                            showPerformanceWarning = false
-                            val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-                                data = Uri.fromParts("package", context.packageName, null)
-                            }
-                            val settingsIntent = intent.takeIf {
-                                it.resolveActivity(context.packageManager) != null
-                            } ?: Intent(Settings.ACTION_SETTINGS)
-                            batterySettingsLauncher.launch(settingsIntent)
-                        },
-                    ) {
-                        Text(stringResource(R.string.open_battery_settings))
+                title = stringResource(R.string.high_performance_before_enabling),
+                message = stringResource(R.string.high_performance_battery_warning),
+                confirmText = stringResource(R.string.open_battery_settings),
+                dismissText = stringResource(R.string.cancel),
+                icon = Icons.Rounded.BatteryChargingFull,
+                onConfirm = {
+                    showPerformanceWarning = false
+                    val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                        data = Uri.fromParts("package", context.packageName, null)
                     }
-                },
-                dismissButton = {
-                    TextButton(onClick = { showPerformanceWarning = false }) {
-                        Text(stringResource(R.string.cancel))
-                    }
+                    val settingsIntent = intent.takeIf {
+                        it.resolveActivity(context.packageManager) != null
+                    } ?: Intent(Settings.ACTION_SETTINGS)
+                    batterySettingsLauncher.launch(settingsIntent)
                 },
             )
         }
 
         if (showPerformanceConfirmation) {
-            AlertDialog(
+            ExtrumzConfirmDialog(
                 onDismissRequest = { showPerformanceConfirmation = false },
-                title = { Text(stringResource(R.string.enable_high_performance_title)) },
-                text = { Text(stringResource(R.string.enable_high_performance_confirmation)) },
-                confirmButton = {
-                    TextButton(
-                        onClick = {
-                            showPerformanceConfirmation = false
-                            AppSettings.setHighPerformanceMode(true)
-                        },
-                    ) {
-                        Text(stringResource(R.string.enable))
-                    }
-                },
-                dismissButton = {
-                    TextButton(onClick = { showPerformanceConfirmation = false }) {
-                        Text(stringResource(R.string.not_yet))
-                    }
+                title = stringResource(R.string.enable_high_performance_title),
+                message = stringResource(R.string.enable_high_performance_confirmation),
+                confirmText = stringResource(R.string.enable),
+                dismissText = stringResource(R.string.not_yet),
+                icon = Icons.Rounded.Speed,
+                onConfirm = {
+                    showPerformanceConfirmation = false
+                    AppSettings.setHighPerformanceMode(true)
                 },
             )
         }

@@ -36,7 +36,7 @@ internal object ExternalCovers {
     private const val TAG = "ExternalCovers"
 
     /** Below this best-score the whole lookup stays a miss. */
-    private const val MIN_SCORE = 0.82
+    private const val MIN_SCORE = 0.75
 
     private const val CONNECT_TIMEOUT_MS = 8_000
     private const val READ_TIMEOUT_MS = 10_000
@@ -84,22 +84,31 @@ internal object ExternalCovers {
             val target = targetFile(coversDir, chatId, messageId, large)
             if (target.exists() && target.length() > 0) return Uri.fromFile(target).toString()
 
-            val query = if (a.isNotEmpty()) "$a $t" else t
-            val candidates = searchItunes(query, large) + searchDeezer(query, large)
+            val ct = cleanTitle(t)
+            val artists = splitArtists(a)
+            val primaryArtist = artists.firstOrNull().orEmpty()
+            val cleanQuery = if (primaryArtist.isNotEmpty()) "$primaryArtist $ct" else ct
+            val rawQuery = if (a.isNotEmpty()) "$a $t" else t
+
+            var candidates = searchItunes(cleanQuery, large) + searchDeezer(cleanQuery, large)
+            if (candidates.isEmpty() && cleanQuery != rawQuery) {
+                candidates = searchItunes(rawQuery, large) + searchDeezer(rawQuery, large)
+            }
+            if (candidates.isEmpty() && primaryArtist.isNotEmpty() && ct.length >= 3) {
+                candidates = searchItunes(ct, large)
+            }
+
             val best = candidates
                 .map { it to score(t, a, it) }
                 .maxByOrNull { it.second }
             if (best == null || best.second < MIN_SCORE) {
                 TrackLog.w(TAG, "lookup($chatId/$messageId) no candidate cleared " +
-                    "score $MIN_SCORE (${candidates.size} seen) for '$query'")
+                    "score $MIN_SCORE (${candidates.size} seen) for '$cleanQuery'")
                 return null
             }
             val ua = if (best.first.deezerCdn) BROWSER_UA else EXTRUMZ_UA
             val bytes = httpGetBytes(best.first.art, ua)
             if (bytes == null || bytes.isEmpty()) {
-                // Previously a bare `return null`, which hid every failed
-                // image fetch behind the D-level GET line — tier-4 then
-                // looked like it had never run.
                 TrackLog.w(TAG, "lookup${if (large) "[large]" else ""}($chatId/$messageId) art download failed: ${best.first.art}")
                 return null
             }
@@ -165,9 +174,6 @@ internal object ExternalCovers {
             for (i in 0 until minOf(data.length(), 5)) {
                 val r = data.optJSONObject(i) ?: continue
                 val cover = r.optJSONObject("album") ?: continue
-                // large → cover_xl (1000px) through cover_big (500px); the row's
-                // ask takes cover_big (500px) through cover_medium (250px) —
-                // enough for a thumbnail, not for a full-screen hero.
                 val art = if (large) {
                     cover.optString("cover_xl").ifEmpty { cover.optString("cover_big") }
                 } else {
@@ -188,13 +194,85 @@ internal object ExternalCovers {
 
     // ---------------------------------------------------------------- matching
 
-    /** Best of the title and artist similarity, each on normalized text. */
+    /** Cleans featured credits, extra tags, bitrates, and watermarks. */
+    internal fun cleanTitle(raw: String): String {
+        return raw
+            // Strip bracketed feat/ft/with
+            .replace(Regex("""[\(\[\{]\s*(?:feat|ft|featuring|with)\b[^\)\]\}]*[\)\]\}]""", RegexOption.IGNORE_CASE), "")
+            // Strip standalone feat/ft/with to end of string
+            .replace(Regex("""\b(?:feat|ft|featuring|with)\b.*$""", RegexOption.IGNORE_CASE), "")
+            // Strip website watermarks and bitrates like [320], [128], ~melonmusic.ir, [topseda.me], etc.
+            .replace(Regex("""[\(\[\{][^\)\]\}]*(?:320|128|kbps|melonmusic|topseda|bandmusic|remix|official|video|\.ir|\.com|\.me|\.org)[^\)\]\}]*[\)\]\}]""", RegexOption.IGNORE_CASE), "")
+            .replace(Regex("""~[a-zA-Z0-9._-]+"""), "")
+            .trim()
+    }
+
+    /** Splits multi-artist strings on slashes, commas, &, +, and feat. */
+    internal fun splitArtists(raw: String): List<String> {
+        return raw.split(Regex("""[\/&+,]|(?:\b(?:feat|ft|featuring|and|with)\b)""", RegexOption.IGNORE_CASE))
+            .map { it.replace(Regex("""[\(\[\{][^\)\]\}]*[\)\]\}]"""), "").trim() }
+            .filter { it.isNotEmpty() }
+    }
+
+    /** Best of the title and artist similarity, taking feat credits and artist splits into account. */
     private fun score(title: String, artist: String, c: Candidate): Double {
-        val nt = norm(title); val rt = norm(c.track)
-        val na = norm(artist); val ra = norm(c.artist)
-        val titleSim = if (nt.length >= 3 && rt.length >= 3) similarity(nt, rt) else 0.0
-        val artistSim = if (na.length >= 2 && ra.length >= 2) similarity(na, ra) else 0.0
-        return maxOf(titleSim, artistSim)
+        val rawNt = norm(title); val rawRt = norm(c.track)
+        val rawNa = norm(artist); val rawRa = norm(c.artist)
+
+        val cleanTarget = norm(cleanTitle(title))
+        val cleanCand = norm(cleanTitle(c.track))
+
+        val titleSims = mutableListOf(
+            similarity(rawNt, rawRt),
+            similarity(cleanTarget, cleanCand),
+            similarity(cleanTarget, rawRt),
+            similarity(rawNt, cleanCand)
+        )
+        if (cleanTarget.length >= 3 && cleanCand.length >= 3) {
+            if (cleanTarget == cleanCand) {
+                titleSims.add(1.0)
+            } else if (cleanTarget.startsWith(cleanCand) || cleanCand.startsWith(cleanTarget)) {
+                val minLen = minOf(cleanTarget.length, cleanCand.length).toDouble()
+                val maxLen = maxOf(cleanTarget.length, cleanCand.length).toDouble()
+                titleSims.add(minLen / maxLen)
+            }
+        }
+        val titleSim = titleSims.maxOrNull() ?: 0.0
+
+        val targetArtists = splitArtists(artist)
+        val candArtists = splitArtists(c.artist)
+
+        val artistSims = mutableListOf(similarity(rawNa, rawRa))
+        for (ta in targetArtists) {
+            val nta = norm(ta)
+            if (nta.length < 2) continue
+            for (ca in candArtists) {
+                val nca = norm(ca)
+                if (nca.length < 2) continue
+                artistSims.add(similarity(nta, nca))
+            }
+            artistSims.add(similarity(nta, rawRa))
+        }
+        for (ca in candArtists) {
+            val nca = norm(ca)
+            if (nca.length < 2) continue
+            artistSims.add(similarity(rawNa, nca))
+        }
+        val artistSim = artistSims.maxOrNull() ?: 0.0
+
+        // If title matches solidly (>= 0.85) AND at least one artist matches (>= 0.60):
+        if (titleSim >= 0.85 && artistSim >= 0.60) {
+            return (titleSim * 0.6) + (artistSim * 0.4)
+        }
+        // If title is 100% clean match and artist is partially matched (>= 0.40):
+        if (titleSim >= 0.95 && artistSim >= 0.40) {
+            return (titleSim * 0.7) + (artistSim * 0.3)
+        }
+        // If both title and artist are decent:
+        if (titleSim >= 0.75 && artistSim >= 0.75) {
+            return (titleSim + artistSim) / 2.0
+        }
+        return minOf(titleSim, artistSim)
     }
 
     /** 1.0 = identical, 0.0 = nothing in common, in between by edit distance. */
@@ -228,17 +306,17 @@ internal object ExternalCovers {
         httpGetBytes(url, userAgent)?.toString(Charsets.UTF_8)
 
     private fun httpGetBytes(url: String, userAgent: String?): ByteArray? {
-        val conn = URL(url).openConnection() as HttpURLConnection
+        val currentProxy = ProxyStore.current
+        val proxy = if (currentProxy.enabled && (currentProxy.kind == ProxyKind.Socks5 || currentProxy.kind == ProxyKind.Http)) {
+            val type = if (currentProxy.kind == ProxyKind.Socks5) java.net.Proxy.Type.SOCKS else java.net.Proxy.Type.HTTP
+            java.net.Proxy(type, java.net.InetSocketAddress(currentProxy.host, currentProxy.port))
+        } else null
+
+        val conn = (if (proxy != null) URL(url).openConnection(proxy) else URL(url).openConnection()) as HttpURLConnection
         return try {
             conn.connectTimeout = CONNECT_TIMEOUT_MS
             conn.readTimeout = READ_TIMEOUT_MS
             conn.instanceFollowRedirects = true
-            // Deezer's API silently returns an EMPTY result set for
-            // browser/app-like User-Agents (Dalvik, Mozilla, Extrumz) and
-            // only honours requests with no UA — verified with adb curl on
-            // device. Its image CDN wants the exact opposite (BROWSER_UA);
-            // the caller picks per host. An empty header value clears
-            // Android's default "Dalvik/..." UA.
             conn.setRequestProperty("User-Agent", userAgent.orEmpty())
             if (conn.responseCode != 200) {
                 TrackLog.d(TAG, "GET $url -> HTTP ${conn.responseCode}")

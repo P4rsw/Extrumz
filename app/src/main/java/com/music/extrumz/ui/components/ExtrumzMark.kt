@@ -26,10 +26,12 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.core.graphics.PathParser
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -245,7 +247,7 @@ fun ExtrumzSplash(
     modifier: Modifier = Modifier,
     tint: Color = Color.White,
 ) {
-    var shown by remember { mutableStateOf(false) }
+    var shown by remember { mutableStateOf(visible) }
 
     LaunchedEffect(visible) {
         if (visible) {
@@ -261,14 +263,15 @@ fun ExtrumzSplash(
 
     AnimatedVisibility(
         visible = shown,
-        enter = fadeIn(tween(220)),
+        enter = EnterTransition.None,
         exit = fadeOut(tween(320)),
         modifier = modifier,
     ) {
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(ExtrumzBase),
+                .background(ExtrumzBase)
+                .pointerInput(Unit) {},
             contentAlignment = Alignment.Center,
         ) {
             ExtrumzAnimatedMark(width = 148.dp, tint = tint)

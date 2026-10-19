@@ -163,7 +163,25 @@ class AndroidMusicTelegramClient(
                     // fail, it spends the backoff budget before the proxy is
                     // ever consulted.
                     configureProxyIfConfigured()
-                    client?.send(params, null)
+                    client?.send(params) { result ->
+                        if (result is TdApi.Error) {
+                            com.extrumz.app.data.TrackLog.e("TDLib", "SetTdlibParameters error: ${result.code} - ${result.message}")
+                            val msg = result.message.orEmpty()
+                            if (msg.contains("database", ignoreCase = true) ||
+                                msg.contains("lock", ignoreCase = true) ||
+                                msg.contains("corrupt", ignoreCase = true) ||
+                                msg.contains("disk", ignoreCase = true)
+                            ) {
+                                com.extrumz.app.data.TrackLog.w("TDLib", "TDLib DB locked/corrupt. Auto-clearing db folder to recover...")
+                                appScope.launch {
+                                    runCatching { File(dataDir, "db").deleteRecursively() }
+                                    restart()
+                                }
+                            } else {
+                                publishFailure(result.message ?: "TDLib error")
+                            }
+                        }
+                    }
                 }
             }
             is TdApi.AuthorizationStateWaitPhoneNumber ->
@@ -174,10 +192,20 @@ class AndroidMusicTelegramClient(
                 publishAuth(TelegramAuthState.WaitingForPassword(state.passwordHint))
             is TdApi.AuthorizationStateWaitOtherDeviceConfirmation ->
                 publishAuth(TelegramAuthState.WaitingForQrScan(state.link))
-            is TdApi.AuthorizationStateReady -> publishAuth(TelegramAuthState.Ready)
+            is TdApi.AuthorizationStateReady -> {
+                publishAuth(TelegramAuthState.Ready)
+                appScope.launch { runCatching { fetchCurrentUser() } }
+            }
             is TdApi.AuthorizationStateLoggingOut,
-            is TdApi.AuthorizationStateClosing,
-            is TdApi.AuthorizationStateClosed -> publishClosed()
+            is TdApi.AuthorizationStateClosing -> {
+                _currentUser.value = null
+            }
+            is TdApi.AuthorizationStateClosed -> {
+                _currentUser.value = null
+                client = null
+                parametersSent = false
+                publishClosed()
+            }
             is TdApi.AuthorizationStateWaitRegistration ->
                 publishFailure("Registration required — use an official Telegram client")
             else -> Unit
@@ -344,61 +372,12 @@ class AndroidMusicTelegramClient(
     private var lastDirectPing: Pair<Long, Double>? = null
 
     /**
-     * Measures comparative ping: direct vs. proxied.
-     * Returns [ProxyVerdict] with directSeconds (-1.0 if unreachable) and proxiedSeconds (-1.0 if unreachable).
+     * Measures proxy ping via TDLib TestProxy.
+     * Returns [ProxyVerdict] with proxiedSeconds (-1.0 if unreachable).
      */
     suspend fun pingProxyVerdict(settings: ProxySettings, timeoutSeconds: Double = 15.0): ProxyVerdict {
         val proxiedSeconds = pingProxy(settings, timeoutSeconds)
-        val c = client ?: return ProxyVerdict(-1.0, proxiedSeconds)
-
-        // If scanning is active, skip direct measurement to avoid disrupting ongoing scan queries
-        val isScanning = runCatching { Telegram.scanner.progress.value.isRunning }.getOrDefault(false)
-        if (isScanning) {
-            return ProxyVerdict(directSeconds = -1.0, proxiedSeconds = proxiedSeconds)
-        }
-
-        val cached = lastDirectPing
-        val now = System.currentTimeMillis()
-        if (cached != null && now - cached.first < 30_000L) {
-            return ProxyVerdict(directSeconds = cached.second, proxiedSeconds = proxiedSeconds)
-        }
-
-        val currentSettings = runCatching { ProxyStore.current }.getOrNull()
-        val hadProxyActive = currentSettings != null && currentSettings.enabled && currentSettings.isUsable
-
-        var directSeconds = -1.0
-        try {
-            if (hadProxyActive) {
-                suspendCancellableCoroutine<Unit> { cont ->
-                    c.send(TdApi.DisableProxy()) { cont.resume(Unit) }
-                }
-            }
-            val directStart = System.currentTimeMillis()
-            directSeconds = withTimeoutOrNull(5000L) {
-                suspendCancellableCoroutine<Double> { cont ->
-                    runCatching {
-                        c.send(TdApi.TestNetwork()) { result ->
-                            cont.resume(
-                                if (result is TdApi.Ok) {
-                                    (System.currentTimeMillis() - directStart) / 1000.0
-                                } else {
-                                    -1.0
-                                },
-                            )
-                        }
-                    }.onFailure { cont.resume(-1.0) }
-                }
-            } ?: -1.0
-            lastDirectPing = now to directSeconds
-        } catch (e: Exception) {
-            directSeconds = -1.0
-        } finally {
-            if (hadProxyActive && currentSettings != null) {
-                applyProxy(currentSettings, resetNetwork = false)
-            }
-        }
-
-        return ProxyVerdict(directSeconds = directSeconds, proxiedSeconds = proxiedSeconds)
+        return ProxyVerdict(directSeconds = -1.0, proxiedSeconds = proxiedSeconds)
     }
 
     private suspend fun <T : TdApi.Object> send(function: TdApi.Function<T>): T {
@@ -446,8 +425,23 @@ class AndroidMusicTelegramClient(
     }
 
     override suspend fun logout() {
+        _currentUser.value = null
         send(TdApi.LogOut())
         parametersSent = false
+    }
+
+    override suspend fun restart() {
+        val creds = credentials ?: runCatching { TelegramConfig.credentials() }.getOrNull()
+        try {
+            client?.send(TdApi.Close(), null)
+        } catch (_: Throwable) {}
+        client = null
+        parametersSent = false
+        publishAuth(TelegramAuthState.Initializing)
+        if (creds != null) {
+            kotlinx.coroutines.delay(150)
+            start(creds)
+        }
     }
 
     override suspend fun searchAllAudio(query: String, limit: Int): List<RemoteAudio> {
@@ -995,6 +989,30 @@ class AndroidMusicTelegramClient(
         }.getOrNull()
     }
 
+    override suspend fun fetchCurrentUser(): TelegramUser? = runCatchingCancellable {
+        awaitReady()
+        val me = send(TdApi.GetMe())
+        val fullName = listOf(me.firstName, me.lastName).filter { it.isNotBlank() }.joinToString(" ")
+        val username = me.usernames?.activeUsernames?.firstOrNull() ?: me.usernames?.editableUsername
+        val photoUrl = me.profilePhoto?.let {
+            persistCoverFile(it.big) ?: persistCoverFile(it.small)
+        }
+        val user = TelegramUser(
+            id = me.id,
+            firstName = me.firstName,
+            lastName = me.lastName,
+            fullName = if (fullName.isNotBlank()) fullName else (username ?: "User"),
+            username = username?.takeIf { it.isNotBlank() },
+            phoneNumber = me.phoneNumber,
+            photoUrl = photoUrl,
+            isPremium = me.isPremium,
+        )
+        _currentUser.value = user
+        user
+    }.onFailure { e ->
+        TrackLog.w(TAG, "fetchCurrentUser failed: ${e.message}")
+    }.getOrNull()
+
     override suspend fun downloadChatPhoto(chatId: Long): String? = runCatchingCancellable {
         awaitReady()
         val photo = send(TdApi.GetChat(chatId)).photo ?: return null
@@ -1049,42 +1067,73 @@ class AndroidMusicTelegramClient(
         large,
     )
 
-    override suspend fun embeddedTrackCoverUrl(fileId: String?, expectedUniqueId: String?): String? {
-        val id = fileId?.toIntOrNull() ?: return null
+    override suspend fun embeddedTrackCoverUrl(
+        fileId: String?,
+        expectedUniqueId: String?,
+        chatId: Long,
+        messageId: Long,
+    ): String? {
         awaitReady()
-        // GetFile answers from TDLib's local state and does NOT pull the
-        // file: this runs even when only the first streamed chunks exist,
-        // and costs no network when the file is already complete.
-        val file = runCatchingCancellable { send(TdApi.GetFile(id)) }
-            .getOrElse { return null }
-        // The stale-id guard: an id that now resolves to a different file
-        // must not lend its artwork to this track — same rule as playback.
-        val unique = file.remote?.uniqueId
-        if (!expectedUniqueId.isNullOrBlank() && !unique.isNullOrBlank() && unique != expectedUniqueId) {
-            TrackLog.w(TAG, "Embedded art: stale fileId $fileId (unique $unique, expected $expectedUniqueId)")
-            return null
+        var currentFileId = fileId
+        var currentUnique = expectedUniqueId
+
+        // 1. If uniqueId is known, check if we ALREADY extracted this embedded cover to disk
+        val coversDir = File(appContext.filesDir, "covers").apply { mkdirs() }
+        val lookupKey = currentUnique?.takeIf { it.isNotBlank() } ?: currentFileId
+        if (!lookupKey.isNullOrBlank()) {
+            for (ext in listOf("jpg", "png", "webp")) {
+                val cached = File(coversDir, "emb_$lookupKey.$ext")
+                if (cached.exists() && cached.length() > 0) {
+                    return Uri.fromFile(cached).toString()
+                }
+            }
         }
-        val path = file.local?.path
+
+        // 2. Resolve file from TDLib
+        var id = currentFileId?.toIntOrNull()
+        var file: TdApi.File? = id?.let {
+            runCatchingCancellable { send(TdApi.GetFile(it)) }.getOrNull()
+        }
+
+        val isStale = file == null ||
+            (!currentUnique.isNullOrBlank() && !file.remote?.uniqueId.isNullOrBlank() && file.remote?.uniqueId != currentUnique)
+
+        if ((isStale || file?.local?.path.isNullOrBlank()) && chatId != 0L && messageId > 0L) {
+            val fresh = runCatchingCancellable { getAudioByMessage(chatId, messageId) }.getOrNull()
+            val freshId = fresh?.remoteFileId
+            val freshUnique = fresh?.uniqueFileId?.ifBlank { null } ?: currentUnique
+            if (freshId != null && freshId != currentFileId) {
+                currentFileId = freshId
+                currentUnique = freshUnique
+                id = freshId.toIntOrNull()
+                if (id != null) {
+                    file = runCatchingCancellable { send(TdApi.GetFile(id)) }.getOrNull()
+                }
+            }
+        }
+
+        val targetFile = file ?: return null
+        val unique = targetFile.remote?.uniqueId?.takeIf { it.isNotBlank() } ?: currentUnique ?: currentFileId ?: return null
+
+        val path = targetFile.local?.path
         if (path.isNullOrBlank()) return null
+
         val art = runCatchingCancellable { EmbeddedArt.largest(File(path)) }
             .getOrElse {
-                TrackLog.w(TAG, "Embedded art read failed for fileId $fileId: ${it.message}")
+                TrackLog.w(TAG, "Embedded art read failed for fileId $currentFileId: ${it.message}")
                 return null
             } ?: return null
-        // Keyed by the remote unique id (session-stable, like hq_ covers),
-        // so one play writes it and every later session finds it already
-        // on disk — the parse never repeats.
-        val key = unique?.takeIf { it.isNotBlank() } ?: fileId
+
         val ext = if (art.mimeType == "image/png") "png" else if (art.mimeType == "image/webp") "webp" else "jpg"
-        val target = File(File(appContext.filesDir, "covers").apply { mkdirs() }, "emb_$key.$ext")
+        val target = File(coversDir, "emb_$unique.$ext")
         if (!target.exists()) {
             runCatchingCancellable { target.writeBytes(art.bytes) }
                 .getOrElse {
-                    TrackLog.w(TAG, "Embedded art write failed for $fileId: ${it.message}")
+                    TrackLog.w(TAG, "Embedded art write failed for $currentFileId: ${it.message}")
                     return null
                 }
         }
-        TrackLog.d(TAG, "Embedded art for fileId $fileId -> ${target.name} (${art.bytes.size} bytes, ${art.mimeType})")
+        TrackLog.d(TAG, "Embedded art for fileId $currentFileId -> ${target.name} (${art.bytes.size} bytes, ${art.mimeType})")
         return Uri.fromFile(target).toString()
     }
 

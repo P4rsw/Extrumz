@@ -169,12 +169,26 @@ object Covers {
         if (hq != current) return hq
         val base = ensureTrackCover(videoId, current)
         if (!base.isNullOrBlank()) return base
-        // Tier 3: the message carries no album cover at all (files uploaded
-        // without embedded art) — ask an external sleeve lookup (iTunes).
-        // fetchOnce keys per track, so a miss stays memoized and a hit lands
-        // on the row through setCoverIfEmpty like any other tier.
+
         if (videoId == null) return current
         val ids = tgIds(videoId) ?: return current
+
+        // Telegram Tier 0: Check if an embedded cover is already on disk from previous play/download
+        val cachedEmb = withContext(Dispatchers.IO) {
+            val track = TelegramDb.trackDao.getByChatAndMessage(ids.first, ids.second)
+            if (track != null) {
+                Telegram.client.embeddedTrackCoverUrl(track.fileId, track.fileUniqueId, ids.first, ids.second)
+            } else null
+        }
+        if (!cachedEmb.isNullOrBlank()) {
+            TelegramDb.trackDao.setCoverIfEmpty(ids.first, ids.second, cachedEmb)
+            return cachedEmb
+        }
+
+        // Tier 3: the message carries no album cover at all (files uploaded
+        // without embedded art) — ask an external sleeve lookup (iTunes/Deezer).
+        // fetchOnce keys per track, so a miss stays memoized and a hit lands
+        // on the row through setCoverIfEmpty like any other tier.
         return fetchOnce("x:${ids.first}:${ids.second}") {
             val url = Telegram.client.externalCoverUrl(ids.first, ids.second, title, artist)
             if (url.isNullOrBlank()) return@fetchOnce null
@@ -240,25 +254,19 @@ object Covers {
     ): String? {
         val base = improveTrackCover(videoId, current, title, artist)
         val ids = tgIds(videoId) ?: return base
-        // An `it_*` file is tier-3's own product at the catalogue's SMALL
-        // size: it clears the pixel gate on purpose, but the large twin is
-        // exactly what this tier exists for — `itl_` already on disk answers
-        // in one bounds read with zero requests, and a first-ever large
-        // lookup is one memoised pass per track. Telegram's own covers must
-        // still clear the pixel gate, or every play would re-run the lookup
-        // tier-3 already answered.
-        val tier3Sleeve = localCoverPath(base ?: current)?.contains("/it_") == true
-        val size = localCoverSize(base ?: current) ?: return base
-        if (minOf(size.first, size.second) >= PLAYER_MIN_PX && !tier3Sleeve) return base
+        val effective = base ?: current
+        val tier3Sleeve = localCoverPath(effective)?.contains("/it_") == true
+        val size = localCoverSize(effective)
+        if (effective != null && size != null && minOf(size.first, size.second) >= PLAYER_MIN_PX && !tier3Sleeve) {
+            return effective
+        }
+
         // Tier 0: the artwork carried inside the audio file itself — the
         // sleeve the release shipped with, read off the very bytes being
         // played, so no network and no catalogue guess can put the wrong
         // picture on the row. This is what turns a title posted WITHOUT a
         // cover (message thumb only, ~90 px) back into a full-size sleeve
-        // on the next play. Deliberately NOT miss-memoized: GetFile answers
-        // locally and the parse reads only the header, so a file still
-        // streaming simply fails THIS pass and the next play finds the
-        // finished bytes — a memo would freeze the row on a temporary state.
+        // on playback.
         val ekey = "e:${ids.first}:${ids.second}"
         val embedded = if (active.putIfAbsent(ekey, true) != null) {
             null // another upgrade of this track is already mid-flight
@@ -267,7 +275,12 @@ object Covers {
                 withContext(Dispatchers.IO) {
                     val track = TelegramDb.trackDao.getByChatAndMessage(ids.first, ids.second)
                         ?: return@withContext null
-                    val art = Telegram.client.embeddedTrackCoverUrl(track.fileId, track.fileUniqueId)
+                    val art = Telegram.client.embeddedTrackCoverUrl(
+                        track.fileId,
+                        track.fileUniqueId,
+                        ids.first,
+                        ids.second
+                    )
                     if (art != null) {
                         // The row keeps it for lists and every future
                         // session: the cover belongs to the release, not
@@ -299,7 +312,7 @@ object Covers {
             if (big.isNullOrBlank()) return@fetchOnce null
             TelegramDb.trackDao.setCover(ids.first, ids.second, big)
             big
-        } ?: base
+        } ?: effective
     }
 
     /** [improveTrackCover] for a channel avatar. */

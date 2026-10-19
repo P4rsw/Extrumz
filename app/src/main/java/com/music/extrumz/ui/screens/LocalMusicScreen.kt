@@ -47,17 +47,20 @@ import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.GraphicEq
+import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.LibraryMusic
 import androidx.compose.material.icons.rounded.MoreHoriz
 import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Shuffle
 import androidx.compose.material.icons.rounded.Sort
+import androidx.compose.material.icons.rounded.SortByAlpha
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
+import com.extrumz.app.ui.components.ExtrumzDropdownMenu
+import com.extrumz.app.ui.components.ExtrumzDropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -1555,13 +1558,20 @@ private fun LocalSearchField(
                     modifier = Modifier.size(19.dp),
                 )
             }
-            DropdownMenu(
+            ExtrumzDropdownMenu(
                 expanded = sortMenuOpen,
                 onDismissRequest = { sortMenuOpen = false },
             ) {
                 LocalMusicSort.entries.forEach { option ->
-                    DropdownMenuItem(
+                    ExtrumzDropdownMenuItem(
                         text = { Text(option.localizedLabel()) },
+                        leadingIcon = {
+                            Icon(
+                                option.icon(),
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp),
+                            )
+                        },
                         trailingIcon = if (option == sortOrder) {
                             {
                                 Icon(
@@ -1582,6 +1592,12 @@ private fun LocalSearchField(
             }
         }
     }
+}
+
+private fun LocalMusicSort.icon(): ImageVector = when (this) {
+    LocalMusicSort.TITLE_ASC, LocalMusicSort.TITLE_DESC -> Icons.Rounded.SortByAlpha
+    LocalMusicSort.DATE_ADDED -> Icons.Rounded.Schedule
+    LocalMusicSort.DATE_MODIFIED -> Icons.Rounded.History
 }
 
 @Composable

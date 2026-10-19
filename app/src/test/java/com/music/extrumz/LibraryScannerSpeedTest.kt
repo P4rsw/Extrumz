@@ -22,6 +22,7 @@ import com.extrumz.app.data.telegram.RemoteAudioPage
 import com.extrumz.app.data.telegram.TelegramAuthState
 import com.extrumz.app.data.telegram.TelegramConnectionState
 import com.extrumz.app.data.telegram.TelegramCredentials
+import com.extrumz.app.data.telegram.TelegramUser
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.delay
@@ -95,6 +96,9 @@ class LibraryScannerSpeedTest {
         override suspend fun getTrackedOnce(): List<ChatSource> = rows.values.filter { it.isTracked }
         override suspend fun getAllOnce(): List<ChatSource> = rows.values.toList()
         override suspend fun refreshTrackCount(chatId: Long) {}
+        override suspend fun resetAllScanCursors() {
+            rows.replaceAll { _, chat -> chat.copy(lastScannedMessageId = 0) }
+        }
         override suspend fun setTracked(chatId: Long, tracked: Boolean) {}
         // F8: cover fill, with the same guard as Room — fill when empty,
         // upgrade when the stronger cover lands.
@@ -307,6 +311,10 @@ class LibraryScannerSpeedTest {
             MutableStateFlow(TelegramAuthState.Ready)
         override val connectionState: StateFlow<TelegramConnectionState> =
             MutableStateFlow(TelegramConnectionState.READY)
+        override val currentUser: StateFlow<TelegramUser?> =
+            MutableStateFlow(null)
+        override suspend fun fetchCurrentUser(): TelegramUser? = null
+        override suspend fun restart() {}
         private val newAudioFeed = MutableSharedFlow<RemoteAudio>(extraBufferCapacity = 16)
         override val newAudioMessages: Flow<RemoteAudio> = newAudioFeed
 

@@ -19,7 +19,14 @@ import androidx.compose.ui.unit.LayoutDirection
  * Only `fa` is RTL here; the app ships no other RTL locale.
  */
 val isRtlReading: Boolean
-    @Composable get() = LocalConfiguration.current.locales[0].language == "fa"
+    @Composable get() {
+        val appLang = androidx.appcompat.app.AppCompatDelegate.getApplicationLocales().get(0)?.language
+        return if (!appLang.isNullOrBlank()) {
+            appLang == "fa"
+        } else {
+            LocalConfiguration.current.locales[0].language == "fa"
+        }
+    }
 
 /**
  * [androidx.compose.ui.text.style.TextAlign.End] under [isRtlReading],

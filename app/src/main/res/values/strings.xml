@@ -32,12 +32,11 @@
     <string name="audio_files_on_device">Audio files on device</string>
     <string name="on_device">On Device</string>
     <string name="playlists">Playlists</string>
-    
-    
-    
-    
-    
-    
+    <string name="search_filter_all">All</string>
+    <string name="search_filter_videos">Videos</string>
+    <string name="chats_count">%1$d chats</string>
+    <string name="saved_messages">Saved Messages</string>
+    <string name="saved_messages_desc">Your personal cloud music repository</string>
     <string name="retry">Retry</string>
     <string name="shuffle">Shuffle</string>
     <string name="more">More</string>
@@ -1207,7 +1206,7 @@
     <string name="proxy_secret_unreadable">This does not look like a usable MTProto secret. Paste the whole link from the channel instead of typing the key.</string>
     <string name="proxy_test">Test</string>
     <string name="proxy_test_running">Testing\u2026</string>
-    <string name="proxy_test_ok">Reached Telegram in %1$.2fs</string>
+    <string name="proxy_test_ok">Reached Telegram in %1$d ms</string>
     <string name="proxy_test_failed">Could not reach Telegram through this proxy</string>
     <string name="proxy_add">Add proxy</string>
     <string name="proxy_edit">Edit proxy</string>
@@ -1218,9 +1217,60 @@
     <string name="proxy_empty_hint">Tap \"Add proxy\" or paste a link to get started.</string>
     <string name="proxy_copy">Copy</string>
     <string name="proxy_copied">Link copied to clipboard</string>
-    <string name="proxy_direct_failed">Direct ❌</string>
-    <string name="proxy_direct_ok">Direct %1$.1fs</string>
-    <string name="proxy_proxied_failed">Proxy ❌</string>
-    <string name="proxy_proxied_ok">Proxy %1$.1fs</string>
+    <string name="proxy_direct_failed">Direct: Failed</string>
+    <string name="proxy_direct_ok">Direct: %1$d ms</string>
+    <string name="proxy_proxied_failed">Unavailable</string>
+    <string name="proxy_proxied_ok">%1$d ms</string>
     <string name="proxy_untested">Not tested yet</string>
+    <string name="proxy_more_options">More options</string>
+    <string name="proxy_paste_clipboard">Paste from clipboard</string>
+    <string name="proxy_enabled">Proxy is enabled</string>
+    <string name="jump_to_top">Back to top</string>
+    <string name="welcome_title">Extrumz</string>
+    <string name="welcome_subtitle">Stream your Telegram music without limits</string>
+    <string name="welcome_login_phone">Sign in with Phone Number</string>
+    <string name="welcome_login_qr">Sign in with QR Code</string>
+    <string name="welcome_proxy_settings">Proxy Settings</string>
+    <string name="welcome_proxy_active">Proxy is enabled</string>
+    <string name="welcome_proxy_active_ping">Proxy is enabled · %1$d ms</string>
+    <string name="welcome_help">Help</string>
+    <string name="welcome_help_title">Welcome to Extrumz</string>
+    <string name="welcome_help_desc">Extrumz connects directly to your Telegram account to play and manage music from your saved messages, channels, and groups.</string>
+    <string name="welcome_help_got_it">Got it</string>
+    <string name="login_phone_title">Sign in with Phone</string>
+    <string name="login_qr_title">Sign in with QR Code</string>
+    <string name="tg_phone_desc">Enter your phone number to receive a confirmation code.</string>
+    <string name="tg_phone_placeholder">+98 912 345 6789</string>
+    <string name="tg_phone_send_to">Sending to:</string>
+    <string name="tg_connection_reset">Telegram session was reset. Tap to reconnect.</string>
+    <string name="tg_code_desc">Confirmation code was sent to %1$s (via Telegram or SMS).</string>
+    <string name="tg_code_edit_phone">Change phone number</string>
+    <string name="tg_password_title">Two-step verification</string>
+    <string name="tg_password_desc">Two-step verification is enabled for this account. Enter your cloud password.</string>
+    <string name="tg_connecting">Connecting to Telegram servers…</string>
+    <string name="tg_qr_instruction_1">1. Open Telegram on your other device or phone.</string>
+    <string name="tg_qr_instruction_2">2. Go to Settings → Devices → Link Desktop Device.</string>
+    <string name="tg_qr_instruction_3">3. Point your camera at this QR code to confirm.</string>
+    <string name="tg_qr_open_telegram">Open in Telegram</string>
+    <string name="tg_qr_waiting">Requesting QR code from Telegram…</string>
+    <string name="tg_login_success">Successfully signed in!</string>
+    <string name="tg_copied_to_clipboard">Sign-in link copied to clipboard</string>
+    <string name="tg_switch_to_qr">Sign in with QR Code instead</string>
+    <string name="tg_switch_to_phone">Sign in with Phone Number instead</string>
+    <string name="profile_title">User Profile</string>
+    <string name="profile_channels_stat">Active Channels</string>
+    <string name="profile_tracks_stat">Indexed Tracks</string>
+    <string name="profile_sync_stat">Sync Status</string>
+    <string name="profile_sync_connected">Connected &amp; Ready</string>
+    <string name="profile_sync_in_progress">Scanning &amp; updating…</string>
+    <string name="profile_app_settings">App Settings</string>
+    <string name="profile_app_settings_desc">Audio quality, equalizer, appearance, theme and playback</string>
+    <string name="profile_proxy_settings">Proxy Settings</string>
+    <string name="profile_rescan_button">Rescan All Channels</string>
+    <string name="profile_rescan_started">Telegram channel scan started</string>
+    <string name="profile_logout_button">Log Out from Telegram</string>
+    <string name="profile_logout_confirm_title">Log Out</string>
+    <string name="profile_logout_confirm_msg">Are you sure you want to log out from your Telegram account?</string>
+    <string name="profile_logout_confirm">Log Out</string>
+    <string name="profile_logout_cancel">Cancel</string>
 </resources>

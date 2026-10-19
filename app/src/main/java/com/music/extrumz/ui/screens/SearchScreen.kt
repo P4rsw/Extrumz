@@ -23,10 +23,13 @@ import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.FilterAlt
+import androidx.compose.material.icons.rounded.Folder
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.NorthWest
@@ -39,7 +42,9 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -739,10 +744,18 @@ private fun BrowseRow(item: BrowseItem, onClick: () -> Unit, onLongPress: (() ->
     }
 }
 
+@Composable
+private fun SearchFilter.localizedLabel(): String = when (this) {
+    SearchFilter.ALL -> stringResource(R.string.search_filter_all)
+    SearchFilter.SONGS -> stringResource(R.string.songs)
+    SearchFilter.VIDEOS -> stringResource(R.string.search_filter_videos)
+    SearchFilter.ALBUMS -> stringResource(R.string.albums)
+    SearchFilter.ARTISTS -> stringResource(R.string.artists)
+    SearchFilter.PLAYLISTS -> stringResource(R.string.playlists)
+}
+
 /**
- * Filter pills rather than a tab row: squarish rounded rectangles, the selected
- * one inverted. They scroll horizontally so a long label set never squeezes the
- * text, and the gutter padding sits inside the scroll so it scrolls with them.
+ * Modern frosted glass filter capsules matching Extrumz dark aesthetic.
  */
 @Composable
 private fun SearchFilterTabs(filter: SearchFilter, onFilterChange: (SearchFilter) -> Unit) {
@@ -755,43 +768,41 @@ private fun SearchFilterTabs(filter: SearchFilter, onFilterChange: (SearchFilter
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        SearchFilter.entries.forEach { entry ->
+        SearchFilter.entries.filter { it != SearchFilter.VIDEOS }.forEach { entry ->
             val selected = entry == filter
-            Box(
+            Surface(
                 modifier = Modifier
-                    .clip(FILTER_PILL_SHAPE)
-                    .background(
-                        if (selected) MaterialTheme.colorScheme.onBackground
-                        else MaterialTheme.colorScheme.surfaceVariant,
-                    )
-                    // Only the pill that isn't already selected has anything to
-                    // report — re-tapping the current filter changes nothing, so
-                    // buzzing for it would be feedback for a no-op.
+                    .clip(CircleShape)
                     .clickable {
                         if (!selected) haptics.play(Haptic.Select)
                         onFilterChange(entry)
-                    }
-                    .padding(horizontal = 12.dp, vertical = 6.dp),
+                    },
+                shape = CircleShape,
+                color = if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.22f)
+                else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
+                border = BorderStroke(
+                    1.dp,
+                    if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.65f)
+                    else MaterialTheme.colorScheme.outline.copy(alpha = 0.20f),
+                ),
             ) {
                 Text(
-                    text = entry.label,
-                    style = MaterialTheme.typography.labelLarge,
-                    color = if (selected) MaterialTheme.colorScheme.background
-                    else MaterialTheme.colorScheme.onBackground,
+                    text = entry.localizedLabel(),
+                    style = MaterialTheme.typography.labelLarge.copy(
+                        fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+                    ),
+                    color = if (selected) MaterialTheme.colorScheme.primary
+                    else MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 7.dp),
                 )
             }
         }
     }
 }
 
-/** Rounded, but well short of a capsule — the corner reads as a cut, not a curve. */
-private val FILTER_PILL_SHAPE = RoundedCornerShape(12.dp)
-
 /**
- * The channel filter, as a pill under the search field. Untapped it opens the
- * picker; tapped it names the channel the results are narrowed to, with the ✕
- * clearing it — the same toggle the Songs chip and the Library shelf use.
+ * Frosted glass capsule representing the active channel filter under search.
  */
 @Composable
 private fun ChannelFilterPill(
@@ -800,11 +811,8 @@ private fun ChannelFilterPill(
     onOpenPicker: () -> Unit,
     onClear: () -> Unit,
 ) {
-ProvideLocaleDirection {
+    ProvideLocaleDirection {
         Row(
-            // One chip on an empty row, so it sits at the reading edge: the right
-            // for Persian, the left for English. It scrolls too — with a name long
-            // enough to need it, the overflow trails the chip rather than leading.
             horizontalArrangement = Arrangement.Start,
             modifier = Modifier
                 .fillMaxWidth()
@@ -812,35 +820,77 @@ ProvideLocaleDirection {
                 .padding(horizontal = PAGE_GUTTER, vertical = 2.dp),
         ) {
             if (chatId == null) {
-                Box(
+                Surface(
                     modifier = Modifier
-                        .clip(FILTER_PILL_SHAPE)
-                        .background(MaterialTheme.colorScheme.surfaceVariant)
-                        .clickable(onClick = onOpenPicker)
-                        .padding(horizontal = 12.dp, vertical = 6.dp),
+                        .clip(CircleShape)
+                        .clickable(onClick = onOpenPicker),
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.20f)),
                 ) {
-                    Text(
-                        text = stringResource(R.string.tab_channels),
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.onBackground,
-                        maxLines = 1,
-                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.FilterAlt,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(16.dp),
+                        )
+                        Spacer(Modifier.width(6.dp))
+                        Text(
+                            text = stringResource(R.string.tab_channels),
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Medium,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            maxLines = 1,
+                        )
+                    }
                 }
             } else {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
+                Surface(
                     modifier = Modifier
-                        .clip(FILTER_PILL_SHAPE)
-                        .background(MaterialTheme.colorScheme.onBackground)
-                        .clickable(onClick = onClear)
-                        .padding(horizontal = 12.dp, vertical = 6.dp),
+                        .clip(CircleShape)
+                        .clickable(onClick = onClear),
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.20f),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.60f)),
                 ) {
-                    Text(
-                        text = "✕ " + (chatName ?: stringResource(R.string.tab_channels)),
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.background,
-                        maxLines = 1,
-                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(start = 12.dp, end = 8.dp, top = 5.dp, bottom = 5.dp),
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Folder,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(16.dp),
+                        )
+                        Spacer(Modifier.width(6.dp))
+                        Text(
+                            text = chatName ?: stringResource(R.string.tab_channels),
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.primary,
+                            maxLines = 1,
+                        )
+                        Spacer(Modifier.width(6.dp))
+                        Box(
+                            modifier = Modifier
+                                .size(18.dp)
+                                .clip(CircleShape)
+                                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.25f)),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.Close,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(12.dp),
+                            )
+                        }
+                    }
                 }
             }
         }

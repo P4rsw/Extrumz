@@ -15,16 +15,33 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.Folder
+import androidx.compose.material.icons.rounded.History
+import androidx.compose.material.icons.rounded.Person
+import androidx.compose.material.icons.rounded.Schedule
+import androidx.compose.material.icons.rounded.Sort
+import androidx.compose.material.icons.rounded.SortByAlpha
 import androidx.compose.material3.Button
+import androidx.compose.material3.Icon
+import androidx.compose.material3.Surface
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import com.extrumz.app.ui.components.ExtrumzDropdownMenu
+import com.extrumz.app.ui.components.ExtrumzDropdownMenuItem
+import com.extrumz.app.ui.components.SearchField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -105,12 +122,15 @@ fun SongsScreen(
      * is most wanted on.
      */
     onSongLongPress: (Song) -> Unit = {},
+    listState: LazyListState = rememberLazyListState(),
     modifier: Modifier = Modifier,
 ) {
     var query by rememberSaveable { mutableStateOf("") }
     val chatFilter by TelegramUi.selectedChatId.collectAsState()
     val authState by Telegram.client.authState.collectAsState()
     val scan by Telegram.scanner.progress.collectAsState()
+    var songSort by rememberSaveable { mutableStateOf(TelegramSongSort.NEWEST) }
+    var sortMenuOpen by remember { mutableStateOf(false) }
 
     // Sampled while a scan runs. Every page the scanner writes invalidates the
     // tracks table, so a rescan of a ten-thousand-song library resolved this
@@ -147,7 +167,8 @@ fun SongsScreen(
             TelegramDb.trackDao.observeIdsInChat(id).first()
         } ?: emptyList()
     }
-    val tracks = filteredTracks(allTracks, query, chatFilter, chatOrder)
+    val rawTracks = filteredTracks(allTracks, query, chatFilter, chatOrder)
+    val tracks = remember(rawTracks, songSort) { rawTracks.sortedTracks(songSort) }
     val songs = remember(tracks) { tracks.map(Track::toSong) }
 
     Column(
@@ -163,21 +184,16 @@ fun SongsScreen(
             // bottom padding, so nothing scrolls under the bars unseen.
             .padding(top = contentPadding.calculateTopPadding()),
     ) {
-    // The whole header mirrors for Persian: the connection line and the
-    // search field both sit at the reading edge, and a provider is the
-    // only thing that can move both without flipping the tabs below.
-    ProvideLocaleDirection {
+        // The whole header mirrors for Persian: the connection line and the
+        // search field both sit at the reading edge, and a provider is the
+        // only thing that can move both without flipping the tabs below.
+        ProvideLocaleDirection {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                // The connection line sits at the reading edge: the right for a
-                // Persian UI, the left for an English one. `Arrangement.End` would
-                // be direction-aware on its own, but this window is pinned to LTR —
-                // `supportsRtl` is off and stays off — so the edge is picked here
-                // from the locale instead of inherited from the view.
                 horizontalArrangement = Arrangement.Start,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                    .padding(horizontal = 16.dp, vertical = 6.dp),
             ) {
                 val connected = authState is TelegramAuthState.Ready
                 Box(
@@ -187,7 +203,7 @@ fun SongsScreen(
                             if (connected) MaterialTheme.colorScheme.primary
                             else MaterialTheme.colorScheme.outline,
                             CircleShape,
-                        )
+                        ),
                 )
                 Spacer(Modifier.width(8.dp))
                 Text(
@@ -201,37 +217,120 @@ fun SongsScreen(
                 )
                 if (chatFilter != null) {
                     Spacer(Modifier.width(12.dp))
-                    Text(
-                        "✕ " + (filteredChatName ?: stringResource(R.string.tg_all_chats)),
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.clickable { TelegramUi.selectedChatId.value = null },
-                    )
+                    Surface(
+                        modifier = Modifier
+                            .clip(CircleShape)
+                            .clickable { TelegramUi.selectedChatId.value = null },
+                        shape = CircleShape,
+                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.20f),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.60f)),
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(start = 10.dp, end = 6.dp, top = 4.dp, bottom = 4.dp),
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.Folder,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(14.dp),
+                            )
+                            Spacer(Modifier.width(5.dp))
+                            Text(
+                                text = filteredChatName ?: stringResource(R.string.tg_all_chats),
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.primary,
+                                maxLines = 1,
+                            )
+                            Spacer(Modifier.width(5.dp))
+                            Box(
+                                modifier = Modifier
+                                    .size(16.dp)
+                                    .clip(CircleShape)
+                                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.25f)),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.Close,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(10.dp),
+                                )
+                            }
+                        }
+                    }
                 }
             }
 
-            OutlinedTextField(
-                value = query,
-                onValueChange = { query = it },
-                placeholder = {
-                    Text(
-                        stringResource(R.string.tg_search_hint),
-                        // Persian reads right-to-left inside a screen that stays
-                        // left-to-right, so the edge is asked for here rather than
-                        // inherited. English is left where it falls.
-                        textAlign = TextAlign.Start,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                },
-                singleLine = true,
-                textStyle = LocalTextStyle.current.copy(
-                    textAlign = TextAlign.Start,
-                ),
+            // Search & Sort bar
+            Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
-            )
-    }
+                    .padding(horizontal = 16.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Box(modifier = Modifier.weight(1f)) {
+                    SearchField(
+                        query = query,
+                        onQueryChange = { query = it },
+                        onSubmit = {},
+                        placeholder = stringResource(R.string.tg_search_hint),
+                    )
+                }
+                Spacer(Modifier.width(8.dp))
+                Box {
+                    Surface(
+                        modifier = Modifier
+                            .size(46.dp)
+                            .clip(CircleShape)
+                            .clickable { sortMenuOpen = true },
+                        shape = CircleShape,
+                        color = MaterialTheme.colorScheme.surfaceVariant,
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = Icons.Rounded.Sort,
+                                contentDescription = stringResource(R.string.sort_songs),
+                                tint = if (songSort != TelegramSongSort.NEWEST) MaterialTheme.colorScheme.primary
+                                else MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(20.dp),
+                            )
+                        }
+                    }
+                    ExtrumzDropdownMenu(
+                        expanded = sortMenuOpen,
+                        onDismissRequest = { sortMenuOpen = false },
+                    ) {
+                        TelegramSongSort.entries.forEach { option ->
+                            ExtrumzDropdownMenuItem(
+                                text = { Text(option.label()) },
+                                leadingIcon = {
+                                    Icon(
+                                        imageVector = option.icon(),
+                                        contentDescription = null,
+                                        modifier = Modifier.size(18.dp),
+                                    )
+                                },
+                                trailingIcon = if (option == songSort) {
+                                    {
+                                        Icon(
+                                            Icons.Rounded.Check,
+                                            contentDescription = stringResource(R.string.selected),
+                                            modifier = Modifier.size(18.dp),
+                                        )
+                                    }
+                                } else null,
+                                onClick = {
+                                    songSort = option
+                                    sortMenuOpen = false
+                                },
+                            )
+                        }
+                    }
+                }
+            }
+        }
 
         // One banner for both states, driven by the scanner's own stage and
         // fraction — the same component the Channels page uses, so the two
@@ -293,7 +392,6 @@ fun SongsScreen(
             }
             }
         } else {
-            val listState = rememberLazyListState()
             val songsNow by rememberUpdatedState(songs)
             // F8: covers arrive one screenful early instead of one row at a
             // time. When scrolling settles (350ms without a new index), the
@@ -445,5 +543,38 @@ private fun filteredTracks(
     }
     if (rank == null) return matched
     return matched.sortedBy { rank[it.fileUniqueId] ?: Int.MAX_VALUE }
+}
+
+enum class TelegramSongSort {
+    NEWEST,
+    OLDEST,
+    TITLE_AZ,
+    TITLE_ZA,
+    ARTIST;
+
+    @Composable
+    fun label(): String = when (this) {
+        NEWEST -> stringResource(R.string.sort_date_added)
+        OLDEST -> stringResource(R.string.sort_date_added_oldest)
+        TITLE_AZ -> stringResource(R.string.sort_title_ascending)
+        TITLE_ZA -> stringResource(R.string.sort_title_descending)
+        ARTIST -> stringResource(R.string.artist)
+    }
+
+    fun icon(): ImageVector = when (this) {
+        NEWEST -> Icons.Rounded.Schedule
+        OLDEST -> Icons.Rounded.History
+        TITLE_AZ -> Icons.Rounded.SortByAlpha
+        TITLE_ZA -> Icons.Rounded.SortByAlpha
+        ARTIST -> Icons.Rounded.Person
+    }
+}
+
+private fun List<Track>.sortedTracks(sort: TelegramSongSort): List<Track> = when (sort) {
+    TelegramSongSort.NEWEST -> this
+    TelegramSongSort.OLDEST -> reversed()
+    TelegramSongSort.TITLE_AZ -> sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.title })
+    TelegramSongSort.TITLE_ZA -> sortedWith(compareByDescending(String.CASE_INSENSITIVE_ORDER) { it.title })
+    TelegramSongSort.ARTIST -> sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.performer })
 }
 

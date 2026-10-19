@@ -44,6 +44,9 @@ interface ChatDao {
     @Query("SELECT * FROM chats WHERE isTracked = 1")
     suspend fun getTrackedOnce(): List<ChatSource>
 
+    @Query("UPDATE chats SET lastScannedMessageId = 0")
+    suspend fun resetAllScanCursors()
+
     /**
      * Records what a discovery pass just saw, WITHOUT letting the pass decide
      * when a chat was first found.

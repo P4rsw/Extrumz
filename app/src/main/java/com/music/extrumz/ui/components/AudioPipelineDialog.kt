@@ -12,6 +12,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -82,10 +83,19 @@ import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
 
-private val PIPELINE_CARD_SHAPE = RoundedCornerShape(ALERT_CORNER)
-private val PIPELINE_SCRIM_COLOR = Color.Black.copy(alpha = 0.4f)
-private val PIPELINE_WIDTH = 320.dp
-private val PIPELINE_CONTENT_MAX_HEIGHT = 420.dp
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.border
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.IconButton
+import com.extrumz.app.ui.util.ProvideLocaleDirection
+
+private val PIPELINE_CARD_SHAPE = RoundedCornerShape(26.dp)
+private val PIPELINE_SCRIM_COLOR = Color.Black.copy(alpha = 0.55f)
+private val PIPELINE_WIDTH = 340.dp
+private val PIPELINE_CONTENT_MAX_HEIGHT = 440.dp
 private val PIPELINE_ICON_TINT = Color.White.copy(alpha = 0.6f)
 
 /**
@@ -220,32 +230,34 @@ fun AudioPipelineDialog(
         if (stageCenters[idx] != center) stageCenters[idx] = center
     }
 
-    Box(
-        modifier = modifier
-            .fillMaxSize()
-            .containSheetGestures()
-            .background(PIPELINE_SCRIM_COLOR)
-            .clickable(
-                indication = null,
-                interactionSource = remember { MutableInteractionSource() },
-                onClick = onDismiss,
-            ),
-        contentAlignment = Alignment.Center,
-    ) {
+    ProvideLocaleDirection {
+        Box(
+            modifier = modifier
+                .fillMaxSize()
+                .containSheetGestures()
+                .background(PIPELINE_SCRIM_COLOR)
+                .clickable(
+                    indication = null,
+                    interactionSource = remember { MutableInteractionSource() },
+                    onClick = onDismiss,
+                ),
+            contentAlignment = Alignment.Center,
+        ) {
         Column(
             modifier = Modifier
                 .width(PIPELINE_WIDTH)
                 .clip(PIPELINE_CARD_SHAPE)
+                .border(1.dp, Color.White.copy(alpha = 0.15f), PIPELINE_CARD_SHAPE)
                 .then(
                     if (reduceDynamicBlur) {
-                        Modifier.background(Color(0xFF121212))
+                        Modifier.background(Color(0xFF141416))
                     } else {
                         Modifier
                             .optimizedHazeEffect(
                                 state = hazeState,
-                                style = HazeMaterials.regular(Color(0xFF141414)),
+                                style = HazeMaterials.regular(Color(0xFF141416)),
                             )
-                            .background(Color(0xFF121212).copy(alpha = 0.9f))
+                            .background(Color(0xFF141416).copy(alpha = 0.94f))
                     }
                 )
                 // Swallows the tap before it reaches the scrim behind, so
@@ -256,31 +268,46 @@ fun AudioPipelineDialog(
                     onClick = {},
                 ),
         ) {
-            Column(
+            Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 19.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
+                    .padding(start = 18.dp, end = 12.dp, top = 16.dp, bottom = 12.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(
-                    text = stringResource(R.string.audio_pipeline),
-                    style = MaterialTheme.typography.bodyLarge.copy(
-                        fontSize = 17.sp,
-                        fontWeight = FontWeight.W600,
-                    ),
-                    color = Color.White,
-                    textAlign = TextAlign.Center,
-                )
-                Text(
-                    text = stringResource(R.string.audio_pipeline_subtitle),
-                    modifier = Modifier.padding(top = 4.dp),
-                    style = MaterialTheme.typography.bodyMedium.copy(
-                        fontSize = 13.sp,
-                        lineHeight = 17.sp,
-                    ),
-                    color = Color.White.copy(alpha = 0.7f),
-                    textAlign = TextAlign.Center,
-                )
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        text = stringResource(R.string.audio_pipeline),
+                        style = MaterialTheme.typography.titleMedium.copy(
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold,
+                        ),
+                        color = Color.White,
+                    )
+                    Text(
+                        text = stringResource(R.string.audio_pipeline_subtitle),
+                        modifier = Modifier.padding(top = 2.dp),
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            fontSize = 12.sp,
+                            lineHeight = 16.sp,
+                        ),
+                        color = Color.White.copy(alpha = 0.65f),
+                    )
+                }
+                IconButton(
+                    onClick = onDismiss,
+                    modifier = Modifier
+                        .size(32.dp)
+                        .clip(CircleShape)
+                        .background(Color.White.copy(alpha = 0.08f)),
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.Close,
+                        contentDescription = stringResource(R.string.cancel),
+                        tint = Color.White.copy(alpha = 0.8f),
+                        modifier = Modifier.size(18.dp),
+                    )
+                }
             }
 
             Box(
@@ -562,6 +589,7 @@ fun AudioPipelineDialog(
             PipelineDoneAction(label = stringResource(R.string.done), onClick = onDismiss)
         }
     }
+}
 }
 
 /** The signal bus, the travelling pulse and the node rings behind the five stage icons. */
@@ -921,33 +949,32 @@ private fun PipelineRule(modifier: Modifier = Modifier.padding(start = 52.dp, en
     )
 }
 
-/** Full-bleed closing action, [AlertAction]'s shape fixed to this screen's white-on-dark palette. */
+/** Closing action with modern Extrumz button. */
 @Composable
 private fun PipelineDoneAction(label: String, onClick: () -> Unit) {
-    val interactionSource = remember { MutableInteractionSource() }
-    val pressed by interactionSource.collectIsPressedAsState()
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(ACTION_HEIGHT)
-            .background(
-                if (pressed) Color.White.copy(alpha = 0.09f) else Color.Transparent,
-            )
-            .clickable(
-                indication = null,
-                interactionSource = interactionSource,
-                onClick = onClick,
-            ),
+            .padding(horizontal = 16.dp, vertical = 12.dp),
         contentAlignment = Alignment.Center,
     ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodyLarge.copy(
-                fontSize = 17.sp,
-                fontWeight = FontWeight.W600,
+        Button(
+            onClick = onClick,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(46.dp),
+            shape = RoundedCornerShape(14.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary,
             ),
-            color = Color.White,
-        )
+        ) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.SemiBold,
+            )
+        }
     }
 }
 

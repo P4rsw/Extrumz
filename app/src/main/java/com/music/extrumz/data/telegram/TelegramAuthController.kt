@@ -68,26 +68,30 @@ object TelegramAuthController {
      * failed or closed state, and the switch out of QR.
      */
     @Synchronized
-    fun restartAuthorization() {
+    fun restartAuthorization(showUi: Boolean = false) {
         starter = null
-        _showAuth.value = true
-        ensureStarted()
+        if (showUi) {
+            _showAuth.value = true
+        }
+        scope.launch {
+            runCatching { Telegram.client.restart() }
+            ensureStarted()
+        }
     }
 
     fun usePhoneNumberInstead() {
-        // Guarded on the state rather than trusted: logOut is the only call
-        // TDLib offers that returns to WaitPhoneNumber, and on an authorized
-        // client it would end a real session. Reaching it from the QR screen
-        // means nothing has been confirmed, so there is no session to end --
-        // and the guard makes that a property of the code rather than of the
-        // caller.
         if (Telegram.client.authState.value !is TelegramAuthState.WaitingForQrScan) return
         scope.launch {
-            runCatching { Telegram.client.logout() }
+            runCatching { Telegram.client.restart() }
                 .onFailure { TrackLog.w(TAG, "QR→phone switch failed: ${it.message}") }
-            restartAuthorization()
+            starter = null
+            ensureStarted()
         }
     }
+
+    private val _myUserId = MutableStateFlow<Long?>(null)
+    /** The authenticated Telegram user's ID, matching their personal "Saved Messages" chat. */
+    val myUserId: StateFlow<Long?> = _myUserId
 
     /** Boots the client exactly once; the first scan runs when Ready arrives. */
     @Synchronized
@@ -96,6 +100,12 @@ object TelegramAuthController {
             client = Telegram.client,
             credentialsProvider = { TelegramConfig.credentials() },
             onReady = {
+                scope.launch {
+                    runCatching {
+                        val user = Telegram.client.fetchCurrentUser()
+                        _myUserId.value = user?.id
+                    }
+                }
                 // Fills the songs tab without the listener having to ask.
                 // fullScan surfaces its own failures on ScanProgress; the
                 // runCatching log here catches what slips past it (the
@@ -127,12 +137,15 @@ object TelegramAuthController {
     @Volatile
     private var scanJob: kotlinx.coroutines.Job? = null
 
-    /** Kicks a full scan; no-op while one is already running (scanner guards itself). */
-    fun startScan() {
+    /** Kicks a full scan; resets cursors if [forceRescan] is true so every message is re-checked. */
+    fun startScan(forceRescan: Boolean = false) {
         ensureStarted()
         scanJob?.cancel()
         scanJob = scope.launch {
             runCatching {
+                if (forceRescan) {
+                    com.extrumz.app.data.db.TelegramDb.chatDao.resetAllScanCursors()
+                }
                 Telegram.scanner.fullScan()
                 Telegram.scanner.quietRepass()
             }.onFailure { TrackLog.w(TAG, "manual scan failed: ${it.message}") }

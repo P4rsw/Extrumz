@@ -87,7 +87,7 @@ internal object EmbeddedArt {
     private fun largestId3(b: ByteArray): Image? {
         val version = b[3].toInt() and 0xFF // 2, 3 or 4
         if (version !in 2..4) return null
-        val tagFlags = b[4].toInt() and 0xFF
+        val tagFlags = b[5].toInt() and 0xFF
         if (tagFlags and 0x40 != 0) return null // extended header: sizes get ambiguous
         if (tagFlags and 0x80 != 0) return null // unsynchronisation: offsets stop matching disk
         val tagEnd = minOf(10 + syncsafe(b, 6), b.size)

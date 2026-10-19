@@ -103,6 +103,7 @@ import com.extrumz.app.data.settings.TrackAnalysisState
 import com.extrumz.app.data.settings.AppSettings
 import com.extrumz.app.data.settings.AudioQuality
 import com.extrumz.app.data.model.Song
+import com.extrumz.app.data.model.PlaybackSourceType
 import com.extrumz.app.playback.AudioOutputStatus
 import java.util.Locale
 import java.util.concurrent.TimeUnit
@@ -131,13 +132,16 @@ private const val AUTOPLAY_TAP_WINDOW_MS = 700L
  * in the words the caption uses.
  */
 @Composable
-internal fun playbackOriginText(song: Song): String =
-    song.radioName?.let {
+internal fun playbackOriginText(song: Song): String {
+    val originName = when (song.playbackSourceType) {
+        PlaybackSourceType.SEARCH -> stringResource(R.string.search)
+        PlaybackSourceType.QUEUE -> stringResource(R.string.queue)
+        else -> song.playbackSource ?: song.albumName ?: stringResource(R.string.queue)
+    }
+    return song.radioName?.let {
         stringResource(R.string.playing_radio, it)
-    } ?: stringResource(
-        R.string.playing_from,
-        song.playbackSource ?: song.albumName ?: stringResource(R.string.queue),
-    )
+    } ?: stringResource(R.string.playing_from, originName)
+}
 
 /**
  * The small caption naming what the player is playing out of — see
@@ -482,7 +486,7 @@ internal fun PlayerActionRow(
         // Sized for the wider of the two capsules — the three-up one — in both
         // states. Computed for whichever was on screen it would change as they
         // swap, and the lyrics and queue glyphs would slide with it.
-        val widestRow = BOTTOM_ACTION_SIZE * 2 + pillWidth(3)
+        val widestRow = BOTTOM_ACTION_SIZE * 2 + pillWidth(2)
         val edgeInset = ((maxWidth - widestRow) / 4).coerceAtLeast(0.dp)
         Row(
             modifier = Modifier.fillMaxWidth().padding(horizontal = edgeInset),
@@ -509,9 +513,6 @@ internal fun PlayerActionRow(
                 label = "playerBottomPill",
             ) { showQueueModes ->
                 if (showQueueModes) {
-                    // Always three-up, unlike the output capsule — so it
-                    // always takes the narrower spacing. See
-                    // [PILL_SEGMENT_WIDTH_TRIPLE].
                     Pill {
                         PillSegment(
                             icon = ExtrumzIcons.Shuffle,
@@ -522,7 +523,7 @@ internal fun PlayerActionRow(
                             highlighted = shuffleEnabled,
                             haptic = if (shuffleEnabled) Haptic.ToggleOff else Haptic.ToggleOn,
                             tapWindowMs = SHUFFLE_TAP_WINDOW_MS,
-                            width = PILL_SEGMENT_WIDTH_TRIPLE,
+                            width = PILL_SEGMENT_WIDTH,
                         )
                         PillDivider()
                         PillSegment(
@@ -544,19 +545,7 @@ internal fun PlayerActionRow(
                                 Player.REPEAT_MODE_ONE -> Haptic.ToggleOff
                                 else -> Haptic.Select
                             },
-                            width = PILL_SEGMENT_WIDTH_TRIPLE,
-                        )
-                        PillDivider()
-                        PillSegment(
-                            icon = ExtrumzIcons.Infinity,
-                            contentDescription = stringResource(
-                                if (autoplayEnabled) R.string.autoplay_on else R.string.autoplay_off,
-                            ),
-                            onClick = onToggleAutoplay,
-                            highlighted = autoplayEnabled,
-                            haptic = if (autoplayEnabled) Haptic.ToggleOff else Haptic.ToggleOn,
-                            tapWindowMs = AUTOPLAY_TAP_WINDOW_MS,
-                            width = PILL_SEGMENT_WIDTH_TRIPLE,
+                            width = PILL_SEGMENT_WIDTH,
                         )
                     }
                 } else {

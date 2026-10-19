@@ -22,6 +22,16 @@ sealed interface TelegramAuthState {
     data object Closed : TelegramAuthState
 }
 
+/**
+ * Whether the auth state represents a settled unauthenticated state requiring the WelcomeScreen.
+ * During [TelegramAuthState.Uninitialized] and [TelegramAuthState.Initializing], the app
+ * stays behind the splash screen so authenticated users never experience a flash of WelcomeScreen.
+ */
+fun shouldShowWelcome(state: TelegramAuthState): Boolean =
+    state !is TelegramAuthState.Ready &&
+        state !is TelegramAuthState.Uninitialized &&
+        state !is TelegramAuthState.Initializing
+
 enum class TelegramConnectionState {
     WAITING_FOR_NETWORK, CONNECTING, UPDATING, READY
 }
@@ -79,6 +89,17 @@ data class ChatInfo(
     val photoUrl: String? = null
 )
 
+data class TelegramUser(
+    val id: Long,
+    val firstName: String,
+    val lastName: String,
+    val fullName: String,
+    val username: String?,
+    val phoneNumber: String,
+    val photoUrl: String?,
+    val isPremium: Boolean = false,
+)
+
 class TelegramClientException(
     message: String,
     val code: Int
@@ -91,6 +112,12 @@ class TelegramClientException(
  * auth/connection state as [StateFlow]s for UI observation.
  */
 interface MusicTelegramClient {
+
+    /** The authenticated Telegram user's profile info. */
+    val currentUser: StateFlow<TelegramUser?>
+
+    /** Re-fetches the current user from Telegram servers. */
+    suspend fun fetchCurrentUser(): TelegramUser?
 
     /** Authorization progress (phone/code/QR/password → [TelegramAuthState.Ready]). */
     val authState: StateFlow<TelegramAuthState>
@@ -128,6 +155,9 @@ interface MusicTelegramClient {
 
     /** Logs out of the current session and clears parameter state. */
     suspend fun logout()
+
+    /** Restarts the TDLib client session cleanly from the initial parameters. */
+    suspend fun restart()
 
     /** Global message search for audio files. */
     suspend fun searchAllAudio(query: String = "", limit: Int = TelegramConfig.DEFAULT_PAGE_LIMIT): List<RemoteAudio>
@@ -223,7 +253,12 @@ interface MusicTelegramClient {
      * a stored fileId that now resolves to a different file must not
      * contribute THAT file's art to this track's row.
      */
-    suspend fun embeddedTrackCoverUrl(fileId: String?, expectedUniqueId: String?): String? = null
+    suspend fun embeddedTrackCoverUrl(
+        fileId: String?,
+        expectedUniqueId: String?,
+        chatId: Long = 0L,
+        messageId: Long = 0L,
+    ): String? = null
 
     /**
      * Candidate chats worth scanning (channels/supergroups): every dialog in

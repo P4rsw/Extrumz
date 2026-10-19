@@ -20,6 +20,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.PlaylistAdd
+import com.extrumz.app.ui.components.ExtrumzInputDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
@@ -264,26 +266,14 @@ fun AddToPlaylistSheet(
 /** Names a playlist that is about to be created with the song already in it. */
 @Composable
 private fun NamePlaylistDialog(onDismiss: () -> Unit, onConfirm: (String) -> Unit) {
-    var text by remember { mutableStateOf("") }
-    androidx.compose.material3.AlertDialog(
+    ExtrumzInputDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.playlists_new)) },
-        text = {
-            androidx.compose.material3.OutlinedTextField(
-                value = text,
-                onValueChange = { text = it },
-                singleLine = true,
-                label = { Text(stringResource(R.string.playlists_name_hint)) },
-            )
-        },
-        confirmButton = {
-            TextButton(onClick = { onConfirm(text.trim()) }, enabled = text.isNotBlank()) {
-                Text(stringResource(R.string.playlists_create))
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text(stringResource(R.string.playlists_cancel)) }
-        },
+        title = stringResource(R.string.playlists_new),
+        placeholder = stringResource(R.string.playlists_name_hint),
+        confirmText = stringResource(R.string.playlists_create),
+        dismissText = stringResource(R.string.playlists_cancel),
+        icon = Icons.Rounded.PlaylistAdd,
+        onConfirm = onConfirm,
     )
 }
 

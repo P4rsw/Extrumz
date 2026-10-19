@@ -17,18 +17,22 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Bookmark
 import androidx.compose.material.icons.rounded.FilterAlt
 import androidx.compose.material.icons.rounded.Refresh
+import androidx.compose.ui.graphics.Color
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -97,11 +101,19 @@ fun ChannelsScreen(
     // "Chat not found" → untrack cascade that broke scans.
     val chats by TelegramDb.chatDao.observeAllChats()
         .collectAsState(initial = emptyList())
+    val myUserId by TelegramAuthController.myUserId.collectAsState()
     val filterEmpty by AppSettings.filterEmptyChats.collectAsState()
-    val visibleChats = if (filterEmpty) {
-        chats.filter { it.trackCount > 0 }
+    val baseVisibleChats = if (filterEmpty) {
+        chats.filter { it.trackCount > 0 || (myUserId != null && it.chatId == myUserId) }
     } else {
         chats
+    }
+    val visibleChats = remember(baseVisibleChats, myUserId) {
+        if (myUserId != null) {
+            baseVisibleChats.sortedByDescending { it.chatId == myUserId }
+        } else {
+            baseVisibleChats
+        }
     }
     // Restore-from-list (tdlib/td#3673): chats TDLib refuses to list ever
     // again are re-added BY ID from files/restore_chats.json. Only rows are
@@ -197,28 +209,61 @@ fun ChannelsScreen(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 4.dp),
+                    .padding(horizontal = 16.dp, vertical = 6.dp),
             ) {
-                TextButton(onClick = { AppSettings.setFilterEmptyChats(!filterEmpty) }) {
-                    Icon(
-                        imageVector = Icons.Rounded.FilterAlt,
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp),
-                    )
-                    Spacer(Modifier.width(6.dp))
-                    Text(
-                        stringResource(
-                            if (filterEmpty) R.string.tg_show_empty_chats
-                            else R.string.tg_hide_empty_chats,
-                        ),
-                        style = MaterialTheme.typography.labelLarge,
-                    )
+                Surface(
+                    shape = CircleShape,
+                    color = if (filterEmpty) {
+                        MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
+                    } else {
+                        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
+                    },
+                    border = BorderStroke(
+                        width = 1.dp,
+                        color = if (filterEmpty) {
+                            MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)
+                        } else {
+                            MaterialTheme.colorScheme.outline.copy(alpha = 0.15f)
+                        },
+                    ),
+                    modifier = Modifier.clip(CircleShape),
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .clickable { AppSettings.setFilterEmptyChats(!filterEmpty) }
+                            .padding(horizontal = 12.dp, vertical = 6.dp),
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.FilterAlt,
+                            contentDescription = null,
+                            tint = if (filterEmpty) {
+                                MaterialTheme.colorScheme.primary
+                            } else {
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                            },
+                            modifier = Modifier.size(16.dp),
+                        )
+                        Spacer(Modifier.width(6.dp))
+                        Text(
+                            stringResource(
+                                if (filterEmpty) R.string.tg_show_empty_chats
+                                else R.string.tg_hide_empty_chats,
+                            ),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = if (filterEmpty) {
+                                MaterialTheme.colorScheme.primary
+                            } else {
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                            },
+                        )
+                    }
                 }
                 Spacer(Modifier.weight(1f))
                 // The count is the button's proof: it changes with the
                 // toggle, so a filtered row is visibly still in the DB.
                 Text(
-                    "${visibleChats.size} چت",
+                    stringResource(R.string.chats_count, visibleChats.size),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -327,9 +372,11 @@ fun ChannelsScreen(
                 ),
             ) {
                 items(visibleChats, key = { it.chatId }) { chat ->
+                    val isSaved = myUserId != null && chat.chatId == myUserId
                     ChatRow(
                         chat = chat,
                         isSelected = selected == chat.chatId,
+                        isSavedMessages = isSaved,
                         onLongPress = { holding = chat },
                         onClick = {
                             TelegramUi.selectedChatId.value =
@@ -400,6 +447,7 @@ internal fun displayErrorDetail(detail: String?, max: Int = 120): String? {
 private fun ChatRow(
     chat: ChatSource,
     isSelected: Boolean,
+    isSavedMessages: Boolean,
     onClick: () -> Unit,
     onLongPress: () -> Unit,
 ) {
@@ -411,47 +459,55 @@ private fun ChatRow(
             .padding(horizontal = 16.dp, vertical = 12.dp),
     ) {
         val photoUrl = chat.photoUrl
-        // F8: channels scanned before photoUrl existed (or with no inline
-        // bytes) fetch their avatar once, the first time the row is on screen —
-        // and Tier 2 (full-size) lands first, so a row carrying only the inline
-        // minithumbnail still upgrades to covers/hq_*. One key per chat,
-        // deduped — a fling through the list costs one fetch per channel, ever,
-        // and nothing at all once the row has an HQ URL.
-        LaunchedEffect(chat.chatId, photoUrl) {
-            // Fling guard, same as the songs list: a row passed at speed
-            // unbinds before this expires, so a fast scroll through the
-            // channel list costs no requests — rows that stop on screen
-            // fetch, and the auth wait inside Covers resumes them the moment
-            // TDLib connects.
-            delay(250)
-            Covers.improveChatPhoto(chat.chatId, photoUrl)
+        if (!isSavedMessages) {
+            LaunchedEffect(chat.chatId, photoUrl) {
+                delay(250)
+                Covers.improveChatPhoto(chat.chatId, photoUrl)
+            }
         }
-        Box(
-            modifier = Modifier
-                .size(44.dp)
-                .clip(CircleShape)
-                .background(MaterialTheme.colorScheme.surfaceVariant),
-            contentAlignment = Alignment.Center,
-        ) {
-            if (photoUrl.isNullOrBlank()) {
-                Text(
-                    chat.title.take(1),
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+        if (isSavedMessages) {
+            Box(
+                modifier = Modifier
+                    .size(44.dp)
+                    .clip(CircleShape)
+                    .background(Color(0xFF2AABEE)),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.Bookmark,
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(24.dp),
                 )
-            } else {
-                AsyncImage(
-                    model = photoUrl.artworkAt(ROW_ART_PX),
-                    contentDescription = chat.title,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize(),
-                )
+            }
+        } else {
+            Box(
+                modifier = Modifier
+                    .size(44.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.surfaceVariant),
+                contentAlignment = Alignment.Center,
+            ) {
+                if (photoUrl.isNullOrBlank()) {
+                    Text(
+                        chat.title.take(1),
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                } else {
+                    AsyncImage(
+                        model = photoUrl.artworkAt(ROW_ART_PX),
+                        contentDescription = chat.title,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                }
             }
         }
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
             Text(
-                chat.title,
+                if (isSavedMessages) stringResource(R.string.saved_messages) else chat.title,
                 style = MaterialTheme.typography.bodyLarge,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -547,9 +603,11 @@ private fun ChannelHoldMenu(
         containerColor = MaterialTheme.colorScheme.surface,
     ) {
         com.extrumz.app.ui.util.ProvideLocaleDirection {
+            val myUserId by TelegramAuthController.myUserId.collectAsState()
+            val isSaved = myUserId != null && chat.chatId == myUserId
             Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp)) {
                 Text(
-                    text = chat.title,
+                    text = if (isSaved) stringResource(R.string.saved_messages) else chat.title,
                     style = MaterialTheme.typography.titleLarge,
                     color = MaterialTheme.colorScheme.onSurface,
                 )

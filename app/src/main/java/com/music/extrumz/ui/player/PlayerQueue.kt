@@ -324,12 +324,6 @@ internal fun InlineQueue(
                     }
                     queueSection(tracks.context, QueueSection.CONTEXT, drag, onJumpTo, onRemove)
                 }
-                if (autoplayEnabled || tracks.autoplay.isNotEmpty()) {
-                    item(key = "autoplay-heading") {
-                        AutoplayHeading(hasTracks = tracks.autoplay.isNotEmpty(), modifier = queueMotion())
-                    }
-                    queueSection(tracks.autoplay, QueueSection.AUTOPLAY, drag, onJumpTo, onRemove)
-                }
             }
             // The held row, drawn over the list where the finger is. Positioned
             // from the finger alone, so nothing the list does underneath — a
@@ -415,37 +409,6 @@ private fun QueueClearButton(style: TextStyle, onClear: () -> Unit) {
     )
 }
 
-@Composable
-private fun AutoplayHeading(hasTracks: Boolean, modifier: Modifier = Modifier) {
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(vertical = 14.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Icon(
-            ExtrumzIcons.Infinity,
-            contentDescription = null,
-            tint = Color.White.copy(alpha = 0.75f),
-            modifier = Modifier.size(18.dp),
-        )
-        Spacer(Modifier.width(8.dp))
-        Column {
-            Text(
-                text = stringResource(R.string.autoplay),
-                style = MaterialTheme.typography.titleMedium,
-                color = Color.White,
-            )
-            Text(
-                text = stringResource(
-                    if (hasTracks) R.string.autoplay_queue_description else R.string.autoplay_empty_description,
-                ),
-                style = MaterialTheme.typography.bodyMedium,
-                color = Color.White.copy(alpha = 0.55f),
-            )
-        }
-    }
-}
 
 /**
  * How far in from either end of the queue a held row starts scrolling the list,

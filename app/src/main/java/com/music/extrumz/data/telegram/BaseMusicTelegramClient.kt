@@ -22,6 +22,11 @@ abstract class BaseMusicTelegramClient : MusicTelegramClient {
         MutableStateFlow<TelegramAuthState>(TelegramAuthState.Uninitialized)
     override val authState: StateFlow<TelegramAuthState> = _authState.asStateFlow()
 
+    protected val _currentUser = MutableStateFlow<TelegramUser?>(null)
+    override val currentUser: StateFlow<TelegramUser?> = _currentUser.asStateFlow()
+
+    override suspend fun fetchCurrentUser(): TelegramUser? = null
+
     /** Overridden by the Android client, which owns the TDLib instance. */
     override fun applyProxy(settings: ProxySettings) = Unit
 
@@ -76,4 +81,6 @@ abstract class BaseMusicTelegramClient : MusicTelegramClient {
 
     protected fun requireCredentials(): TelegramCredentials =
         credentials ?: throw IllegalStateException("Credentials not set")
+
+    override suspend fun restart() {}
 }

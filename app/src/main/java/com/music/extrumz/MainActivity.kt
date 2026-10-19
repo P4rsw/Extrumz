@@ -45,6 +45,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -63,8 +65,8 @@ import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.Sort
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
+import com.extrumz.app.ui.components.ExtrumzDropdownMenu
+import com.extrumz.app.ui.components.ExtrumzDropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -165,7 +167,6 @@ import com.extrumz.app.ui.components.BrowseActionsSheet
 import com.extrumz.app.ui.components.BrowseTarget
 import com.extrumz.app.ui.components.DownloadManagerSheet
 import com.extrumz.app.ui.components.SongActionsSheet
-import com.extrumz.app.ui.components.TelegramAuthDialog
 import androidx.media3.session.MediaController
 import com.extrumz.app.playback.rememberMediaController
 import com.extrumz.app.playback.rememberPlayerState
@@ -174,6 +175,7 @@ import com.extrumz.app.ui.components.BottomFadeScrim
 import com.extrumz.app.ui.components.BottomTab
 import com.extrumz.app.ui.components.FLOATING_BAR_MAX_WIDTH
 import com.extrumz.app.ui.components.FloatingBottomBar
+import com.extrumz.app.ui.components.PAGE_GUTTER
 import com.extrumz.app.ui.components.GlassNavBar
 import com.extrumz.app.ui.components.floatingtabbar.rememberFloatingTabBarScrollConnection
 import com.extrumz.app.ui.components.FrostedTopBar
@@ -202,8 +204,18 @@ import com.extrumz.app.ui.screens.LocalMusicScreen
 import com.extrumz.app.ui.screens.LibraryGridPage
 import com.extrumz.app.ui.screens.LibraryScreen
 import com.extrumz.app.ui.screens.SearchScreen
+import com.extrumz.app.ui.screens.WelcomeScreen
+import com.extrumz.app.ui.screens.PhoneLoginScreen
+import com.extrumz.app.ui.screens.QrLoginScreen
+import com.extrumz.app.ui.screens.ProfileScreen
+import com.extrumz.app.ui.components.MainFloatingActions
+import com.extrumz.app.ui.components.isMainContentTab
+import com.extrumz.app.ui.components.shouldShowJumpToTop
+import com.extrumz.app.data.telegram.ProxyStore
+import com.extrumz.app.data.telegram.shouldShowWelcome
 import com.extrumz.app.data.settings.SongSort
 import com.extrumz.app.ui.util.ProvideLocaleDirection
+import com.extrumz.app.ui.util.isRtlReading
 import com.extrumz.app.ui.replay.ReplayScreen
 import com.extrumz.app.ui.replay.cards
 import com.extrumz.app.ui.replay.ReplayShareSheet
@@ -305,13 +317,27 @@ class MainActivity : AppCompatActivity() {
                 // longer exists and a page squeezed to a sliver to pay for it.
                 // A measured constraint cannot be stale — it is the very width
                 // the split is about to be laid out in.
-                BoxWithConstraints(Modifier.fillMaxSize()) {
-                    ExtrumzApp(
-                        darkTheme = darkTheme,
-                        windowWidth = maxWidth,
-                        windowHeight = maxHeight,
-                        appBackdrop = appBackdrop,
-                    )
+                Box(Modifier.fillMaxSize()) {
+                    BoxWithConstraints(Modifier.fillMaxSize()) {
+                        ExtrumzApp(
+                            darkTheme = darkTheme,
+                            windowWidth = maxWidth,
+                            windowHeight = maxHeight,
+                            appBackdrop = appBackdrop,
+                        )
+                    }
+
+                    // The splash covers the cold start, mounted above the whole app
+                    // so it draws on top of every page and sheet on the first frame.
+                    var coldStartDone by remember { mutableStateOf(false) }
+                    LaunchedEffect(Unit) {
+                        kotlinx.coroutines.delay(COLD_START_COVER_MS)
+                        coldStartDone = true
+                    }
+                    val telegramState by Telegram.client.authState.collectAsStateWithLifecycle()
+                    val isAuthInitializing = telegramState is TelegramAuthState.Uninitialized ||
+                        telegramState is TelegramAuthState.Initializing
+                    ExtrumzSplash(visible = !coldStartDone || isAuthInitializing)
                 }
                 }
             }
@@ -424,6 +450,9 @@ private fun ExtrumzApp(
     var replaySharePage by remember { mutableStateOf<ReplayStoryPage?>(null) }
     var showEqualizer by remember { mutableStateOf(false) }
     var showProxyScreen by remember { mutableStateOf(false) }
+    var showPhoneLoginScreen by remember { mutableStateOf(false) }
+    var showQrLoginScreen by remember { mutableStateOf(false) }
+    var showProfileScreen by remember { mutableStateOf(false) }
 
     var showHistory by remember { mutableStateOf(false) }
     // The full-screen channel picker (see [ChannelsScreen]), reached from the
@@ -645,13 +674,11 @@ private fun ExtrumzApp(
         }
     }
 
+    val songsListState = rememberLazyListState()
     val libraryListState = rememberLazyListState()
     val historyListState = rememberLazyListState()
     val libraryShowAllGridState = rememberLazyGridState()
     val searchListState = rememberLazyListState()
-    // The home tab lays out its own list, so there is nothing hoisted to read
-    // an offset from. One state nobody attaches stands in for it: it never
-    // scrolls, and the top bar's title stays at full size there.
     val idleListState = rememberLazyListState()
     val currentListState = when (selectedTab) {
         TAB_LIBRARY -> libraryListState
@@ -1479,6 +1506,9 @@ private fun ExtrumzApp(
                 showSettings = false
                 showEqualizer = false
                 showProxyScreen = false
+                showPhoneLoginScreen = false
+                showQrLoginScreen = false
+                showProfileScreen = false
                 showReplay = false
                 showHistory = false
                 showChannels = false
@@ -1531,6 +1561,9 @@ private fun ExtrumzApp(
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background),
     ) {
+        val telegramState by Telegram.client.authState.collectAsStateWithLifecycle()
+        val isWelcomeVisible = shouldShowWelcome(telegramState)
+
         // A pushed album/artist/playlist page replaces the tab content but
         // leaves the tab bar and mini player in place.
         // Replay's three layers unwind in the order they were opened. Ahead of
@@ -1552,19 +1585,31 @@ private fun ExtrumzApp(
         BackHandler(enabled = showProxyScreen) {
             showProxyScreen = false
         }
+        BackHandler(enabled = showPhoneLoginScreen) {
+            showPhoneLoginScreen = false
+            TelegramAuthController.dismissAuthUi()
+        }
+        BackHandler(enabled = showQrLoginScreen) {
+            showQrLoginScreen = false
+            TelegramAuthController.dismissAuthUi()
+        }
+        BackHandler(enabled = showProfileScreen && !showSettings && !showProxyScreen && !showChannels && !showEqualizer) {
+            showProfileScreen = false
+        }
         // One back step out of Settings, or out of any tab but Home, lands on
         // Home rather than exiting — only Home itself hands back to the system,
         // which is what actually closes/minimizes the app.
-        BackHandler(enabled = showSettings && !showEqualizer && !showProxyScreen) {
+        BackHandler(enabled = showSettings && !showEqualizer && !showProxyScreen && !showPhoneLoginScreen && !showQrLoginScreen) {
             showSettings = false
             // Only when Settings was the whole of what was on screen. Opened
             // over Replay or over a release page, closing it reveals that again
             // rather than throwing both away.
-            if (detail == null && !showReplay) selectedTab = TAB_HOME
+            if (detail == null && !showReplay && !showProfileScreen) selectedTab = TAB_HOME
         }
         BackHandler(
-            enabled = detail == null && !showSettings &&
-                !showEqualizer && !showProxyScreen && !showReplay && !showChannels && !showPlaylists &&
+            enabled = !isWelcomeVisible && detail == null && !showSettings &&
+                !showEqualizer && !showProxyScreen && !showPhoneLoginScreen && !showQrLoginScreen && !showProfileScreen &&
+                !showReplay && !showChannels && !showPlaylists &&
                 selectedTab != TAB_HOME,
         ) {
             selectedTab = TAB_HOME
@@ -1587,59 +1632,36 @@ private fun ExtrumzApp(
         // one child it always had and changes nothing.
         val showTelegramAuth by
             TelegramAuthController.showAuth.collectAsStateWithLifecycle()
-        if (showTelegramAuth) {
-            TelegramAuthDialog(onDismiss = { TelegramAuthController.dismissAuthUi() })
+        LaunchedEffect(showTelegramAuth) {
+            if (showTelegramAuth) {
+                showPhoneLoginScreen = true
+            }
+        }
+        LaunchedEffect(telegramState) {
+            if (telegramState is TelegramAuthState.Ready) {
+                showPhoneLoginScreen = false
+                showQrLoginScreen = false
+                TelegramAuthController.dismissAuthUi()
+            }
         }
 
-        // The cold-start window: TDLib is booting and nothing has been indexed
-        // yet, which used to be a bare window in the theme's colour. The mark
-        // covers it and breathes, so a slow start reads as working rather than
-        // as a black screen that may or may not be the app.
-        val telegramState by Telegram.client.authState.collectAsStateWithLifecycle()
-        // The splash covers the cold start, and only the cold start.
-        //
-        // It used to hang on `telegramState is Initializing`, which is wrong
-        // twice over. A returning user -- already authorized -- goes straight
-        // to Ready, so the condition was never true and the overlay never
-        // appeared at all for the people who open the app most. And the state
-        // is not monotonic: TDLib starts late enough that Initializing is
-        // emitted again after the library has already drawn its first frame,
-        // so the splash came down on top of a working app.
-        //
-        // A latch instead: it is up when the process starts, it goes down once
-        // the cold-start window has passed, and it does not come back. What
-        // takes the time on a cold start is the library -- ten thousand rows
-        // and their covers out of Room -- and that is covered by the window.
-        // ExtrumzSplash keeps its own MAX_VISIBLE_MS as the outer cap.
-        var coldStartDone by remember { mutableStateOf(false) }
-        LaunchedEffect(Unit) {
-            kotlinx.coroutines.delay(COLD_START_COVER_MS)
-            coldStartDone = true
-        }
-        ExtrumzSplash(visible = !coldStartDone)
         Row(Modifier.fillMaxSize()) {
             Box(Modifier.weight(1f).fillMaxHeight()) {
                 AnimatedContent(
                     targetState = when {
+                        isWelcomeVisible && !showProxyScreen && !showPhoneLoginScreen && !showQrLoginScreen -> "welcome"
                         showHistory -> "history"
                         openPlaylistId != null -> "playlist_detail"
                         showLiked -> "liked"
                         showPlaylists -> "playlists"
                         showChannels -> "channels"
-                        // `&& detail == null`: a card opened from the grid
-                        // stacks a detail page over it exactly as one opened
-                        // from the Library tab does — see
-                        // [onLibraryItemClick] — so with both set this must
-                        // give way to the `detail != null` branch below it
-                        // rather than keep showing the grid underneath.
                         libraryShowAll != null && detail == null -> "library_show_all"
                         showEqualizer -> "equalizer"
                         showProxyScreen -> "proxy"
-                        // Above Replay, not below it. The top bar's account
-                        // button sets `showSettings` from every page including
-                        // this one, so with Replay winning the tie the button
-                        // was live, hit, and changed nothing on screen.
+                        showPhoneLoginScreen -> "login_phone"
+                        showQrLoginScreen -> "login_qr"
                         showSettings -> "settings"
+                        showProfileScreen -> "profile"
                         showReplay -> "replay"
                         detail != null -> detail.browseId
                         else -> "$TAB_KEY$selectedTab"
@@ -1850,6 +1872,38 @@ private fun ExtrumzApp(
                                 landingPage = replayLandingPage,
                             )
                         }
+                    } else if (key == "welcome") {
+                        WelcomeScreen(
+                            onLoginPhoneClick = {
+                                TelegramAuthController.usePhoneNumberInstead()
+                                showPhoneLoginScreen = true
+                            },
+                            onLoginQrClick = {
+                                showQrLoginScreen = true
+                            },
+                            onProxyClick = {
+                                showProxyScreen = true
+                            },
+                            onLanguageClick = {
+                                showAppLanguage = true
+                            },
+                        )
+                    } else if (key == "login_phone") {
+                        PhoneLoginScreen(
+                            contentPadding = listPadding,
+                            onSwitchToQr = {
+                                showPhoneLoginScreen = false
+                                showQrLoginScreen = true
+                            },
+                        )
+                    } else if (key == "login_qr") {
+                        QrLoginScreen(
+                            contentPadding = listPadding,
+                            onSwitchToPhone = {
+                                showQrLoginScreen = false
+                                showPhoneLoginScreen = true
+                            },
+                        )
                     } else if (key == "equalizer") {
                         EqualizerScreen(contentPadding = listPadding)
                     } else if (key == "proxy") {
@@ -1880,6 +1934,17 @@ private fun ExtrumzApp(
                             contentPadding = listPadding,
                         )
                     }
+                    } else if (key == "profile") {
+                        ProfileScreen(
+                            contentPadding = listPadding,
+                            onOpenSettings = { showSettings = true },
+                            onOpenProxy = { showProxyScreen = true },
+                            onOpenChannels = { showChannels = true },
+                            onOpenSavedMessages = {
+                                showProfileScreen = false
+                                showChannels = true
+                            },
+                        )
                     } else if (page != null && page.browseId.isDeviceFolder()) {
                         // Local Music and Downloads — both the tabbed Songs / Artists /
                         // Albums view. Two folders of tracks already on the device, so
@@ -2190,6 +2255,7 @@ private fun ExtrumzApp(
                         else -> SongsScreen(
                             contentPadding = listPadding,
                             currentSong = player.song,
+                            listState = songsListState,
                             onSongClick = { songs, index ->
                                 playFrom(
                                     songs,
@@ -2214,35 +2280,36 @@ private fun ExtrumzApp(
                     (detail.type == BrowseType.ALBUM ||
                         detail.type == BrowseType.PLAYLIST ||
                         detail.type == BrowseType.ARTIST) &&
-                    !isLocalDetail && !showHistory && !showSettings &&
-                    !showEqualizer && !showProxyScreen && !showReplay
+                    !isLocalDetail && !showHistory && !showSettings && !showProfileScreen &&
+                    !showEqualizer && !showProxyScreen && !showPhoneLoginScreen && !showQrLoginScreen && !showReplay
                 val isReplayVisible = showReplay && !showHistory &&
                     !(libraryShowAll != null && detail == null) &&
-                    !showEqualizer && !showProxyScreen && !showSettings
+                    !showEqualizer && !showProxyScreen && !showPhoneLoginScreen && !showQrLoginScreen && !showProfileScreen && !showSettings
                 val chromePageColor = if (isDetailVisible) {
                     detailPalette.background
                 } else {
                     MaterialTheme.colorScheme.background
                 }
-                // This is the bottom floor itself turned upside down, not a
-                // separately maintained approximation. Both edges therefore
-                // share the same curve, height and page-aware colour — including
-                // the white theme background in light mode.
-                BottomFadeScrim(
-                    pageColor = chromePageColor,
-                    modifier = Modifier
-                        .align(Alignment.TopCenter)
-                        .rotate(180f),
-                )
-
-                // With Liquid Glass enabled, every page uses separated floating
-                // controls and therefore has no full-width pane underneath.
-                if (!glassActive && !isReplayVisible && !isDetailVisible) {
-                    TopBarBlur(
-                        hazeState = hazeState,
-                        modifier = Modifier.align(Alignment.TopCenter),
+                if (!isWelcomeVisible || showProxyScreen || showPhoneLoginScreen || showQrLoginScreen || showProfileScreen) {
+                    // This is the bottom floor itself turned upside down, not a
+                    // separately maintained approximation. Both edges therefore
+                    // share the same curve, height and page-aware colour — including
+                    // the white theme background in light mode.
+                    BottomFadeScrim(
+                        pageColor = chromePageColor,
+                        modifier = Modifier
+                            .align(Alignment.TopCenter)
+                            .rotate(180f),
                     )
-                }
+
+                    // With Liquid Glass enabled, every page uses separated floating
+                    // controls and therefore has no full-width pane underneath.
+                    if (!glassActive && !isReplayVisible && !isDetailVisible) {
+                        TopBarBlur(
+                            hazeState = hazeState,
+                            modifier = Modifier.align(Alignment.TopCenter),
+                        )
+                    }
 
                     FrostedTopBar(
                         title = when {
@@ -2252,168 +2319,177 @@ private fun ExtrumzApp(
                                 openPlaylistTitle ?: stringResource(R.string.playlists)
                             showPlaylists -> stringResource(R.string.playlists)
                             libraryShowAll != null && detail == null -> libraryShowAll?.title.orEmpty()
-                        showEqualizer -> stringResource(R.string.equalizer)
-                        showProxyScreen -> stringResource(R.string.proxy)
-                        showSettings -> stringResource(R.string.settings)
-                        showReplay -> stringResource(R.string.replay)
-                        detail != null && detailActiveShelf != null -> detailActiveShelf?.title.orEmpty()
-                        detail != null -> detail.title
-                        // getOrNull: a saved-state key from the pre-stage-1
-                        // build can still hold an index this three-tab list
-                        // has no meaning for — home beats crashing. The old
-                        // "Play" remap was YouTube-fork dead code.
-                        else -> tabs.getOrNull(selectedTab)?.label ?: tabs.first().label
-                    },
-                    transparentBackdrop = glassActive || isReplayVisible || isDetailVisible,
-                    artworkPageChrome = isReplayVisible || isDetailVisible,
-                    backButtonHazeState = hazeState,
-                    trailingTitle = if (detail != null && detailActiveShelf != null) detail.title else null,
-                    // Search has no large in-list header to hand the title back to —
-                    // the field takes that space — so its bar title is always up.
-                    scrolled = when {
-                        // The picker owns its list; its big title stays up the
-                        // way the Channels tab's did when it was a tab.
-                        showChannels -> false
-                        // false, like the channels picker: the bar's title IS
-                        // the page's heading, so it has nothing to hand back
-                        // to — hiding it on scroll would leave the page nameless.
-                        openPlaylistId != null -> false
-                        // false, for the same reason as the playlist's own
-                        // page: the bar's title is this page's heading, so
-                        // there is nothing for it to hand back to.
-                        showLiked -> false
-                        showPlaylists -> false
-                        showSettings ||
-                            showEqualizer ||
-                            showProxyScreen ||
-                            showHistory ||
-                            (libraryShowAll != null && detail == null) ||
-                            (detail != null && detailActiveShelf != null) -> true
-                        // The page leads with its own large "Replay", so the bar
-                        // stays out of the way until that has been scrolled off.
-                        showReplay -> replayScrolled
-                        detail != null -> detailScrolled
-                        else -> scrolled || selectedTab == TAB_SEARCH
-                    },
-                    refreshing = false,
-                    pullFraction = { 0f },
-                    onBack = when {
-                        showHistory -> ({ showHistory = false })
-                        showChannels -> ({ showChannels = false })
-                        openPlaylistId != null -> ({ openPlaylistId = null })
-                        showLiked -> ({ showLiked = false })
-                        showPlaylists -> ({ showPlaylists = false })
-                        libraryShowAll != null && detail == null -> ({ libraryShowAll = null })
-                        showEqualizer -> ({ showEqualizer = false })
-                        showProxyScreen -> ({ showProxyScreen = false })
-                        showSettings -> ({ showSettings = false })
-                        showReplay -> ({ showReplay = false })
-                        detailActiveShelf != null -> ({ detailActiveShelf = null })
-                        detail != null -> ({ viewModel.closeDetail(); Unit })
-                        else -> null
-                    },
-                    modifier = Modifier.align(Alignment.TopCenter),
-                    actions = {
-                        if (!showSettings) {
-                            // Left of the account photo, and only on Library itself:
-                            // a history is a record of what was played, which reads
-                            // as that tab's business rather than every tab's.
-                            if (!showHistory && !showReplay && !showChannels && !showPlaylists &&
-                                libraryShowAll == null &&
-                                detail == null && selectedTab == TAB_LIBRARY
-                            ) {
-                                IconButton(
-                                    onClick = {
-                                        showHistory = true
-                                        viewModel.loadHistory()
-                                    },
+                            showEqualizer -> stringResource(R.string.equalizer)
+                            showProxyScreen -> stringResource(R.string.proxy)
+                            showPhoneLoginScreen -> stringResource(R.string.login_phone_title)
+                            showQrLoginScreen -> stringResource(R.string.login_qr_title)
+                            showProfileScreen -> stringResource(R.string.profile_title)
+                            showSettings -> stringResource(R.string.settings)
+                            showReplay -> stringResource(R.string.replay)
+                            detail != null && detailActiveShelf != null -> detailActiveShelf?.title.orEmpty()
+                            detail != null -> detail.title
+                            // getOrNull: a saved-state key from the pre-stage-1
+                            // build can still hold an index this three-tab list
+                            // has no meaning for — home beats crashing. The old
+                            // "Play" remap was YouTube-fork dead code.
+                            else -> tabs.getOrNull(selectedTab)?.label ?: tabs.first().label
+                        },
+                        transparentBackdrop = glassActive || isReplayVisible || isDetailVisible,
+                        artworkPageChrome = isReplayVisible || isDetailVisible,
+                        backButtonHazeState = hazeState,
+                        trailingTitle = if (detail != null && detailActiveShelf != null) detail.title else null,
+                        // Search has no large in-list header to hand the title back to —
+                        // the field takes that space — so its bar title is always up.
+                        scrolled = when {
+                            // The picker owns its list; its big title stays up the
+                            // way the Channels tab's did when it was a tab.
+                            showChannels -> false
+                            // false, like the channels picker: the bar's title IS
+                            // the page's heading, so it has nothing to hand back
+                            // to — hiding it on scroll would leave the page nameless.
+                            openPlaylistId != null -> false
+                            // false, for the same reason as the playlist's own
+                            // page: the bar's title is this page's heading, so
+                            // there is nothing for it to hand back to.
+                            showLiked -> false
+                            showPlaylists -> false
+                            showSettings ||
+                                showEqualizer ||
+                                showProxyScreen ||
+                                showPhoneLoginScreen ||
+                                showQrLoginScreen ||
+                                showProfileScreen ||
+                                showHistory ||
+                                (libraryShowAll != null && detail == null) ||
+                                (detail != null && detailActiveShelf != null) -> true
+                            // The page leads with its own large "Replay", so the bar
+                            // stays out of the way until that has been scrolled off.
+                            showReplay -> replayScrolled
+                            detail != null -> detailScrolled
+                            else -> scrolled || selectedTab == TAB_SEARCH
+                        },
+                        refreshing = false,
+                        pullFraction = { 0f },
+                        onBack = when {
+                            showHistory -> ({ showHistory = false })
+                            showChannels -> ({ showChannels = false })
+                            openPlaylistId != null -> ({ openPlaylistId = null })
+                            showLiked -> ({ showLiked = false })
+                            showPlaylists -> ({ showPlaylists = false })
+                            libraryShowAll != null && detail == null -> ({ libraryShowAll = null })
+                            showEqualizer -> ({ showEqualizer = false })
+                            showProxyScreen -> ({ showProxyScreen = false })
+                            showPhoneLoginScreen -> ({ showPhoneLoginScreen = false; TelegramAuthController.dismissAuthUi() })
+                            showQrLoginScreen -> ({ showQrLoginScreen = false; TelegramAuthController.dismissAuthUi() })
+                            showProfileScreen -> ({ showProfileScreen = false })
+                            showSettings -> ({ showSettings = false })
+                            showReplay -> ({ showReplay = false })
+                            detailActiveShelf != null -> ({ detailActiveShelf = null })
+                            detail != null -> ({ viewModel.closeDetail(); Unit })
+                            else -> null
+                        },
+                        modifier = Modifier.align(Alignment.TopCenter),
+                        actions = {
+                            if (!showSettings && !showProfileScreen && !showProxyScreen && !showPhoneLoginScreen && !showQrLoginScreen && !showEqualizer) {
+                                // Left of the account photo, and only on Library itself:
+                                // a history is a record of what was played, which reads
+                                // as that tab's business rather than every tab's.
+                                if (!showHistory && !showReplay && !showChannels && !showPlaylists &&
+                                    libraryShowAll == null &&
+                                    detail == null && selectedTab == TAB_LIBRARY
                                 ) {
-                                    Icon(
-                                        Icons.Rounded.History,
-                                        contentDescription = stringResource(R.string.listening_history),
-                                        tint = MaterialTheme.colorScheme.onSurface,
-                                    )
-                                }
-                            }
-                            // Left of the account photo, and only on a Library
-                            // "Show all" grid — the same control the Downloads
-                            // folder offers (see `LocalSearchField`), adapted to
-                            // the one thing a playlist or album card carries: a
-                            // title.
-                            if (libraryShowAll != null && detail == null) {
-                                Box {
-                                    IconButton(onClick = { librarySortMenuOpen = true }) {
+                                    IconButton(
+                                        onClick = {
+                                            showHistory = true
+                                            viewModel.loadHistory()
+                                        },
+                                    ) {
                                         Icon(
-                                            Icons.Rounded.Sort,
-                                            contentDescription = stringResource(R.string.sort_library),
+                                            Icons.Rounded.History,
+                                            contentDescription = stringResource(R.string.listening_history),
                                             tint = MaterialTheme.colorScheme.onSurface,
                                         )
                                     }
-                                    DropdownMenu(
-                                        expanded = librarySortMenuOpen,
-                                        onDismissRequest = { librarySortMenuOpen = false },
-                                    ) {
-                                        LibrarySort.entries.forEach { option ->
-                                            DropdownMenuItem(
-                                                text = { Text(option.localizedLabel()) },
-                                                trailingIcon = if (option == librarySort) {
-                                                    { Icon(Icons.Rounded.Check, contentDescription = null) }
-                                                } else null,
-                                                onClick = {
-                                                    AppSettings.setLibrarySort(option)
-                                                    librarySortMenuOpen = false
-                                                },
+                                }
+                                // Left of the account photo, and only on a Library
+                                // "Show all" grid — the same control the Downloads
+                                // folder offers (see `LocalSearchField`), adapted to
+                                // the one thing a playlist or album card carries: a
+                                // title.
+                                if (libraryShowAll != null && detail == null) {
+                                    Box {
+                                        IconButton(onClick = { librarySortMenuOpen = true }) {
+                                            Icon(
+                                                Icons.Rounded.Sort,
+                                                contentDescription = stringResource(R.string.sort_library),
+                                                tint = MaterialTheme.colorScheme.onSurface,
                                             )
+                                        }
+                                        ExtrumzDropdownMenu(
+                                            expanded = librarySortMenuOpen,
+                                            onDismissRequest = { librarySortMenuOpen = false },
+                                        ) {
+                                            LibrarySort.entries.forEach { option ->
+                                                ExtrumzDropdownMenuItem(
+                                                    text = { Text(option.localizedLabel()) },
+                                                    trailingIcon = if (option == librarySort) {
+                                                        { Icon(Icons.Rounded.Check, contentDescription = null, modifier = Modifier.size(18.dp)) }
+                                                    } else null,
+                                                    onClick = {
+                                                        AppSettings.setLibrarySort(option)
+                                                        librarySortMenuOpen = false
+                                                    },
+                                                )
+                                            }
                                         }
                                     }
                                 }
-                            }
-                            // Left of the account photo, and only on an album or
-                            // playlist page — an artist page has no single track
-                            // list to reorder, and the device folders already
-                            // carry this same control themselves (see
-                            // `LocalSearchField`).
-                            if (detail != null && !isLocalDetail && detail.type != BrowseType.ARTIST) {
-                                // The menu itself is [FrostedSortMenu], composed
-                                // with the app's other frosted overlays further
-                                // down — in the main hierarchy, where the haze
-                                // can see the content it blurs.
-                                IconButton(onClick = { songSortMenuOpen = true }) {
-                                    Icon(
-                                        Icons.Rounded.Sort,
-                                        contentDescription = stringResource(R.string.sort_songs),
-                                        tint = MaterialTheme.colorScheme.onSurface,
-                                    )
+                                // Left of the account photo, and only on an album or
+                                // playlist page — an artist page has no single track
+                                // list to reorder, and the device folders already
+                                // carry this same control themselves (see
+                                // `LocalSearchField`).
+                                if (detail != null && !isLocalDetail && detail.type != BrowseType.ARTIST) {
+                                    // The menu itself is [FrostedSortMenu], composed
+                                    // with the app's other frosted overlays further
+                                    // down — in the main hierarchy, where the haze
+                                    // can see the content it blurs.
+                                    IconButton(onClick = { songSortMenuOpen = true }) {
+                                        Icon(
+                                            Icons.Rounded.Sort,
+                                            contentDescription = stringResource(R.string.sort_songs),
+                                            tint = MaterialTheme.colorScheme.onSurface,
+                                        )
+                                    }
                                 }
+                                // Left of the account photo, and only there while
+                                // there is a batch to report on — see
+                                // [TopBarDownloadButton], which decides that for
+                                // itself rather than being told.
+                                TopBarDownloadButton(onClick = { showDownloadManager = true })
+                                val telegramUser by Telegram.client.currentUser.collectAsStateWithLifecycle()
+                                TopBarAccountButton(
+                                    account = account,
+                                    avatarUrl = telegramUser?.photoUrl,
+                                    onClick = {
+                                        showChannels = false
+                                        showProfileScreen = true
+                                    },
+                                )
                             }
-                            // Left of the account photo, and only there while
-                            // there is a batch to report on — see
-                            // [TopBarDownloadButton], which decides that for
-                            // itself rather than being told.
-                            TopBarDownloadButton(onClick = { showDownloadManager = true })
-                            TopBarAccountButton(
-                                account = account,
-                                onClick = {
-                                    // Settings is a page of its own; it must
-                                    // not open over the picker and lose to it
-                                    // in the content switch above.
-                                    showChannels = false
-                                    showSettings = true
-                                },
-                            )
-                        }
-                    },
-                )
+                        },
+                    )
 
-                // Drawn before the bars so their own glass reads on top of it.
-                BottomFadeScrim(
-                    withMiniPlayer = player.song != null,
-                    // Not the wash: by the foot of the screen the page has finished
-                    // easing out of it and into this, so this is what is actually
-                    // under the tab bar.
-                    pageColor = chromePageColor,
-                    modifier = Modifier.align(Alignment.BottomCenter),
-                )
+                    // Drawn before the bars so their own glass reads on top of it.
+                    BottomFadeScrim(
+                        withMiniPlayer = player.song != null,
+                        // Not the wash: by the foot of the screen the page has finished
+                        // easing out of it and into this, so this is what is actually
+                        // under the tab bar.
+                        pageColor = chromePageColor,
+                        modifier = Modifier.align(Alignment.BottomCenter),
+                    )
+                }
 
                 // One tab handler, whichever bar is drawing it.
                 val onTabSelected: (Int) -> Unit = { index ->
@@ -2442,53 +2518,26 @@ private fun ExtrumzApp(
                     }
                 }
 
-                if (glassActive) Column(
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .widthIn(max = FLOATING_BAR_MAX_WIDTH)
-                        .fillMaxWidth(),
-                ) {
-                    QueueActionNoticeHost(queueNotice)
-                    // Liquid glass replaces the two stacked bars with the single
-                    // component they are stacked to imitate: the now playing
-                    // controls dock into the tab bar rather than riding above it,
-                    // and the pair folds together on scroll. See [GlassNavBar].
-                    GlassNavBar(
-                        tabs = tabs,
-                        selectedIndex = selectedTab,
-                        onTabSelected = onTabSelected,
-                        scrollConnection = navBarScroll,
-                        song = player.song,
-                        isPlaying = player.isPlaying,
-                        isLoading = playPauseBusy,
-                        onPlayPause = {
-                            togglePlayPause()
-                        },
-                        onNext = { controller?.seekToNextMediaItem() },
-                        onPrevious = { controller?.seekToPrevious() },
-                        onExpand = { showNowPlaying = true },
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                } else Column(
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        // Capped and centred rather than run to the page's edges
-                        // — see [FLOATING_BAR_MAX_WIDTH]. It sits on the Column
-                        // rather than on each bar so the two are held to the same
-                        // width and keep the shared left and right edge they have
-                        // on a phone. Before fillMaxWidth, so the fill has
-                        // already been bounded by the time it is applied.
-                        .widthIn(max = FLOATING_BAR_MAX_WIDTH)
-                        .fillMaxWidth(),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                ) {
-                    QueueActionNoticeHost(queueNotice)
-                    player.song?.let { song ->
-                        MiniPlayer(
-                            song = song,
+                if (!isWelcomeVisible) {
+                    if (glassActive) Column(
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .widthIn(max = FLOATING_BAR_MAX_WIDTH)
+                            .fillMaxWidth(),
+                    ) {
+                        QueueActionNoticeHost(queueNotice)
+                        // Liquid glass replaces the two stacked bars with the single
+                        // component they are stacked to imitate: the now playing
+                        // controls dock into the tab bar rather than riding above it,
+                        // and the pair folds together on scroll. See [GlassNavBar].
+                        GlassNavBar(
+                            tabs = tabs,
+                            selectedIndex = selectedTab,
+                            onTabSelected = onTabSelected,
+                            scrollConnection = navBarScroll,
+                            song = player.song,
                             isPlaying = player.isPlaying,
                             isLoading = playPauseBusy,
-                            hazeState = hazeState,
                             onPlayPause = {
                                 togglePlayPause()
                             },
@@ -2497,14 +2546,112 @@ private fun ExtrumzApp(
                             onExpand = { showNowPlaying = true },
                             modifier = Modifier.fillMaxWidth(),
                         )
-                        Spacer(Modifier.height(8.dp))
+                    } else Column(
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            // Capped and centred rather than run to the page's edges
+                            // — see [FLOATING_BAR_MAX_WIDTH]. It sits on the Column
+                            // rather than on each bar so the two are held to the same
+                            // width and keep the shared left and right edge they have
+                            // on a phone. Before fillMaxWidth, so the fill has
+                            // already been bounded by the time it is applied.
+                            .widthIn(max = FLOATING_BAR_MAX_WIDTH)
+                            .fillMaxWidth(),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        QueueActionNoticeHost(queueNotice)
+                        player.song?.let { song ->
+                            MiniPlayer(
+                                song = song,
+                                isPlaying = player.isPlaying,
+                                isLoading = playPauseBusy,
+                                hazeState = hazeState,
+                                onPlayPause = {
+                                    togglePlayPause()
+                                },
+                                onNext = { controller?.seekToNextMediaItem() },
+                                onPrevious = { controller?.seekToPrevious() },
+                                onExpand = { showNowPlaying = true },
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+                            Spacer(Modifier.height(8.dp))
+                        }
+                        FloatingBottomBar(
+                            tabs = tabs,
+                            selectedIndex = selectedTab,
+                            hazeState = hazeState,
+                            onTabSelected = onTabSelected,
+                        )
                     }
-                    FloatingBottomBar(
-                        tabs = tabs,
-                        selectedIndex = selectedTab,
-                        hazeState = hazeState,
-                        onTabSelected = onTabSelected,
-                    )
+                }
+
+                // Floating shield & return-to-top arrow on main tabs (Songs and Library)
+                val isMainContentTab = isMainContentTab(
+                    isWelcomeVisible = isWelcomeVisible,
+                    selectedTab = selectedTab,
+                    homeTab = TAB_HOME,
+                    libraryTab = TAB_LIBRARY,
+                    hasDetail = detail != null,
+                    hasLibraryShowAll = libraryShowAll != null,
+                    isSettingsOpen = showSettings,
+                    isEqualizerOpen = showEqualizer,
+                    isProxyOpen = showProxyScreen,
+                    isPhoneLoginOpen = showPhoneLoginScreen,
+                    isQrLoginOpen = showQrLoginScreen,
+                    isProfileOpen = showProfileScreen,
+                    isReplayOpen = showReplay,
+                    isHistoryOpen = showHistory,
+                    isChannelsOpen = showChannels,
+                    isPlaylistsOpen = showPlaylists,
+                    isLikedOpen = showLiked,
+                    hasOpenPlaylist = openPlaylistId != null,
+                )
+
+                val proxyOn by ProxyStore.masterEnabled.collectAsStateWithLifecycle()
+                val showJumpToTop by remember {
+                    derivedStateOf {
+                        when (selectedTab) {
+                            TAB_LIBRARY -> shouldShowJumpToTop(
+                                libraryListState.firstVisibleItemIndex,
+                                libraryListState.firstVisibleItemScrollOffset,
+                            )
+                            TAB_HOME -> shouldShowJumpToTop(
+                                songsListState.firstVisibleItemIndex,
+                                songsListState.firstVisibleItemScrollOffset,
+                            )
+                            else -> false
+                        }
+                    }
+                }
+
+                val navBottomPadding = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+                val fabBottomPadding = (if (player.song != null) 148.dp else 80.dp) + navBottomPadding
+
+                CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .widthIn(max = FLOATING_BAR_MAX_WIDTH)
+                            .fillMaxWidth(),
+                    ) {
+                        MainFloatingActions(
+                            showShield = proxyOn && isMainContentTab,
+                            showJumpToTop = showJumpToTop && isMainContentTab,
+                            onShieldClick = { showProxyScreen = true },
+                            onJumpToTopClick = {
+                                scope.launch {
+                                    if (selectedTab == TAB_LIBRARY) {
+                                        libraryListState.animateScrollToItem(0)
+                                    } else if (selectedTab == TAB_HOME) {
+                                        songsListState.animateScrollToItem(0)
+                                    }
+                                }
+                            },
+                            modifier = Modifier
+                                .align(Alignment.BottomEnd)
+                                .padding(end = PAGE_GUTTER, bottom = fabBottomPadding),
+                        )
+                    }
                 }
             }
 
@@ -2671,24 +2818,6 @@ private fun ExtrumzApp(
                     },
                     showSleepTimer = fromPlayer,
                     // Asked for by hand, so it is offered for whatever is
-                    // playing rather than only for a track something has
-                    // already swapped: a track playing off a file the listener
-                    // saved has no stream to improve, and one nothing resolved
-                    // in this process is exactly the case [QualityUpgrade]
-                    // exists for. Only while it is the current item — the
-                    // answer is about what is in the speaker.
-                    onUpgradeQuality = if (fromPlayer &&
-                        song.localUri == null &&
-                        controller?.currentMediaItem?.mediaId == song.videoId
-                    ) {
-                        {
-                            controller.upgradeQuality()
-                            songActions = null
-                        }
-                    } else {
-                        null
-                    },
-                    upgradeQualityInProgress = fromPlayer && song.videoId in qualityUpgradesInFlight,
                     // Hidden outright when there's no real YouTube id behind
                     // this row to build a link from — SongActionsSheet already
                     // drops it for a local file via `isOffline`, this catches

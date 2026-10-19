@@ -194,20 +194,8 @@ fun SongActionsSheet(
         // is the one question that has to be answered before any of the rows
         // below mean anything — there is no point rating, queueing or
         // downloading the wrong version of a song.
-        if (onUpgradeQuality != null || onToggleAudioVersion != null) {
-            onUpgradeQuality?.let {
-                ActionRow(
-                    icon = Icons.Rounded.HighQuality,
-                    label = stringResource(R.string.upgrade_quality),
-                    accent = palette.accent,
-                    enabled = !upgradeQualityInProgress,
-                    onClick = it,
-                )
-            }
-            // Which recording, not which quality — a different question from
-            // the row above, so it sits right under it rather than merged
-            // into it, but still ahead of the divider both share.
-            onToggleAudioVersion?.let {
+        if (onToggleAudioVersion != null) {
+            onToggleAudioVersion.let {
                 ActionRow(
                     icon = if (isAudioVersion) Icons.Rounded.Videocam else ExtrumzIcons.MusicNote,
                     label = stringResource(

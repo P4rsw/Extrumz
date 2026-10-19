@@ -20,17 +20,19 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.Delete
+import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.MoreVert
-import androidx.compose.material3.AlertDialog
+import androidx.compose.material.icons.rounded.PlaylistAdd
+import com.extrumz.app.ui.components.ExtrumzConfirmDialog
+import com.extrumz.app.ui.components.ExtrumzDropdownMenu
+import com.extrumz.app.ui.components.ExtrumzDropdownMenuItem
+import com.extrumz.app.ui.components.ExtrumzInputDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -244,20 +246,17 @@ fun PlaylistsScreen(
 
         val doomed = deleting
         if (doomed != null) {
-            AlertDialog(
+            ExtrumzConfirmDialog(
                 onDismissRequest = { deleting = null },
-                title = { Text(stringResource(R.string.playlists_delete_title)) },
-                text = { Text(stringResource(R.string.playlists_delete_confirm, doomed.name)) },
-                confirmButton = {
-                    TextButton(onClick = {
-                        scope.launch { dao.delete(doomed.id) }
-                        deleting = null
-                    }) { Text(stringResource(R.string.playlists_delete)) }
-                },
-                dismissButton = {
-                    TextButton(onClick = { deleting = null }) {
-                        Text(stringResource(R.string.playlists_cancel))
-                    }
+                title = stringResource(R.string.playlists_delete_title),
+                message = stringResource(R.string.playlists_delete_confirm, doomed.name),
+                confirmText = stringResource(R.string.playlists_delete),
+                dismissText = stringResource(R.string.playlists_cancel),
+                icon = Icons.Rounded.Delete,
+                isDestructive = true,
+                onConfirm = {
+                    scope.launch { dao.delete(doomed.id) }
+                    deleting = null
                 },
             )
         }
@@ -334,13 +333,28 @@ private fun PlaylistRow(
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
-                DropdownMenuItem(
+            ExtrumzDropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                ExtrumzDropdownMenuItem(
                     text = { Text(stringResource(R.string.playlists_rename)) },
+                    leadingIcon = {
+                        Icon(
+                            Icons.Rounded.Edit,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp),
+                        )
+                    },
                     onClick = { menuOpen = false; onRename() },
                 )
-                DropdownMenuItem(
+                ExtrumzDropdownMenuItem(
                     text = { Text(stringResource(R.string.playlists_delete)) },
+                    leadingIcon = {
+                        Icon(
+                            Icons.Rounded.Delete,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp),
+                        )
+                    },
+                    destructive = true,
                     onClick = { menuOpen = false; onDelete() },
                 )
             }
@@ -359,34 +373,15 @@ private fun NameDialog(
     onDismiss: () -> Unit,
     onConfirm: (String) -> Unit,
 ) {
-    // Keyed on the initial value: the dialog is reused for every rename, so an
-    // unkeyed remember would keep the first name it was ever opened with.
-    var text by remember(initial) { mutableStateOf(initial) }
-    val canConfirm = text.isNotBlank()
-    AlertDialog(
+    ExtrumzInputDialog(
         onDismissRequest = onDismiss,
-        title = {
-            // isRenaming, not initial.isEmpty(): a playlist whose name is
-            // blank would otherwise be renamed through a dialog titled "New
-            // playlist".
-            Text(stringResource(if (isRenaming) R.string.playlists_rename else R.string.playlists_new))
-        },
-        text = {
-            OutlinedTextField(
-                value = text,
-                onValueChange = { text = it },
-                singleLine = true,
-                label = { Text(stringResource(R.string.playlists_name_hint)) },
-            )
-        },
-        confirmButton = {
-            TextButton(onClick = { onConfirm(text) }, enabled = canConfirm) {
-                Text(stringResource(if (isRenaming) R.string.playlists_rename else R.string.playlists_create))
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text(stringResource(R.string.playlists_cancel)) }
-        },
+        title = stringResource(if (isRenaming) R.string.playlists_rename else R.string.playlists_new),
+        initialValue = initial,
+        placeholder = stringResource(R.string.playlists_name_hint),
+        confirmText = stringResource(if (isRenaming) R.string.playlists_rename else R.string.playlists_create),
+        dismissText = stringResource(R.string.playlists_cancel),
+        icon = if (isRenaming) Icons.Rounded.Edit else Icons.Rounded.PlaylistAdd,
+        onConfirm = onConfirm,
     )
 }
 

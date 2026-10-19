@@ -23,13 +23,22 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.QueueMusic
 import androidx.compose.material.icons.rounded.ArrowDownward
 import androidx.compose.material.icons.rounded.ArrowUpward
+import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.Delete
+import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.MoreVert
+import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material.icons.rounded.Shuffle
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material.icons.rounded.Sort
+import androidx.compose.material.icons.rounded.SortByAlpha
+import androidx.compose.ui.graphics.vector.ImageVector
+import com.extrumz.app.ui.components.ExtrumzDropdownMenu
+import com.extrumz.app.ui.components.ExtrumzDropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -82,6 +91,20 @@ fun PlaylistDetailScreen(
             .collectAsState(initial = emptyList())
         val scope = rememberCoroutineScope()
 
+        var songSort by remember { mutableStateOf(PlaylistSongSort.DEFAULT) }
+        var sortMenuOpen by remember { mutableStateOf(false) }
+
+        val displayTracks = remember(tracks, songSort) {
+            when (songSort) {
+                PlaylistSongSort.DEFAULT -> tracks
+                PlaylistSongSort.NEWEST -> tracks.reversed()
+                PlaylistSongSort.OLDEST -> tracks
+                PlaylistSongSort.TITLE_AZ -> tracks.sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.title })
+                PlaylistSongSort.TITLE_ZA -> tracks.sortedWith(compareByDescending(String.CASE_INSENSITIVE_ORDER) { it.title })
+                PlaylistSongSort.ARTIST -> tracks.sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.performer })
+            }
+        }
+
         // No title in here. The playlist's name is the top bar's title, the
         // way the channels picker's is, and a second heading under the bar was
         // both a duplicate and a collision: it started at the status bar, so
@@ -93,7 +116,7 @@ fun PlaylistDetailScreen(
                 .padding(top = contentPadding.calculateTopPadding()),
         ) {
             Text(
-                text = stringResource(R.string.playlists_count, tracks.size),
+                text = stringResource(R.string.playlists_count, displayTracks.size),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp),
@@ -103,22 +126,79 @@ fun PlaylistDetailScreen(
                 Row(
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 4.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
                     PlaylistAction(
                         icon = Icons.Rounded.PlayArrow,
                         label = stringResource(R.string.playlists_play),
                         primary = true,
-                        onClick = { onPlay(tracks.map { it.toSong() }, 0) },
+                        modifier = Modifier.weight(1f),
+                        onClick = { onPlay(displayTracks.map { it.toSong() }, 0) },
                     )
                     PlaylistAction(
                         icon = Icons.Rounded.Shuffle,
                         label = stringResource(R.string.playlists_shuffle),
                         primary = false,
+                        modifier = Modifier.weight(1f),
                         onClick = {
-                            val songs = tracks.map { it.toSong() }
+                            val songs = displayTracks.map { it.toSong() }
                             if (songs.isNotEmpty()) onPlay(songs, songs.indices.random())
                         },
                     )
+                    Box {
+                        IconButton(
+                            onClick = { sortMenuOpen = true },
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(CircleShape)
+                                .background(
+                                    if (songSort != PlaylistSongSort.DEFAULT)
+                                        MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
+                                    else
+                                        MaterialTheme.colorScheme.surfaceVariant,
+                                ),
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.Sort,
+                                contentDescription = stringResource(R.string.sort_library),
+                                tint = if (songSort != PlaylistSongSort.DEFAULT)
+                                    MaterialTheme.colorScheme.primary
+                                else
+                                    MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(20.dp),
+                            )
+                        }
+                        ExtrumzDropdownMenu(
+                            expanded = sortMenuOpen,
+                            onDismissRequest = { sortMenuOpen = false },
+                        ) {
+                            PlaylistSongSort.entries.forEach { option ->
+                                ExtrumzDropdownMenuItem(
+                                    text = { Text(option.label()) },
+                                    leadingIcon = {
+                                        Icon(
+                                            imageVector = option.icon(),
+                                            contentDescription = null,
+                                            modifier = Modifier.size(18.dp),
+                                        )
+                                    },
+                                    trailingIcon = if (option == songSort) {
+                                        {
+                                            Icon(
+                                                Icons.Rounded.Check,
+                                                contentDescription = stringResource(R.string.selected),
+                                                modifier = Modifier.size(18.dp),
+                                            )
+                                        }
+                                    } else null,
+                                    onClick = {
+                                        songSort = option
+                                        sortMenuOpen = false
+                                    },
+                                )
+                            }
+                        }
+                    }
                 }
             }
 
@@ -152,12 +232,13 @@ fun PlaylistDetailScreen(
                         bottom = contentPadding.calculateBottomPadding() + 96.dp,
                     ),
                 ) {
-                    itemsIndexed(tracks, key = { _, track -> track.fileUniqueId }) { index, track ->
+                    itemsIndexed(displayTracks, key = { _, track -> track.fileUniqueId }) { index, track ->
+                        val canReorder = songSort == PlaylistSongSort.DEFAULT
                         TrackRow(
                             track = track,
-                            canMoveUp = index > 0,
-                            canMoveDown = index < tracks.lastIndex,
-                            onClick = { onPlay(tracks.map { it.toSong() }, index) },
+                            canMoveUp = canReorder && index > 0,
+                            canMoveDown = canReorder && index < displayTracks.lastIndex,
+                            onClick = { onPlay(displayTracks.map { it.toSong() }, index) },
                             onMoveUp = { scope.launch { dao.move(playlistId, index, index - 1) } },
                             onMoveDown = { scope.launch { dao.move(playlistId, index, index + 1) } },
                             onRemove = {
@@ -176,11 +257,13 @@ private fun PlaylistAction(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     label: String,
     primary: Boolean,
+    modifier: Modifier = Modifier,
     onClick: () -> Unit,
 ) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier
+        horizontalArrangement = Arrangement.Center,
+        modifier = modifier
             .clip(RoundedCornerShape(999.dp))
             .background(
                 if (primary) MaterialTheme.colorScheme.primary
@@ -281,26 +364,75 @@ private fun TrackRow(
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+            ExtrumzDropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
                 if (canMoveUp) {
-                    DropdownMenuItem(
+                    ExtrumzDropdownMenuItem(
                         text = { Text(stringResource(R.string.playlists_move_up)) },
-                        leadingIcon = { Icon(Icons.Rounded.ArrowUpward, contentDescription = null) },
+                        leadingIcon = {
+                            Icon(
+                                Icons.Rounded.ArrowUpward,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp),
+                            )
+                        },
                         onClick = { menuOpen = false; onMoveUp() },
                     )
                 }
                 if (canMoveDown) {
-                    DropdownMenuItem(
+                    ExtrumzDropdownMenuItem(
                         text = { Text(stringResource(R.string.playlists_move_down)) },
-                        leadingIcon = { Icon(Icons.Rounded.ArrowDownward, contentDescription = null) },
+                        leadingIcon = {
+                            Icon(
+                                Icons.Rounded.ArrowDownward,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp),
+                            )
+                        },
                         onClick = { menuOpen = false; onMoveDown() },
                     )
                 }
-                DropdownMenuItem(
+                ExtrumzDropdownMenuItem(
                     text = { Text(stringResource(R.string.playlists_remove_track)) },
+                    leadingIcon = {
+                        Icon(
+                            Icons.Rounded.Delete,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp),
+                        )
+                    },
+                    destructive = true,
                     onClick = { menuOpen = false; onRemove() },
                 )
             }
         }
     }
 }
+
+enum class PlaylistSongSort {
+    DEFAULT,
+    NEWEST,
+    OLDEST,
+    TITLE_AZ,
+    TITLE_ZA,
+    ARTIST;
+
+    @Composable
+    fun label(): String = when (this) {
+        DEFAULT -> stringResource(R.string.sort_default)
+        NEWEST -> stringResource(R.string.sort_date_added)
+        OLDEST -> stringResource(R.string.sort_date_added_oldest)
+        TITLE_AZ -> stringResource(R.string.sort_title_ascending)
+        TITLE_ZA -> stringResource(R.string.sort_title_descending)
+        ARTIST -> stringResource(R.string.artist)
+    }
+
+    fun icon(): ImageVector = when (this) {
+        DEFAULT -> Icons.AutoMirrored.Rounded.QueueMusic
+        NEWEST -> Icons.Rounded.Schedule
+        OLDEST -> Icons.Rounded.History
+        TITLE_AZ -> Icons.Rounded.SortByAlpha
+        TITLE_ZA -> Icons.Rounded.SortByAlpha
+        ARTIST -> Icons.Rounded.Person
+    }
+}
+

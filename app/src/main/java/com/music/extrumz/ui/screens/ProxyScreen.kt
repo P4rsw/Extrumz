@@ -4,6 +4,7 @@ import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -15,23 +16,29 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Edit
+import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Security
-import androidx.compose.material3.AlertDialog
+import com.extrumz.app.ui.components.ExtrumzConfirmDialog
+import com.extrumz.app.ui.components.ExtrumzDropdownMenu
+import com.extrumz.app.ui.components.ExtrumzDropdownMenuItem
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -40,11 +47,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.extrumz.app.R
@@ -77,7 +86,33 @@ fun ProxyScreen(
         var addingProxy by remember { mutableStateOf(false) }
         var editingProxy by remember { mutableStateOf<SavedProxy?>(null) }
         var proxyToDelete by remember { mutableStateOf<SavedProxy?>(null) }
-        var testingId by remember { mutableStateOf<String?>(null) }
+        var testingIds by remember { mutableStateOf(emptySet<String>()) }
+        var hasAutoTestedOnEntry by remember { mutableStateOf(false) }
+
+        fun testProxy(proxy: SavedProxy) {
+            testingIds = testingIds + proxy.id
+            scope.launch {
+                try {
+                    val verdict = (Telegram.client as? AndroidMusicTelegramClient)
+                        ?.pingProxyVerdict(proxy.settings)
+                    if (verdict != null) {
+                        ProxyStore.recordPing(proxy.id, verdict)
+                    }
+                } finally {
+                    testingIds = testingIds - proxy.id
+                }
+            }
+        }
+
+        // Auto-test all saved proxies on screen entry (like Telegram)
+        LaunchedEffect(proxies) {
+            if (!hasAutoTestedOnEntry && proxies.isNotEmpty()) {
+                hasAutoTestedOnEntry = true
+                proxies.forEach { proxy ->
+                    testProxy(proxy)
+                }
+            }
+        }
 
         LazyColumn(
             modifier = modifier.fillMaxWidth(),
@@ -155,7 +190,7 @@ fun ProxyScreen(
             } else {
                 items(proxies, key = { it.id }) { proxy ->
                     val isSelected = masterEnabled && activeId == proxy.id
-                    val isTesting = testingId == proxy.id
+                    val isTesting = proxy.id in testingIds
 
                     Column(
                         modifier = Modifier
@@ -176,14 +211,37 @@ fun ProxyScreen(
                                 selected = isSelected,
                                 onClick = { ProxyStore.activate(proxy.id) },
                             )
-                            Spacer(Modifier.width(8.dp))
+                            Spacer(Modifier.width(10.dp))
                             Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = proxy.settings.host.ifBlank { stringResource(R.string.proxy) },
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                                    color = MaterialTheme.colorScheme.onSurface,
-                                )
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                ) {
+                                    Text(
+                                        text = proxy.settings.host.ifBlank { stringResource(R.string.proxy) },
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.SemiBold,
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                        modifier = Modifier.weight(1f, fill = false),
+                                    )
+                                    if (isSelected) {
+                                        Box(
+                                            modifier = Modifier
+                                                .clip(RoundedCornerShape(6.dp))
+                                                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f))
+                                                .padding(horizontal = 6.dp, vertical = 2.dp),
+                                        ) {
+                                            Text(
+                                                text = stringResource(R.string.connected),
+                                                style = MaterialTheme.typography.labelSmall,
+                                                fontWeight = FontWeight.Bold,
+                                                color = MaterialTheme.colorScheme.primary,
+                                            )
+                                        }
+                                    }
+                                }
                                 Spacer(Modifier.height(2.dp))
                                 Text(
                                     text = "${proxy.settings.kind.name} · ${proxy.settings.port}",
@@ -192,7 +250,7 @@ fun ProxyScreen(
                                 )
                                 Spacer(Modifier.height(4.dp))
 
-                                // Comparative test verdict
+                                // Comparative test verdict (Clean dot indicator, no emojis, ms unit)
                                 if (isTesting) {
                                     Row(verticalAlignment = Alignment.CenterVertically) {
                                         CircularProgressIndicator(
@@ -207,123 +265,146 @@ fun ProxyScreen(
                                         )
                                     }
                                 } else if (proxy.lastPingSeconds != null) {
-                                    val directStr = if (proxy.lastDirectSeconds != null && proxy.lastDirectSeconds > 0) {
-                                        stringResource(R.string.proxy_direct_ok, proxy.lastDirectSeconds)
-                                    } else {
-                                        stringResource(R.string.proxy_direct_failed)
-                                    }
-                                    val proxiedStr = if (proxy.lastPingSeconds > 0) {
-                                        stringResource(R.string.proxy_proxied_ok, proxy.lastPingSeconds)
+                                    val isSuccess = proxy.lastPingSeconds > 0
+                                    val proxiedMs = (proxy.lastPingSeconds * 1000).toInt()
+                                    val statusText = if (isSuccess) {
+                                        stringResource(R.string.proxy_proxied_ok, proxiedMs)
                                     } else {
                                         stringResource(R.string.proxy_proxied_failed)
                                     }
-                                    val verdictText = "$directStr · $proxiedStr"
-                                    val verdictColor = when {
-                                        proxy.verdict?.worthIt == true -> MaterialTheme.colorScheme.primary
-                                        proxy.lastPingSeconds > 0 -> MaterialTheme.colorScheme.onSurfaceVariant
-                                        else -> MaterialTheme.colorScheme.error
+                                    val statusDotColor = if (isSuccess) {
+                                        Color(0xFF4CAF50)
+                                    } else {
+                                        MaterialTheme.colorScheme.error
                                     }
-                                    Text(
-                                        text = verdictText,
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = verdictColor,
-                                    )
+
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(8.dp)
+                                                .clip(CircleShape)
+                                                .background(statusDotColor)
+                                        )
+                                        Text(
+                                            text = statusText,
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = if (isSuccess) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.error,
+                                        )
+                                    }
                                 } else {
-                                    Text(
-                                        text = "— ❓ " + stringResource(R.string.proxy_untested),
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    )
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(8.dp)
+                                                .clip(CircleShape)
+                                                .background(MaterialTheme.colorScheme.outline.copy(alpha = 0.5f))
+                                        )
+                                        Text(
+                                            text = stringResource(R.string.proxy_untested),
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                    }
                                 }
                             }
-                            if (isSelected) {
-                                Text(
-                                    text = "✅",
-                                    style = MaterialTheme.typography.titleMedium,
-                                    modifier = Modifier.padding(start = 8.dp),
-                                )
-                            }
-                        }
 
-                        HorizontalDivider(
-                            modifier = Modifier.padding(horizontal = 14.dp),
-                            thickness = 0.5.dp,
-                            color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
-                        )
-
-                        // Action buttons row: Test, Edit, Copy, Delete
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 6.dp, vertical = 2.dp),
-                            horizontalArrangement = Arrangement.End,
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            TextButton(
-                                enabled = !isTesting,
-                                onClick = {
-                                    testingId = proxy.id
-                                    scope.launch {
-                                        val verdict = (Telegram.client as? AndroidMusicTelegramClient)
-                                            ?.pingProxyVerdict(proxy.settings)
-                                        if (verdict != null) {
-                                            ProxyStore.recordPing(proxy.id, verdict)
-                                        }
-                                        testingId = null
+                            // Trailing Actions: Test / Refresh icon + 3-dots More menu
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.padding(start = 4.dp),
+                            ) {
+                                IconButton(
+                                    onClick = { testProxy(proxy) },
+                                    enabled = !isTesting,
+                                ) {
+                                    if (isTesting) {
+                                        CircularProgressIndicator(
+                                            modifier = Modifier.size(18.dp),
+                                            strokeWidth = 2.dp,
+                                        )
+                                    } else {
+                                        Icon(
+                                            imageVector = Icons.Rounded.Refresh,
+                                            contentDescription = stringResource(R.string.proxy_test),
+                                            modifier = Modifier.size(20.dp),
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
                                     }
-                                },
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Rounded.Refresh,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(16.dp),
-                                )
-                                Spacer(Modifier.width(4.dp))
-                                Text(stringResource(R.string.proxy_test))
-                            }
+                                }
 
-                            TextButton(onClick = { editingProxy = proxy }) {
-                                Icon(
-                                    imageVector = Icons.Rounded.Edit,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(16.dp),
-                                )
-                                Spacer(Modifier.width(4.dp))
-                                Text(stringResource(R.string.proxy_edit))
-                            }
-
-                            TextButton(
-                                onClick = {
-                                    val link = proxy.settings.toLink()
-                                    clipboardManager.setText(AnnotatedString(link))
-                                    Toast.makeText(
-                                        context,
-                                        context.getString(R.string.proxy_copied),
-                                        Toast.LENGTH_SHORT,
-                                    ).show()
-                                },
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Rounded.ContentCopy,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(16.dp),
-                                )
-                                Spacer(Modifier.width(4.dp))
-                                Text(stringResource(R.string.proxy_copy))
-                            }
-
-                            TextButton(onClick = { proxyToDelete = proxy }) {
-                                Icon(
-                                    imageVector = Icons.Rounded.Delete,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.error,
-                                    modifier = Modifier.size(16.dp),
-                                )
-                                Spacer(Modifier.width(4.dp))
-                                Text(
-                                    text = stringResource(R.string.proxy_delete),
-                                    color = MaterialTheme.colorScheme.error,
-                                )
+                                var menuExpanded by remember { mutableStateOf(false) }
+                                Box {
+                                    IconButton(onClick = { menuExpanded = true }) {
+                                        Icon(
+                                            imageVector = Icons.Rounded.MoreVert,
+                                            contentDescription = stringResource(R.string.proxy_more_options),
+                                            modifier = Modifier.size(20.dp),
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                    }
+                                    ExtrumzDropdownMenu(
+                                        expanded = menuExpanded,
+                                        onDismissRequest = { menuExpanded = false },
+                                    ) {
+                                        ExtrumzDropdownMenuItem(
+                                            text = { Text(stringResource(R.string.proxy_edit)) },
+                                            leadingIcon = {
+                                                Icon(
+                                                    imageVector = Icons.Rounded.Edit,
+                                                    contentDescription = null,
+                                                    modifier = Modifier.size(18.dp),
+                                                )
+                                            },
+                                            onClick = {
+                                                menuExpanded = false
+                                                editingProxy = proxy
+                                            },
+                                        )
+                                        ExtrumzDropdownMenuItem(
+                                            text = { Text(stringResource(R.string.proxy_copy)) },
+                                            leadingIcon = {
+                                                Icon(
+                                                    imageVector = Icons.Rounded.ContentCopy,
+                                                    contentDescription = null,
+                                                    modifier = Modifier.size(18.dp),
+                                                )
+                                            },
+                                            onClick = {
+                                                menuExpanded = false
+                                                val link = proxy.settings.toLink()
+                                                clipboardManager.setText(AnnotatedString(link))
+                                                Toast.makeText(
+                                                    context,
+                                                    context.getString(R.string.proxy_copied),
+                                                    Toast.LENGTH_SHORT,
+                                                ).show()
+                                            },
+                                        )
+                                        ExtrumzDropdownMenuItem(
+                                            text = {
+                                                Text(stringResource(R.string.delete))
+                                            },
+                                            leadingIcon = {
+                                                Icon(
+                                                    imageVector = Icons.Rounded.Delete,
+                                                    contentDescription = null,
+                                                    modifier = Modifier.size(18.dp),
+                                                )
+                                            },
+                                            destructive = true,
+                                            onClick = {
+                                                menuExpanded = false
+                                                proxyToDelete = proxy
+                                            },
+                                        )
+                                    }
+                                }
                             }
                         }
                     }
@@ -340,9 +421,15 @@ fun ProxyScreen(
             ProxyEditDialog(
                 initial = null,
                 onDismiss = { addingProxy = false },
-                onSave = {
-                    ProxyStore.add(it)
+                onSave = { draft ->
+                    val newId = ProxyStore.add(draft)
                     addingProxy = false
+                    scope.launch {
+                        val newProxy = ProxyStore.all.value.firstOrNull { it.id == newId }
+                        if (newProxy != null) {
+                            testProxy(newProxy)
+                        }
+                    }
                 },
             )
         }
@@ -352,36 +439,32 @@ fun ProxyScreen(
             ProxyEditDialog(
                 initial = proxy.settings,
                 onDismiss = { editingProxy = null },
-                onSave = {
-                    ProxyStore.update(proxy.id, it)
+                onSave = { draft ->
+                    ProxyStore.update(proxy.id, draft)
                     editingProxy = null
+                    scope.launch {
+                        val updated = ProxyStore.all.value.firstOrNull { it.id == proxy.id }
+                        if (updated != null) {
+                            testProxy(updated)
+                        }
+                    }
                 },
             )
         }
 
         // Delete Confirmation Dialog
         proxyToDelete?.let { proxy ->
-            AlertDialog(
+            ExtrumzConfirmDialog(
                 onDismissRequest = { proxyToDelete = null },
-                title = { Text(stringResource(R.string.proxy_delete)) },
-                text = { Text(stringResource(R.string.proxy_delete_confirm)) },
-                confirmButton = {
-                    TextButton(
-                        onClick = {
-                            ProxyStore.remove(proxy.id)
-                            proxyToDelete = null
-                        },
-                    ) {
-                        Text(
-                            text = stringResource(R.string.delete),
-                            color = MaterialTheme.colorScheme.error,
-                        )
-                    }
-                },
-                dismissButton = {
-                    TextButton(onClick = { proxyToDelete = null }) {
-                        Text(stringResource(R.string.cancel))
-                    }
+                title = stringResource(R.string.proxy_delete),
+                message = stringResource(R.string.proxy_delete_confirm),
+                confirmText = stringResource(R.string.delete),
+                dismissText = stringResource(R.string.cancel),
+                icon = Icons.Rounded.Delete,
+                isDestructive = true,
+                onConfirm = {
+                    ProxyStore.remove(proxy.id)
+                    proxyToDelete = null
                 },
             )
         }
