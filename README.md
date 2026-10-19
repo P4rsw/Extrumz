@@ -16,7 +16,9 @@
 
 <br/>
 
-<img src="Banner.png" alt="" width="100%" />
+<p align="center">
+  <img src="social-preview.png" alt="Extrumz" width="100%" />
+</p>
 
 ---
 
@@ -88,6 +90,20 @@ two can run together.
 <br/>
 
 <div align="center">
+
+<h2><a id="screens"></a>What it looks like</h2>
+
+Real screens, in Persian, on a real phone.
+
+<p align="center">
+  <img src="fa-songs.png" alt="The library" width="32%" />
+  <img src="fa-player.png" alt="The player" width="32%" />
+  <img src="fa-proxy.png" alt="The proxy screen" width="32%" />
+</p>
+
+*Left: the library, indexed from Telegram. Middle: the player. Right: the
+proxy screen — a list of proxies you keep, each tested against Telegram before
+you trust it.*
 
 <h2><a id="features"></a>Features</h2>
 
