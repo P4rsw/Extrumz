@@ -91,7 +91,9 @@ tools/      Keystore generation and release verification automation
 docs/       the lyrics translation specification
 ```
 
-One module, Material 3, edge to edge. `R8` shrinks release builds, and every
+One module, Material 3, edge to edge. The type is Inter, under the SIL Open
+Font License, and its licence travels with it in `res/raw/ofl.txt`.
+`R8` shrinks release builds, and every
 library that reaches for a class by name — TDLib's JNI — is kept whole in
 `proguard-rules.pro`.
 
@@ -108,11 +110,9 @@ a release APK on a phone and using it. Do that step.
 This is used daily and it works, but it is early, and it is more honest to
 say so than to let a reader find out:
 
-- **Typography needs a free alternative.** Eleven megabytes of Apple's
-  proprietary SF Pro typeface are bundled — a third of the APK — and San
-  Francisco's licence does not permit embedding it in Android software.
-- **Cover art and lyrics do not travel through an MTProto proxy.** They take
-  the ordinary route, so a network that blocks those blocks them too.
+- **Cover art, lyrics and lyric translation all take the ordinary route.**
+  None of them travels through an MTProto proxy, so a network that blocks
+  them blocks them too — and the translation needs a VPN or a system proxy.
 - **Translation is Persian and English only**, and the Persian is the one that
   gets the attention.
 
