@@ -105,19 +105,6 @@ a release APK on a phone and using it. Do that step.
 
 ---
 
-## What is not finished
-
-This is used daily and it works, but it is early, and it is more honest to
-say so than to let a reader find out:
-
-- **Cover art, lyrics and lyric translation all take the ordinary route.**
-  None of them travels through an MTProto proxy, so a network that blocks
-  them blocks them too — and the translation needs a VPN or a system proxy.
-- **Translation is Persian and English only**, and the Persian is the one that
-  gets the attention.
-
----
-
 ## Licence
 
 **GPL-3.0.** See [LICENSE](LICENSE) for the full text.
