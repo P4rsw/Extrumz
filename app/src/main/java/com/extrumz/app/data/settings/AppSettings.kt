@@ -103,12 +103,6 @@ enum class EqualizerMode {
     MANUAL,
 }
 
-/** CPU budget for Automix's background analysis, not its audible mix algorithm. */
-enum class AutomixPerformanceMode(val inferenceThreads: Int) {
-    EFFICIENT(1),
-    BALANCED(2),
-    PERFORMANCE(4),
-}
 
 /** Stable persisted ordering for each on-device music library. */
 enum class LocalMusicSort {
@@ -234,20 +228,7 @@ object AppSettings {
 
     val crossfadeSeconds = MutableStateFlow(0)
 
-    /**
-     * Lets Automix's analyzer decide the transition's timing and length
-     * from each track's tempo, energy and structure, replacing the fixed
-     * [crossfadeSeconds] window rather than needing it set to anything first
-     * — [crossfadeSeconds] only matters here as a fallback while a pair is
-     * still being analysed. Off by default: analysis costs a background
-     * decode per track.
-     *
-     * See [com.extrumz.app.playback.smart.TransitionPlanner].
-     */
     val smartFadeEnabled = MutableStateFlow(false)
-
-    /** The CPU budget used by Beat This! and vocal analysis for Automix. */
-    val automixPerformanceMode = MutableStateFlow(AutomixPerformanceMode.BALANCED)
     val skipSilence = MutableStateFlow(false)
 
     /** Requested PCM representation at the Android AudioTrack boundary. */
@@ -516,12 +497,6 @@ object AppSettings {
      */
     val versionAlignmentInProgress = MutableStateFlow(false)
 
-    /**
-     * How much of the *upcoming* transition has been analysed, for stats for
-     * nerds. Published by the crossfade controller, which is the only thing
-     * that knows which two tracks the next transition is between.
-     */
-    val smartAnalysis = MutableStateFlow(SmartAnalysis())
 
     /**
      * Where on the *playing* track the next transition is planned to happen, as
@@ -577,12 +552,7 @@ object AppSettings {
         wifiOnlyDownloads.value = prefs.getBoolean(KEY_WIFI_ONLY_DOWNLOADS, true)
         exportDownloads.value = prefs.getBoolean(KEY_EXPORT_DOWNLOADS, true)
         crossfadeSeconds.value = prefs.getInt(KEY_CROSSFADE, 0)
-        smartFadeEnabled.value = prefs.getBoolean(KEY_SMART_FADE, false)
-        automixPerformanceMode.value = runCatching {
-            AutomixPerformanceMode.valueOf(
-                prefs.getString(KEY_AUTOMIX_PERFORMANCE_MODE, null) ?: AutomixPerformanceMode.BALANCED.name,
-            )
-        }.getOrDefault(AutomixPerformanceMode.BALANCED)
+        smartFadeEnabled.value = false
         skipSilence.value = prefs.getBoolean(KEY_SKIP_SILENCE, false)
         outputPcmMode.value = runCatching {
             OutputPcmMode.valueOf(
@@ -759,16 +729,6 @@ object AppSettings {
     fun setCrossfadeSeconds(value: Int) {
         crossfadeSeconds.value = value
         prefs.edit().putInt(KEY_CROSSFADE, value).apply()
-    }
-
-    fun setSmartFadeEnabled(value: Boolean) {
-        smartFadeEnabled.value = value
-        prefs.edit().putBoolean(KEY_SMART_FADE, value).apply()
-    }
-
-    fun setAutomixPerformanceMode(value: AutomixPerformanceMode) {
-        automixPerformanceMode.value = value
-        prefs.edit().putString(KEY_AUTOMIX_PERFORMANCE_MODE, value.name).apply()
     }
 
     fun setSkipSilence(value: Boolean) {
@@ -1322,55 +1282,6 @@ object AppSettings {
 
     private const val KEY_LAST_VERSION_CODE = "last_version_code"
 }
-
-/**
- * Where one track stands in Automix's analysis.
- *
- * The three no-result states are kept apart because they call for different
- * reactions: [WAITING] resolves itself once bytes arrive, [ANALYSING] resolves
- * itself in a few seconds, and [FAILED] never resolves at all. From outside
- * they look identical, which is precisely why the line has to say which.
- */
-enum class TrackAnalysisState {
-    /** Nothing in flight and no result — usually waiting on bytes to arrive. */
-    WAITING,
-
-    /** Decode and inference running now; a result is a few seconds away. */
-    ANALYSING,
-
-    /** Measured, with a tempo the planner can actually use. */
-    ANALYSED,
-
-    /**
-     * Measured off the track's opening, with the whole-track pass running now to
-     * replace those numbers with better ones.
-     *
-     * Its own state rather than either neighbour, because it is genuinely both:
-     * reporting [ANALYSING] made a track that was already usable look like it
-     * had gone backwards, and reporting [ANALYSED] would hide that the cue and
-     * the tempo are about to move.
-     */
-    REFINING,
-
-    /**
-     * Tried and came back with nothing usable — a decode error, or audio that
-     * yielded no tempo. Distinct from [WAITING] because nothing further will
-     * happen on its own: waiting is a matter of time, this is not.
-     */
-    FAILED,
-}
-
-/**
- * Both sides of the next transition, for stats for nerds.
- *
- * A transition needs *both* tracks measured before it can beat-match or cue the
- * incoming one into its arrangement, so reporting them separately is what makes
- * a plain crossfade explicable rather than mysterious.
- */
-data class SmartAnalysis(
-    val current: TrackAnalysisState = TrackAnalysisState.WAITING,
-    val next: TrackAnalysisState = TrackAnalysisState.WAITING,
-)
 
 /**
  * A span of the playing track, in fractions of its duration, that the next

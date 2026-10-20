@@ -69,4 +69,11 @@ class QualityUpgradeScopeTest {
         assertTrue(QualityUpgrade.hasAnsweredFor("other"))
     }
 
+    @Test
+    fun `second quality upgrade gets a new rendition marker`() {
+        val jio = QualityUpgrade.upgradedUri("extrumz://watch?v=video")
+        val lossless = QualityUpgrade.upgradedUri(jio)
+        assertTrue(jio.endsWith("q=hifi"))
+        assertTrue(lossless.endsWith("q=hifi-2"))
+    }
 }

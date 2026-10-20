@@ -281,11 +281,6 @@ dependencies {
     // ---- Auth/session storage ----
     implementation("androidx.security:security-crypto:1.1.0-alpha06")
 
-    // ---- Automix: on-device beat/downbeat model (Beat This!, MIT-licensed) ----
-    // The full android artifact, not onnxruntime-mobile: mobile only loads .ort
-    // files, which would put an offline conversion step between the model and
-    // the app for a saving that does not matter in a self-distributed APK.
-    implementation("com.microsoft.onnxruntime:onnxruntime-android:1.28.0")
 
     // ---- Telegram: TDLib client (JitPack — same artifact proven in the old project) ----
     implementation("com.github.tdlibx:td:1.8.56")

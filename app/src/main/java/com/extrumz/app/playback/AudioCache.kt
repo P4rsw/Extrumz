@@ -5,7 +5,6 @@ import android.media.MediaDataSource
 import android.net.Uri
 import android.os.SystemClock
 import com.extrumz.app.data.TrackLog
-import com.extrumz.app.playback.smart.AutomixAnalysisSource
 import androidx.media3.common.C
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.database.StandaloneDatabaseProvider
@@ -650,7 +649,7 @@ object AudioCache {
         if (!::cache.isInitialized) return false
         val videoId = uri.getQueryParameter("v") ?: return false
         if (alignmentHeadComplete(videoId)) return true
-        val opus = Uri.parse(AutomixAnalysisSource.opusUri(videoId))
+        val opus = Uri.parse("extrumz://watch?v=$videoId")
         // A previous round that wrote nothing would otherwise block retries
         // for the rest of the session.
         if (videoId !in analysisHeadsInFlight) {
@@ -717,7 +716,7 @@ object AudioCache {
      */
     private fun alignmentPrefixBytes(videoId: String): Long {
         val watch = Uri.parse("extrumz://watch?v=$videoId")
-        val opus = Uri.parse(AutomixAnalysisSource.opusUri(videoId))
+        val opus = watch
         val renditions = renditionsOf(watch)
         val sameSource = renditions
             .filter { !it.key.endsWith("#alt") }
@@ -776,7 +775,7 @@ object AudioCache {
                     // Do not inherit a substitute/lossless StreamChoice from
                     // playback. The base key is reserved for the lightweight
                     // YouTube Opus copy used by Automix analysis.
-                    uri = Uri.parse(AutomixAnalysisSource.opusUri(videoId)),
+                    uri = Uri.parse("extrumz://watch?v=$videoId"),
                     position = 0,
                     length = want,
                     pinKey = true,

@@ -99,7 +99,6 @@ import com.extrumz.app.ui.haptics.rememberHaptics
 import com.extrumz.app.ui.icons.ExtrumzIcons
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.extrumz.app.data.NerdStats
-import com.extrumz.app.data.settings.TrackAnalysisState
 import com.extrumz.app.data.settings.AppSettings
 import com.extrumz.app.data.settings.AudioQuality
 import com.extrumz.app.data.model.Song
@@ -280,8 +279,6 @@ internal fun SleeveNerdStats(song: Song, modifier: Modifier = Modifier) {
     if (!showNerdStats) return
     val context = LocalContext.current
     val nerdStats by NerdStats.current.collectAsStateWithLifecycle()
-    val smartFadeOn by AppSettings.smartFadeEnabled.collectAsStateWithLifecycle()
-    val smartAnalysis by AppSettings.smartAnalysis.collectAsStateWithLifecycle()
     // A plain white line reads fine over the usual dark tile, but a light
     // stretch of an animated cover — sky, snow, a pale sleeve — washes it out
     // entirely. The shadow costs nothing on a dark background and is what
@@ -302,33 +299,6 @@ internal fun SleeveNerdStats(song: Song, modifier: Modifier = Modifier) {
                 text = stats,
                 style = nerdStyle,
                 color = Color.White.copy(alpha = 0.65f),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                textAlign = TextAlign.Center,
-            )
-        }
-        // Only when Automix is actually switched on: otherwise this would
-        // report on analysis nothing is going to use, which is noise rather
-        // than a stat.
-        if (smartFadeOn) {
-            Text(
-                // Both sides always named, even when they agree, so the line
-                // reads the same way every time and the eye can find the half
-                // it wants without re-parsing the sentence.
-                text = when {
-                    song.isVideoOrigin ->
-                        stringResource(R.string.automix_not_supported_video)
-                    else -> stringResource(
-                        R.string.automix_analysis_status,
-                        smartAnalysis.current.localizedLabel(),
-                        smartAnalysis.next.localizedLabel(),
-                    )
-                },
-                style = nerdStyle,
-                // Dimmer than the measured line above it: that one describes
-                // the audio, this one describes the app, and the ranking
-                // should show.
-                color = Color.White.copy(alpha = 0.5f),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 textAlign = TextAlign.Center,
@@ -1409,14 +1379,4 @@ private fun codecLabel(mimeType: String?): String? = when {
     mimeType.endsWith("flac") -> "FLAC"
     mimeType.endsWith("alac") -> "ALAC"
     else -> mimeType.substringAfter('/').uppercase(Locale.ROOT)
-}
-
-/** Wording for the stats line; see [TrackAnalysisState]. */
-@Composable
-private fun TrackAnalysisState.localizedLabel(): String = when (this) {
-    TrackAnalysisState.ANALYSED -> stringResource(R.string.analysis_complete)
-    TrackAnalysisState.REFINING -> stringResource(R.string.analysis_refining)
-    TrackAnalysisState.ANALYSING -> stringResource(R.string.analysis_in_progress)
-    TrackAnalysisState.WAITING -> stringResource(R.string.waiting)
-    TrackAnalysisState.FAILED -> stringResource(R.string.failed)
 }

@@ -10,14 +10,6 @@ import androidx.media3.common.Timeline
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import com.extrumz.app.data.settings.AppSettings
-import com.extrumz.app.data.settings.SmartAnalysis
-import com.extrumz.app.data.settings.TrackAnalysisState
-import com.extrumz.app.data.settings.TransitionWindow
-import com.extrumz.app.playback.smart.CrossfadeMode
-import com.extrumz.app.playback.smart.TrackAnalysis
-import com.extrumz.app.playback.smart.TransitionStyle
-import com.extrumz.app.playback.smart.TransitionTrackInfo
-import com.extrumz.app.playback.smart.planTransition
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -30,6 +22,14 @@ import kotlin.math.pow
 import kotlin.math.roundToLong
 import kotlin.math.sin
 import java.util.Locale
+
+/** Style of transition rendering across a blend. */
+enum class TransitionStyle {
+    EQUAL_POWER,
+    DJ_FILTER,
+    DJ_BLEND,
+    GAPLESS,
+}
 
 /**
  * A real crossfade: two tracks audible at once, the outgoing one falling as the
@@ -114,38 +114,9 @@ class CrossfadeController(
      */
     private val onHandoff: (outgoing: ExoPlayer, incoming: ExoPlayer) -> Unit,
     /**
-     * Stored Automix analysis for a media item, or an empty [TrackAnalysis]
-     * when there is none yet. This is the seam Phase 1's DSP analyzer plugs
-     * into: until analysis finishes, a track reads as "no evidence", which
-     * [planTransition] answers with the same fixed-length crossfade this
-     * class always ran before Automix existed.
-     */
-    private val analysisFor: (MediaItem) -> TrackAnalysis = { TrackAnalysis() },
-    /**
-     * Queues background analysis for a media item that will soon need it.
-     * Cheap to call on every tick: a track already analysed, already in
-     * flight, or not yet fully cached is a no-op.
-     *
-     * Takes the item's duration in milliseconds, or 0 when Media3 hasn't loaded
-     * that far ahead yet. The analyzer needs it to tell one rendition of a
-     * recording from a differently-cut one before reusing an analysis across
-     * them, and this class is the only place that already knows it.
-     */
-    private val requestAnalysis: (MediaItem, Long) -> Unit = { _, _ -> },
-    /**
-     * The low-pass and high-pass riding each side of a transition. This is what
-     * makes a plan's
-     * [com.extrumz.app.playback.smart.TransitionPlan.transitionStyle] audible
-     * rather than advisory: see [rideFilters]. Defaults to
-     * [TransitionFilters.None], which renders every style as the plain
-     * equal-power blend this class ran before.
+     * The low-pass and high-pass riding each side of a transition.
      */
     private val filters: TransitionFilters = TransitionFilters.None,
-    /**
-     * Whether a decode and inference for a media item is running right now.
-     * Only feeds the stats line — nothing about a transition waits on it.
-     */
-    private val analysisRunningFor: (MediaItem) -> Boolean = { false },
     /**
      * The track about to be loaded onto the standby player, announced at the
      * moment [begin] arms rather than at the handoff.
@@ -334,9 +305,6 @@ class CrossfadeController(
      */
     private var bailFromGain = 0f
 
-    /** Dedupes the per-tick plan log down to one line per distinct verdict. */
-    private var lastPlanVerdict = ""
-
     /**
      * True while a transition is armed or running.
      *
@@ -472,15 +440,6 @@ class CrossfadeController(
             outgoing?.playWhenReady = incoming?.playWhenReady ?: true
         }
 
-        // Every tick, not only when a transition can be planned. This used to
-        // live inside [considerSmartTransition], which needs an idle phase, a
-        // playing player and a known duration — none of which hold during a
-        // transition or during the re-buffer after a quality upgrade. The line
-        // simply froze on the previous pair, so a track that had not been
-        // analysed kept showing the *departing* track's "analysed" until
-        // ticking resumed.
-        publishAnalysisState()
-
         when (phase) {
             Phase.IDLE -> considerAutoTransition()
             Phase.ARMING -> driveArming()
@@ -510,35 +469,8 @@ class CrossfadeController(
         val duration = player.duration
         if (duration == C.TIME_UNSET || duration <= 0L) return
 
-        // Repeating one track would crossfade it into itself, so nothing is
-        // armed and no window is marked — but the queue behind the loop has not
-        // moved, and what sits after it is still the track that plays next the
-        // moment repeat-one comes off.
-        //
-        // Returning here outright is what made turning repeat off look like it
-        // lost an analysis. Analysis is only ever asked for on the way to
-        // planning a transition, so for as long as the loop ran nothing asked
-        // for the following track at all, and the request that finally arrived
-        // when repeat came off was the *first* one — a whole-track decode
-        // starting from nothing on a song that was by then seconds away, where
-        // an unlooped queue would have had it measured minutes earlier. The
-        // measurement is the same either way, so it may as well be made during
-        // the loop rather than after it.
         if (player.repeatMode == Player.REPEAT_MODE_ONE) {
-            if (AppSettings.smartFadeEnabled.value) requestAnalysisAround(player, duration)
-            // Stale otherwise: the marker would keep describing the transition
-            // planned for this pair before the loop went on, at a point the
-            // playhead now runs past on every lap without anything happening.
             AppSettings.smartTransitionWindow.value = null
-            return
-        }
-
-        // Automix is its own on/off, independent of the manual crossfade
-        // length: it decides its own duration from each pair of tracks (beats,
-        // tempo, structure), so requiring a nonzero [AppSettings.crossfadeSeconds]
-        // first would tie an automatic feature to a manual one it doesn't use.
-        if (AppSettings.smartFadeEnabled.value) {
-            considerSmartTransition(duration)
             return
         }
 
@@ -563,280 +495,6 @@ class CrossfadeController(
 
         begin(fade, endMs = duration, smart = false)
     }
-
-    /**
-     * Arms a Automix transition once its plan says the playhead is close
-     * enough to start arming for it.
-     *
-     * Reads the plan's timing (where the fade starts and how long it runs),
-     * where the incoming track should be cued
-     * ([com.extrumz.app.playback.smart.TransitionPlan.incomingCueTime]),
-     * and the tempo-stretch to align it with the outgoing track
-     * ([com.extrumz.app.playback.smart.TransitionPlan.incomingPlaybackRate])
-     * — see [driveLap], which applies both at the handoff — and the style the
-     * blend is rendered in
-     * ([com.extrumz.app.playback.smart.TransitionPlan.transitionStyle]),
-     * which [rideFilters] turns into a filter ride or a bass swap over the same
-     * equal-power gain curve.
-     */
-    private fun considerSmartTransition(duration: Long) {
-        val player = active()
-        val currentItem = player.currentMediaItem ?: return
-        val nextIndex = player.nextMediaItemIndex
-        if (nextIndex == C.INDEX_UNSET) return
-        val nextItem = player.getMediaItemAt(nextIndex)
-        // Even a manual catalogue match is still video-origin. AutoMix's
-        // analysis and cueing are deliberately never applied to either side
-        // of a transition involving a video row.
-        if (currentItem.isVideoOrigin || nextItem.isVideoOrigin) {
-            AppSettings.smartTransitionWindow.value = null
-            AppSettings.smartMixInProgress.value = false
-            return
-        }
-        val nextDuration = nextItemDurationMs(nextIndex, nextItem)
-
-        requestAnalysisAround(player, duration)
-
-        // Only used before analysis lands, or when the evidence is too weak
-        // for more than a plain fade (see [TransitionTier.PLAIN_CROSSFADE]):
-        // once real analysis is available, [planTransition] sizes the overlap
-        // itself from tempo and structure and ignores this entirely. Honours
-        // the manual slider if the listener also set one, so the two settings
-        // don't fight; falls back to a fixed length when it's at "Off".
-        val fallbackSeconds = configuredFadeMs().takeIf { it > 0L }
-            ?.div(1000.0)
-            ?: DEFAULT_SMART_FALLBACK_SECONDS
-
-        // Resolved once and reused: [analysisFor] was being called five separate
-        // times per tick below, and the answer cannot change mid-tick.
-        val currentAnalysis = analysisFor(currentItem)
-        val nextAnalysis = analysisFor(nextItem)
-        val analysisState = AppSettings.smartAnalysis.value
-
-        val plan = planTransition(
-            analysis = currentAnalysis,
-            nextAnalysis = nextAnalysis,
-            currentTrack = currentItem.toTransitionInfo(duration),
-            nextTrack = nextItem.toTransitionInfo(nextDuration),
-            currentTime = player.currentPosition / 1000.0,
-            duration = duration / 1000.0,
-            fadeSeconds = fallbackSeconds,
-            mode = CrossfadeMode.SMART,
-        )
-        // One line per distinct verdict rather than one per 250ms tick, so the
-        // log says what the planner decided for this pair without burying it.
-        val verdict = "${plan.reason}|${plan.transitionStyle}|fade=${plan.fadeMs}" +
-            "|cue=${plan.incomingCueTime}|rate=${plan.incomingPlaybackRate}" +
-            "|vocalOverlap=${"%.2f".format(Locale.ROOT, plan.vocalOverlap)}" +
-            "|blocked=${plan.blocked}|policy=${plan.policyReasons.joinToString(",")}"
-        if (verdict != lastPlanVerdict) {
-            lastPlanVerdict = verdict
-            Log.d(
-                TAG,
-                "plan ${currentItem.mediaId}->${nextItem.mediaId}: $verdict " +
-                    "bpm=${currentAnalysis.bpm}/${nextAnalysis.bpm} " +
-                    "conf=${currentAnalysis.beatConfidence}/${nextAnalysis.beatConfidence}",
-            )
-        }
-
-        // Gated on *both* tracks being measured, not on the plan alone. Until
-        // then the planner is still sizing the overlap from a fallback that
-        // moves as evidence lands, and a marker that slides along the bar while
-        // you watch it is worse than none. Cleared during the transition itself
-        // by [driveLap], because from that moment these fractions describe a
-        // track the session player has already left.
-        //
-        // Asymmetric on purpose, because the two sides are read for different
-        // things and a head-only result covers one of them completely.
-        //
-        // Where the window *sits* comes almost entirely from the outgoing track:
-        // its content end, its outro, its mix-out anchors. A provisional result
-        // has none of those — [analyzeHead] drops them deliberately rather than
-        // answering confidently about a track it has only seen the opening of —
-        // so the plan falls back to a plain end-of-track window, and the marker
-        // would sit there and then jump backwards when the whole-track pass
-        // lands. That is the sliding marker this guard exists for, so the
-        // outgoing side still has to be finished.
-        //
-        // The incoming side is the opposite case. All the planner asks of it is
-        // tempo, confidence and where it is safe to cue in — which are exactly
-        // the fields a head pass measures, and it measures them over the same
-        // opening window the whole-track pass would. Refining will sharpen those
-        // numbers but not move them, so holding the marker back for it hid a
-        // window that was already correct. Since the incoming track is now
-        // routinely analysed from its opening long before it plays, that was
-        // most of the time the marker was missing.
-        val markable = !plan.blocked &&
-            plan.markerVisible &&
-            duration > 0L &&
-            analysisState.current == TrackAnalysisState.ANALYSED &&
-            analysisState.next in MEASURED_ENOUGH_TO_ENTER_ON
-        AppSettings.smartTransitionWindow.value = if (markable) {
-            TransitionWindow(
-                start = (plan.transitionStart * 1000.0 / duration).toFloat().coerceIn(0f, 1f),
-                end = (plan.transitionEnd * 1000.0 / duration).toFloat().coerceIn(0f, 1f),
-            )
-        } else {
-            null
-        }
-
-        if (plan.blocked) return
-
-        val fade = plan.fadeMs
-        if (fade <= 0L) return
-
-        val transitionStartMs = (plan.transitionStart * 1000).roundToLong()
-        val remaining = transitionStartMs - player.currentPosition
-        if (SleepTimer.afterTrack.value) {
-            // Automix would start blending into the next track here; the sleep
-            // timer means there is no next track, so run the same fade-out
-            // against silence instead — see [beginSleepFadeOut].
-            if (remaining > 0L) return
-            beginSleepFadeOut(fade)
-            return
-        }
-        // Same arm-ahead margin as the standard path, just measured against
-        // the plan's own start rather than a fixed offset from track end —
-        // an analyzed mix-out anchor can place that start well before the
-        // file actually ends.
-        if (remaining > ARM_LEAD_MS) return
-
-        begin(
-            fade,
-            endMs = (plan.transitionEnd * 1000).roundToLong(),
-            smart = true,
-            cueTimeMs = (plan.incomingCueTime * 1000).roundToLong(),
-            playbackRate = plan.incomingPlaybackRate,
-            renderStyle = Render(
-                style = plan.transitionStyle,
-                bassSwap = plan.bassSwap,
-                bassSwapFraction = plan.bassSwapFraction,
-                filterSweep = plan.filterSweep,
-                vocalOverlap = plan.vocalOverlap,
-            ),
-        )
-    }
-
-    /**
-     * Queues the playing track and the one queued after it for analysis.
-     *
-     * Cheap no-ops once a track is analysed or already in flight; called every
-     * tick so a track that finishes caching mid-song is picked up without a
-     * separate trigger.
-     *
-     * Not folded into [considerSmartTransition], because the pair still needs
-     * measuring in the one case that never plans a transition at all: a track
-     * on repeat-one, which will hand over to this same next track as soon as
-     * the loop is switched off.
-     */
-    private fun requestAnalysisAround(player: ExoPlayer, duration: Long) {
-        val currentItem = player.currentMediaItem ?: return
-        val nextIndex = player.nextMediaItemIndex
-        if (nextIndex == C.INDEX_UNSET) return
-        val nextItem = player.getMediaItemAt(nextIndex)
-        if (currentItem.isVideoOrigin || nextItem.isVideoOrigin) return
-        requestAnalysis(currentItem, duration)
-        requestAnalysis(nextItem, nextItemDurationMs(nextIndex, nextItem))
-    }
-
-    /**
-     * Keeps the stats line describing the pair that is actually playing.
-     *
-     * Cheap enough to run unconditionally — two concurrent-map lookups and a
-     * set membership test — and running it unconditionally is the point: any
-     * gating reintroduces the staleness this exists to remove.
-     */
-    private fun publishAnalysisState() {
-        val player = active()
-        val currentItem = player.currentMediaItem
-        val nextIndex = player.nextMediaItemIndex
-        val nextItem = if (nextIndex == C.INDEX_UNSET) null else player.getMediaItemAt(nextIndex)
-        AppSettings.smartAnalysis.value = SmartAnalysis(
-            current = currentItem?.let { stateOf(it, analysisFor(it)) } ?: TrackAnalysisState.WAITING,
-            next = nextItem?.let { stateOf(it, analysisFor(it)) } ?: TrackAnalysisState.WAITING,
-        )
-    }
-
-    /**
-     * Where one track stands, for the stats line. "Analysing" is asked for
-     * first because a track can be in flight while a superseded provisional
-     * result is already on record, and the work in progress is the more useful
-     * thing to say about it.
-     */
-    private fun stateOf(item: MediaItem, analysis: TrackAnalysis): TrackAnalysisState = when {
-        // Usable first, and a pass in flight *second*. The other order was
-        // right up to the point a head-only result started arriving before the
-        // whole-track one: a track measured off its opening reads as analysed,
-        // then finishes caching, then has the full pass run over it to replace
-        // the provisional numbers — and reported "analysing" again throughout.
-        // Going backwards from analysed reads as something having broken, when
-        // what is happening is a better answer being computed. Confidence on one
-        // such track went 0.39 to 0.94 and its cue moved from 0.1s to 9.5s.
-        analysis.isUsable ->
-            if (analysisRunningFor(item)) TrackAnalysisState.REFINING else TrackAnalysisState.ANALYSED
-        analysisRunningFor(item) -> TrackAnalysisState.ANALYSING
-        // A recorded-but-unusable result is the analyzer's way of saying it
-        // tried and got nothing, and that it will not try again — it writes a
-        // ready-but-empty entry precisely so the track stops being retried. A
-        // track nothing has looked at yet has no status at all, which is the
-        // only case that is still merely waiting.
-        analysis.status == TrackAnalysis.STATUS_READY -> TrackAnalysisState.FAILED
-        else -> TrackAnalysisState.WAITING
-    }
-
-    /**
-     * The next queue item's own duration.
-     *
-     * Media3 fills a timeline window's duration in when the item is *prepared*,
-     * which for the track after this one happens a few seconds before it starts
-     * playing. So for almost the whole of the current track this answered zero —
-     * and zero is not a harmless "don't know" downstream. It reaches
-     * [com.extrumz.app.playback.smart.TrackAnalyzer.request] as the next
-     * track's duration, and with no duration to check a sibling copy against the
-     * analyzer will only read the rendition the cache key resolves to *right
-     * now*, which with source substitution on is the `#alt` entry — while the
-     * copy actually on disk is the plain one its own head fetch just pulled
-     * down. Nothing matches, the pass returns silently, and it does that on every
-     * tick for the rest of the track. Measured: a fully cached next track sat
-     * unread for three minutes and was analysed eight seconds before the fade it
-     * was meant to inform, having been analysable the whole time.
-     *
-     * The runtime is on the item already — queued from a row that knew it, and
-     * carried on the playback URI as `d=` because a cross-source match is made on
-     * it (see `Song.matchQuery`). Reading it here costs nothing and is available
-     * from the moment the queue is set.
-     */
-    private fun nextItemDurationMs(nextIndex: Int, item: MediaItem): Long {
-        val timeline = active().currentTimeline
-        if (!timeline.isEmpty) {
-            timeline.getWindow(nextIndex, Timeline.Window()).durationMs
-                .takeIf { it != C.TIME_UNSET && it > 0 }
-                ?.let { return it }
-        }
-        return queuedDurationMs(item)
-    }
-
-    /**
-     * The runtime the queue row carried, in milliseconds, or 0 when the item
-     * doesn't state one — a local file, or a track queued without a duration.
-     *
-     * Deliberately forgiving: [Uri.getQueryParameter] throws on an opaque URI,
-     * and a missing or unparsable value is simply an absent duration rather than
-     * anything worth failing a tick over.
-     */
-    private fun queuedDurationMs(item: MediaItem): Long {
-        val uri = item.localConfiguration?.uri ?: return 0L
-        val seconds = runCatching { uri.getQueryParameter("d") }.getOrNull()?.toLongOrNull() ?: return 0L
-        return if (seconds > 0) seconds * 1000L else 0L
-    }
-
-    /** Extrumz doesn't carry album metadata on [MediaMetadata] yet, so [TransitionTrackInfo.album] stays blank. */
-    private fun MediaItem.toTransitionInfo(durationMs: Long) = TransitionTrackInfo(
-        id = mediaId,
-        durationMs = durationMs,
-        title = mediaMetadata.title?.toString().orEmpty(),
-        artist = mediaMetadata.artist?.toString().orEmpty(),
-    )
 
     /**
      * Loads the standby player with the queue, positioned on the incoming track
@@ -1549,20 +1207,6 @@ class CrossfadeController(
          */
         const val ARM_LEAD_MS = 4_000L
 
-        /**
-         * States in which a track is measured well enough to be *entered* on.
-         *
-         * [TrackAnalysisState.REFINING] belongs here because the entry fields —
-         * tempo, beat confidence, the cue point — are all measured over the
-         * track's opening, which is precisely what a head-only pass reads. The
-         * whole-track pass it is waiting on adds the *exit* half: content end,
-         * outro, mix-out anchors, the energy curve. Those matter when this track
-         * is later the one being left, and not at all for the transition into it.
-         */
-        val MEASURED_ENOUGH_TO_ENTER_ON = setOf(
-            TrackAnalysisState.ANALYSED,
-            TrackAnalysisState.REFINING,
-        )
 
         /**
          * Longest a transition will wait on an incoming track that will not

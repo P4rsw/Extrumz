@@ -13,9 +13,6 @@
 # jsoup builds its node graph reflectively.
 -keep class org.jsoup.** { *; }
 
-# ---- Native -------------------------------------------------------------------
-# ONNX Runtime is called from JNI, which R8 cannot see.
--keep class ai.onnxruntime.** { *; }
 
 # TDLib is called from JNI the same way, and for the same reason. Its native
 # library looks these classes up by name, so R8 renaming them is invisible to

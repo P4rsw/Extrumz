@@ -122,7 +122,6 @@ import com.extrumz.app.data.NerdStats
 import com.extrumz.app.data.settings.AppSettings
 import com.extrumz.app.data.settings.OutputPcmMode
 import com.extrumz.app.playback.AudioOutputStatus
-import com.extrumz.app.data.settings.AutomixPerformanceMode
 import com.extrumz.app.R
 import com.extrumz.app.data.settings.ThemeMode
 import com.extrumz.app.data.stats.Backup
@@ -163,8 +162,6 @@ fun SettingsScreen(
 
         val metered by AppSettings.meteredConnection.collectAsStateWithLifecycle()
         val crossfade by AppSettings.crossfadeSeconds.collectAsStateWithLifecycle()
-        val smartFade by AppSettings.smartFadeEnabled.collectAsStateWithLifecycle()
-        val automixPerformance by AppSettings.automixPerformanceMode.collectAsStateWithLifecycle()
         val skipSilence by AppSettings.skipSilence.collectAsStateWithLifecycle()
         val spatialAudio by AppSettings.spatialAudio.collectAsStateWithLifecycle()
         val nerdStats by AppSettings.showNerdStats.collectAsStateWithLifecycle()
@@ -215,7 +212,6 @@ fun SettingsScreen(
         // Filters the rows below — see [SettingsSearch]. Blank shows everything,
         // exactly as if the field weren't there.
         var searchQuery by remember { mutableStateOf("") }
-        var pickingAutomixPerformance by remember { mutableStateOf(false) }
         // What the last export or import did, shown on the row that did it rather
         // than as a toast: a backup is the one action here whose outcome nobody can
         // check by looking at the app afterwards. Held per direction, or an import's
@@ -438,55 +434,25 @@ fun SettingsScreen(
                         onClick = { AppSettings.setLoudnessNormalization(!loudnessNormalization) },
                     )
                 }
-                // Automix decides its own length from each pair of tracks —
-                // tempo, key, structure — so it replaces the manual slider rather
-                // than needing it set to anything first.
-                if (!smartFade) {
-                    val crossfadeTitle = stringResource(R.string.crossfade)
-                    row(crossfadeTitle, "fade", "gapless", "کراسفید", "محو شدن", "پیوسته", "تداخل") {
-                        SliderRow(
-                            icon = Icons.Rounded.Waves,
-                            title = crossfadeTitle,
-                            subtitle = stringResource(R.string.crossfade_subtitle),
-                            value = if (crossfade == 0) stringResource(R.string.off) else "${crossfade}s",
-                            sliderValue = crossfade.toFloat(),
-                            onSliderValue = { AppSettings.setCrossfadeSeconds(it.roundToInt()) },
-                            valueRange = 0f..12f,
-                            steps = 11,
-                        )
-                    }
+                val crossfadeTitle = stringResource(R.string.crossfade)
+                row(crossfadeTitle, "fade", "gapless", "کراسفید", "محو شدن", "پیوسته", "تداخل") {
+                    SliderRow(
+                        icon = Icons.Rounded.Waves,
+                        title = crossfadeTitle,
+                        subtitle = stringResource(R.string.crossfade_subtitle),
+                        value = if (crossfade == 0) stringResource(R.string.off) else "${crossfade}s",
+                        sliderValue = crossfade.toFloat(),
+                        onSliderValue = { AppSettings.setCrossfadeSeconds(it.roundToInt()) },
+                        valueRange = 0f..12f,
+                        steps = 11,
+                    )
                 }
                 val automixTitle = stringResource(R.string.automix)
                 row(automixTitle, "crossfade", "smart fade", "mix", "اتومیکس", "میکس", "کراسفید", "محو هوشمند", "میکس خودکار") {
                     SettingsRow(
                         icon = Icons.Rounded.AutoAwesome,
                         title = automixTitle,
-                        subtitle = if (smartFade) {
-                            stringResource(R.string.automix_enabled_subtitle)
-                        } else {
-                            stringResource(R.string.automix_disabled_subtitle)
-                        },
-                        trailing = {
-                            Switch(
-                                checked = smartFade,
-                                onCheckedChange = AppSettings::setSmartFadeEnabled,
-                                colors = SwitchDefaults.colors(
-                                    checkedTrackColor = MaterialTheme.colorScheme.primary,
-                                    checkedBorderColor = MaterialTheme.colorScheme.primary,
-                                ),
-                            )
-                        },
-                        onClick = { AppSettings.setSmartFadeEnabled(!smartFade) },
-                    )
-                }
-                val automixPerformanceTitle = stringResource(R.string.automix_performance)
-                row(automixPerformanceTitle, "cpu", "battery", "عملکرد", "پردازنده", "باتری", "مصرف باتری") {
-                    SettingsRow(
-                        icon = Icons.Rounded.Tune,
-                        title = automixPerformanceTitle,
-                        subtitle = stringResource(R.string.automix_performance_subtitle),
-                        value = automixPerformance.localizedLabel(),
-                        onClick = { pickingAutomixPerformance = true },
+                        subtitle = stringResource(R.string.automix_deprecated_notice),
                     )
                 }
                 val skipSilenceTitle = stringResource(R.string.skip_silence)
@@ -1129,21 +1095,6 @@ fun SettingsScreen(
             }
         }
 
-        if (pickingAutomixPerformance) {
-            ModalBottomSheet(
-                onDismissRequest = { pickingAutomixPerformance = false },
-                containerColor = MaterialTheme.colorScheme.background,
-            ) {
-                AutomixPerformanceSheet(
-                    selected = automixPerformance,
-                    onSelect = { mode ->
-                        AppSettings.setAutomixPerformanceMode(mode)
-                        pickingAutomixPerformance = false
-                    },
-                )
-            }
-        }
-
         // Asked before the picker opens rather than after a file is chosen: the
         // thing being confirmed is that this device's own history is about to be
         // thrown away, and that is true whichever file gets picked.
@@ -1217,15 +1168,6 @@ private fun ThemeMode.localizedLabel(): String = stringResource(
     },
 )
 
-@Composable
-private fun AutomixPerformanceMode.localizedLabel(): String = stringResource(
-    when (this) {
-        AutomixPerformanceMode.EFFICIENT -> R.string.automix_mode_efficient
-        AutomixPerformanceMode.BALANCED -> R.string.automix_mode_balanced
-        AutomixPerformanceMode.PERFORMANCE -> R.string.automix_mode_performance
-    },
-)
-
 /**
  * Hands the device's own effect panel this app's audio session.
  *
@@ -1251,83 +1193,6 @@ private fun formatCacheSize(mb: Int): String {
     if (mb < 1024) return "$mb MB"
     val gb = mb / 1024f
     return if (gb == gb.toInt().toFloat()) "${gb.toInt()} GB" else "%.1f GB".format(Locale.ROOT, gb)
-}
-
-/** CPU budget picker for the background models that prepare Automix. */
-@Composable
-private fun AutomixPerformanceSheet(
-    selected: AutomixPerformanceMode,
-    onSelect: (AutomixPerformanceMode) -> Unit,
-) {
-    val haptics = LocalHapticFeedback.current
-    Column(Modifier.fillMaxWidth().padding(bottom = 24.dp)) {
-        Row(
-            modifier = Modifier.padding(start = 22.dp, end = 22.dp, bottom = 14.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Icon(
-                imageVector = Icons.Rounded.Tune,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onBackground,
-                modifier = Modifier.size(22.dp),
-            )
-            Spacer(Modifier.width(14.dp))
-            Column {
-                Text(
-                    text = stringResource(R.string.automix_performance),
-                    style = MaterialTheme.typography.titleLarge,
-                    color = MaterialTheme.colorScheme.onBackground,
-                )
-                Text(
-                    text = stringResource(R.string.automix_performance_warning),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
-        HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outline)
-        AutomixPerformanceMode.entries.forEach { mode ->
-            val chosen = mode == selected
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable {
-                        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                        onSelect(mode)
-                    }
-                    .padding(horizontal = 22.dp, vertical = 14.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Column(Modifier.weight(1f)) {
-                    Text(
-                        text = mode.localizedLabel(),
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onBackground,
-                    )
-                    Text(
-                        text = stringResource(
-                            when (mode) {
-                                AutomixPerformanceMode.EFFICIENT -> R.string.automix_mode_efficient_subtitle
-                                AutomixPerformanceMode.BALANCED -> R.string.automix_mode_balanced_subtitle
-                                AutomixPerformanceMode.PERFORMANCE -> R.string.automix_mode_performance_subtitle
-                            },
-                        ),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                if (chosen) {
-                    Spacer(Modifier.width(12.dp))
-                    Icon(
-                        Icons.Rounded.Check,
-                        contentDescription = stringResource(R.string.selected),
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(22.dp),
-                    )
-                }
-            }
-        }
-    }
 }
 
 // ---- Building blocks --------------------------------------------------------

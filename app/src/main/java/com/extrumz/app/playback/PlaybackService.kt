@@ -104,7 +104,6 @@ import com.extrumz.app.data.sources.SourceResolver
 import com.extrumz.app.data.sources.SourceStream
 import com.extrumz.app.data.sources.StreamFormat
 import com.extrumz.app.data.sources.TrackMatcher
-import com.extrumz.app.playback.smart.AutomixAnalysisSource
 import com.extrumz.app.playback.smart.VersionAudioAligner
 import com.extrumz.app.widget.MediaWidget
 import com.extrumz.app.widget.MediaWidgetSnapshot
@@ -343,9 +342,6 @@ class PlaybackService : MediaLibraryService() {
 
     private var activeFilter: TransitionFilterProcessor = transitionFilterA
     private var spareFilter: TransitionFilterProcessor = transitionFilterB
-
-    /** Automix's DSP analyzer — see [com.extrumz.app.playback.smart.TrackAnalyzer]. */
-    private val trackAnalyzer = com.extrumz.app.playback.smart.TrackAnalyzer(this, AudioCache)
 
     /** Shared with the crossfade's tail player, so both read the same disk cache. */
     private var mediaSourceFactory: DefaultMediaSourceFactory? = null
@@ -1121,12 +1117,6 @@ class PlaybackService : MediaLibraryService() {
             active = { requireNotNull(player) },
             standby = { requireNotNull(spare) },
             onHandoff = ::adoptPlayer,
-            analysisFor = { item -> trackAnalyzer.analysisFor(item.mediaId) },
-            requestAnalysis = { item, durationMs ->
-                item.localConfiguration?.uri?.let { uri ->
-                    trackAnalyzer.request(item.mediaId, uri, durationMs / 1000.0)
-                }
-            },
             // "Incoming" and "outgoing" are roles, not players. The controller
             // only ever filters after the handoff, by which point the incoming
             // track is on the session player and the outgoing one is on the
@@ -1139,7 +1129,6 @@ class PlaybackService : MediaLibraryService() {
                 override fun outgoing(lowPassHz: Float, highPassHz: Float) =
                     spareFilter.setCutoffs(lowPassHz, highPassHz)
             },
-            analysisRunningFor = { item -> trackAnalyzer.isAnalysing(item.mediaId) },
             versionSwapActive = { versionSwapJob?.isActive == true },
         )
 
@@ -1526,8 +1515,8 @@ class PlaybackService : MediaLibraryService() {
         versionAlignmentMeasurements[key]?.let { return it }
         val deferred = scope.async(Dispatchers.Main) {
             try {
-                val sourceUri = Uri.parse(sourceSong.localUri ?: AutomixAnalysisSource.opusUri(sourceId))
-                val targetUri = Uri.parse(targetSong.localUri ?: AutomixAnalysisSource.opusUri(targetId))
+                val sourceUri = Uri.parse(sourceSong.localUri ?: "extrumz://watch?v=$sourceId")
+                val targetUri = Uri.parse(targetSong.localUri ?: "extrumz://watch?v=$targetId")
                 withContext(Dispatchers.IO) {
                     // Together rather than one after the other: two independent
                     // range reads that the sequential version made the listener pay
@@ -4822,7 +4811,6 @@ class PlaybackService : MediaLibraryService() {
         serviceLyricsJob = null
         serviceLyrics = null
         cancelPrefetch()
-        trackAnalyzer.release()
         loudnessEnhancer?.release()
         loudnessEnhancer = null
         // Last chance to get the current track's minutes onto disk: the scope is

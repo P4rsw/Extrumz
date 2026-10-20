@@ -145,6 +145,7 @@
     <string name="crossfade">کراس‌فید</string>
     <string name="crossfade_subtitle">آهنگ‌ها رو نرم به هم وصل می‌کنه (کراس‌فید)</string>
     <string name="automix">اتومیکس (آزمایشی)</string>
+    <string name="automix_deprecated_notice">جهت بهینه‌سازی و کاهش حجم موقتاً غیرفعال شده است. کراس‌فید استاندارد فعال می‌باشد.</string>
     <string name="automix_performance">سرعت و توان پردازش اتومیکس</string>
     <string name="automix_performance_subtitle">میزان استفاده از CPU برای پردازش پس‌زمینه آهنگ‌ها</string>
     <string name="automix_performance_warning">آهنگ‌ها سریع‌تر آماده می‌شن، ولی باتری بیشتری مصرف می‌شه و ممکنه گوشی داغ بشه.</string>
