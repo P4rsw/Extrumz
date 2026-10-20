@@ -1,4 +1,4 @@
-package com.music.extrumz
+package com.extrumz.app
 
 import android.content.SharedPreferences
 import com.extrumz.app.data.telegram.ProxyKind

@@ -1,4 +1,4 @@
-package com.music.extrumz
+package com.extrumz.app
 
 import com.extrumz.app.data.telegram.TelegramAuthState
 import com.extrumz.app.data.telegram.shouldShowWelcome
