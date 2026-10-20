@@ -91,22 +91,35 @@ backend/    Listen Together (group listening party) WebSocket server in Go.
             Inherited from the original project; the app no longer talks to it.
 native/     C++ DSP audio analysis engine for beat and tempo detection
 tools/      Keystore generation and release verification automation
-docs/       Architectural notes, lyrics translation specs, and screenshots
+docs/       the lyrics translation specification
 ```
 
-- **Architecture:** Single-module Kotlin application, Material 3 design, full edge-to-edge drawing.
-- **Release Shrinking (`R8`):** Full code shrinking and optimization are enabled for release builds. Critical reflection and JNI boundaries — including TDLib JNI, ONNX Runtime, and Protobuf Lite — are preserved in `proguard-rules.pro`.
-- **Release Verification:** R8 code optimization runs only on release builds. Always verify release builds on a physical device prior to publishing (`./gradlew installDevBenchmark` or `./release.sh`), as unit tests run against non-minified bytecode.
+One module, Material 3, edge to edge. `R8` shrinks release builds, and every
+library that reaches for a class by name — TDLib's JNI, ONNX's JNI,
+protobuf-lite — is kept whole in `proguard-rules.pro`.
+
+**One thing worth knowing before you fork this.** A release build is not a
+debug build. `R8` only runs in release, and it can remove something the debug
+build never would. Two release-only failures left this repository before they
+were caught — not by a test, because tests do not run `R8`, but by installing
+a release APK on a phone and using it. Do that step.
 
 ---
 
 ## What is not finished
 
-Extrumz is used daily and is fully functional, but it is an evolving project. Being straightforward about its present boundaries saves everyone time:
+This is used daily and it works, but it is early, and it is more honest to
+say so than to let a reader find out:
 
-- **Binary footprint:** Beat-matching transitions and vocal separation models inherited from the upstream architecture increase the final APK size.
-- **Proxy scope:** High-res external album artwork and third-party lyrics do not route through MTProto proxies.
-- **Translations:** Localization currently covers Persian and English, with Persian receiving primary design attention.
+- **The APK is heavier than it needs to be.** The beat-matched transitions and
+  the vocal separation are inherited from the original project, and they bring
+  about forty megabytes of models and native runtime with them.
+- **Cover art and lyrics do not travel through an MTProto proxy.** They take
+  the ordinary route, so a network that blocks those blocks them too.
+- **Translation is Persian and English only**, and the Persian is the one that
+  gets the attention.
+- **`backend/` is dead weight.** It is the Listen Together server from the
+  original project, and the app no longer speaks to it.
 
 ---
 
