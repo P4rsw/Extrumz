@@ -219,17 +219,6 @@
     <string name="blocking">Blocking</string>
     <string name="crossfade">Crossfade</string>
     <string name="crossfade_subtitle">Blends one track into the next</string>
-    <string name="automix">Automix [BETA]</string>
-    <string name="automix_deprecated_notice">Temporarily disabled to reduce app size and optimize performance. Standard crossfade is active.</string>
-    <string name="automix_performance">Automix performance</string>
-    <string name="automix_performance_subtitle">Sets how much CPU background analysis may use</string>
-    <string name="automix_performance_warning">Higher performance analyses tracks faster, but can use more battery and make the phone warmer.</string>
-    <string name="automix_mode_efficient">Efficient</string>
-    <string name="automix_mode_efficient_subtitle">1 thread · lowest heat and battery use · analysis may take longer</string>
-    <string name="automix_mode_balanced">Balanced</string>
-    <string name="automix_mode_balanced_subtitle">2 threads · recommended balance of speed, heat and battery</string>
-    <string name="automix_mode_performance">Performance</string>
-    <string name="automix_mode_performance_subtitle">4 threads · fastest analysis · higher heat and battery use</string>
     <string name="skip_silence">Skip silence</string>
     <string name="skip_silence_subtitle">Trim gaps longer than a second</string>
     <string name="skip_silence_float_subtitle">Unavailable on 32-bit float output</string>
@@ -775,8 +764,6 @@
     
     <string name="delete_download_confirmation">Remove “%1$s” from this device? Tap again to confirm.</string>
     <string name="running">Running</string>
-    <string name="automix_analysis_status">Automix · this song: %1$s · next: %2$s</string>
-    <string name="automix_not_supported_video">Automix not supported on video songs</string>
     
     <string name="analysis_complete">analysed</string>
     <string name="analysis_refining">analysed, refining…</string>
@@ -787,8 +774,6 @@
     
     
     
-    <string name="automix_enabled_subtitle">Times and blends every transition from the tracks themselves. Turn it off if the phone gets hot or playback stutters.</string>
-    <string name="automix_disabled_subtitle">Times and blends transitions automatically, without a slider. Performance may vary on slower devices.</string>
     <string name="no_lyrics_sources_enabled">None. Lyrics will not be fetched.</string>
     <string name="song_cache_large_subtitle">Keeps up to %1$s of downloaded audio on disk. This can take a noticeable share of your free space.</string>
     <string name="song_cache_limit_subtitle">Keeps downloaded audio on disk for instant seeking and replays</string>

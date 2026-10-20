@@ -1272,7 +1272,7 @@ class PlaybackService : MediaLibraryService() {
         // reverse — Automix arming while a version swap is running — is
         // guarded symmetrically in [createCrossfadeController].
         if (crossfade?.isTransitioning() == true) {
-            TrackLog.d("Extrumz", "version swap deferred: Automix is mid-transition", about = currentItem.mediaId)
+            TrackLog.d("Extrumz", "version swap deferred: a transition is mid-flight", about = currentItem.mediaId)
             return
         }
 

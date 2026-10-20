@@ -1114,9 +1114,9 @@ object AudioCache {
         override fun createDataSource(): DataSource = object : DataSource {
             override fun addTransferListener(transferListener: TransferListener) {}
             override fun open(dataSpec: DataSpec): Long =
-                throw IOException("Automix analysis reads only cached bytes; no upstream is wired up")
+                throw IOException("cache-only source: read past the cached prefix")
             override fun read(buffer: ByteArray, offset: Int, length: Int): Int =
-                throw IOException("Automix analysis reads only cached bytes; no upstream is wired up")
+                throw IOException("cache-only source: read past the cached prefix")
             override fun getUri(): Uri? = null
             override fun close() {}
         }

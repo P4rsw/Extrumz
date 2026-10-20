@@ -447,14 +447,6 @@ fun SettingsScreen(
                         steps = 11,
                     )
                 }
-                val automixTitle = stringResource(R.string.automix)
-                row(automixTitle, "crossfade", "smart fade", "mix", "اتومیکس", "میکس", "کراسفید", "محو هوشمند", "میکس خودکار") {
-                    SettingsRow(
-                        icon = Icons.Rounded.AutoAwesome,
-                        title = automixTitle,
-                        subtitle = stringResource(R.string.automix_deprecated_notice),
-                    )
-                }
                 val skipSilenceTitle = stringResource(R.string.skip_silence)
                 row(skipSilenceTitle, "silence", "رد کردن سکوت", "سکوت", "حذف سکوت") {
                     SettingsRow(
