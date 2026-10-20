@@ -87,16 +87,13 @@ TG_API_HASH=0123456789abcdef0123456789abcdef
 
 ```
 app/        The Android application — Kotlin, Jetpack Compose, Room, TDLib
-backend/    Listen Together (group listening party) WebSocket server in Go.
-            Inherited from the original project; the app no longer talks to it.
-native/     C++ DSP audio analysis engine for beat and tempo detection
 tools/      Keystore generation and release verification automation
 docs/       the lyrics translation specification
 ```
 
 One module, Material 3, edge to edge. `R8` shrinks release builds, and every
-library that reaches for a class by name — TDLib's JNI and ONNX's JNI — is kept
-whole in `proguard-rules.pro`.
+library that reaches for a class by name — TDLib's JNI — is kept whole in
+`proguard-rules.pro`.
 
 **One thing worth knowing before you fork this.** A release build is not a
 debug build. `R8` only runs in release, and it can remove something the debug
@@ -111,18 +108,13 @@ a release APK on a phone and using it. Do that step.
 This is used daily and it works, but it is early, and it is more honest to
 say so than to let a reader find out:
 
-- **The APK is heavier than it needs to be.** The beat-matched transitions and
-  the vocal separation are inherited from the original project, and they bring
-  about forty megabytes of models and native runtime with them.
 - **Typography needs a free alternative.** Eleven megabytes of Apple's
-  proprietary SF Pro typeface are still bundled, awaiting replacement with an
-  open-source font such as Inter.
+  proprietary SF Pro typeface are bundled — a third of the APK — and San
+  Francisco's licence does not permit embedding it in Android software.
 - **Cover art and lyrics do not travel through an MTProto proxy.** They take
   the ordinary route, so a network that blocks those blocks them too.
 - **Translation is Persian and English only**, and the Persian is the one that
   gets the attention.
-- **`backend/` is dead weight.** It is the Listen Together server from the
-  original project, and the app no longer speaks to it.
 
 ---
 
