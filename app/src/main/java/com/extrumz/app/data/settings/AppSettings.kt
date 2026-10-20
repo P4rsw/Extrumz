@@ -227,8 +227,6 @@ object AppSettings {
     // which now reads [AppSettings.audioQuality] and nothing else.
 
     val crossfadeSeconds = MutableStateFlow(0)
-
-    val smartFadeEnabled = MutableStateFlow(false)
     val skipSilence = MutableStateFlow(false)
 
     /** Requested PCM representation at the Android AudioTrack boundary. */
@@ -475,19 +473,6 @@ object AppSettings {
     val audioSessionId = MutableStateFlow(0)
 
     /**
-     * True only while a Automix transition that is actually *mixing* is
-     * audible — one that beat-matched, cued the incoming track into its
-     * arrangement, or rode a filter.
-     *
-     * Deliberately not "a crossfade is running". The fallback case, where
-     * neither track was analysed in time and the incoming one starts from 0:00
-     * under a plain equal-power fade, is exactly what this must stay dark for:
-     * the whole point is that seeing it means the analysis landed and did
-     * something a plain crossfade could not.
-     */
-    val smartMixInProgress = MutableStateFlow(false)
-
-    /**
      * True while a version switch is fetching and analysing the other cut
      * before playback actually moves. Drains into the loading bar drawn along
      * the scrubber itself — `ThinSlider.loading` — so the wait reads as work
@@ -496,17 +481,6 @@ object AppSettings {
      * switch that has nothing else showing.
      */
     val versionAlignmentInProgress = MutableStateFlow(false)
-
-
-    /**
-     * Where on the *playing* track the next transition is planned to happen, as
-     * fractions of its duration, or null when there is nothing worth drawing.
-     *
-     * Only published once both tracks are measured. Before that the planner is
-     * still working from a fallback window that moves as evidence arrives, and
-     * a marker that slides around the bar would be worse than no marker.
-     */
-    val smartTransitionWindow = MutableStateFlow<TransitionWindow?>(null)
 
     /** The ceiling that applies to a stream started right now. */
 
@@ -552,7 +526,6 @@ object AppSettings {
         wifiOnlyDownloads.value = prefs.getBoolean(KEY_WIFI_ONLY_DOWNLOADS, true)
         exportDownloads.value = prefs.getBoolean(KEY_EXPORT_DOWNLOADS, true)
         crossfadeSeconds.value = prefs.getInt(KEY_CROSSFADE, 0)
-        smartFadeEnabled.value = false
         skipSilence.value = prefs.getBoolean(KEY_SKIP_SILENCE, false)
         outputPcmMode.value = runCatching {
             OutputPcmMode.valueOf(
@@ -1226,7 +1199,6 @@ object AppSettings {
     private const val KEY_EXPORT_DOWNLOADS = "export_downloads"
     private const val KEY_LOSSLESS = "lossless_audio"
     private const val KEY_CROSSFADE = "crossfade_seconds"
-    private const val KEY_SMART_FADE = "smart_fade_enabled"
     private const val KEY_SKIP_SILENCE = "skip_silence"
     private const val KEY_OUTPUT_PCM_MODE = "output_pcm_mode"
     private const val KEY_PREFER_USB_DAC = "prefer_usb_dac"
@@ -1281,9 +1253,3 @@ object AppSettings {
 
     private const val KEY_LAST_VERSION_CODE = "last_version_code"
 }
-
-/**
- * A span of the playing track, in fractions of its duration, that the next
- * transition is planned to occupy.
- */
-data class TransitionWindow(val start: Float, val end: Float)

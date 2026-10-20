@@ -28,9 +28,7 @@ import java.util.Locale
  * for that answer — is a no-op for anything without a YouTube id. Between them,
  * a local file was never queued for analysis at all: it sat at "waiting" for as
  * long as it stayed queued, both tracks of every transition read as no
- * evidence, and the policy ladder answered that the only way it can, with a
- * plain crossfade. Which is exactly what Automix over a local library sounded
- * like.
+ * evidence, and the transition played as a plain crossfade.
  *
  * ## Shape
  *

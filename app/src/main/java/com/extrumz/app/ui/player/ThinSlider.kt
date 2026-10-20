@@ -66,18 +66,10 @@ fun ThinSlider(
      * music is going.
      */
     loading: Boolean = false,
-    /**
-     * Span of the track, as fractions of its duration, that the next Automix
-     * transition is planned to occupy. Drawn as a brighter stretch of the
-     * unplayed bar so the mix is visible before it arrives.
-     */
-    transitionWindow: ClosedFloatingPointRange<Float>? = null,
     idleHeight: Dp = 7.dp,
     activeHeight: Dp = 12.dp,
     activeColor: Color = Color.White.copy(alpha = 0.92f),
     inactiveColor: Color = Color.White.copy(alpha = 0.26f),
-    /** Halfway between the two track colours: visible against unplayed, invisible under played. */
-    markerColor: Color = Color.White.copy(alpha = 0.5f),
 ) {
     var dragging by remember { mutableStateOf(false) }
     val height by animateDpAsState(
@@ -158,22 +150,7 @@ fun ThinSlider(
         ) {
             val radius = CornerRadius(size.height / 2f)
             drawRoundRect(color = inactiveColor, cornerRadius = radius)
-            // Between the two track colours, and drawn *under* the played fill:
-            // once the playhead reaches the window the transition is no longer
-            // upcoming, and the ordinary progress colour taking it over is what
-            // says so.
-            transitionWindow?.let { window ->
-                val from = size.width * window.start.coerceIn(0f, 1f)
-                val to = size.width * window.endInclusive.coerceIn(0f, 1f)
-                if (to > from) {
-                    drawRoundRect(
-                        color = markerColor,
-                        topLeft = Offset(from, 0f),
-                        size = Size(to - from, size.height),
-                        cornerRadius = radius,
-                    )
-                }
-            }
+
             // Scaled by [fillFactor]: retracted to nothing while the sheen
             // runs (two white signals on one bar would read as progress
             // fighting the wait) and slid back in when the switch lands. The

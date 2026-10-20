@@ -188,7 +188,6 @@ internal fun PlayerScrubber(
     durationMs: Long,
     /** A version switch's wait, drawn along the bar — see [ThinSlider.loading]. */
     loading: Boolean,
-    transitionWindow: ClosedFloatingPointRange<Float>?,
     onScrub: (Float) -> Unit,
     onScrubFinished: () -> Unit,
     centerLabel: @Composable BoxScope.() -> Unit = {},
@@ -200,7 +199,6 @@ internal fun PlayerScrubber(
             onValueChange = onScrub,
             onValueChangeFinished = onScrubFinished,
             loading = loading,
-            transitionWindow = transitionWindow,
         )
         Box(
             modifier = Modifier
@@ -270,8 +268,8 @@ internal fun PlaybackQualityLabel(
 }
 
 /**
- * Stats for nerds, on the foot of the sleeve: the measured stream, and under
- * it what Automix's analysis is doing. Nothing at all while the setting is off.
+ * Stats for nerds, on the foot of the sleeve: the measured stream.
+ * Nothing at all while the setting is off.
  */
 @Composable
 internal fun SleeveNerdStats(song: Song, modifier: Modifier = Modifier) {

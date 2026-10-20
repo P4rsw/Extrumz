@@ -28,9 +28,9 @@ import java.util.TreeSet
  * openings gone.
  *
  * That is invisible for playback, which re-fetches whatever it needs. It is
- * fatal for Automix, whose analyzer can only decode from the start of a
+ * fatal for audio alignment analysis, whose decoder can only decode from the start of a
  * container: a track holding 95% of itself but nothing at byte 0 reads as
- * entirely uncached, and is silently never analysed. Worse, with the cache at
+ * entirely uncached, and cannot be decoded for alignment. Worse, with the cache at
  * its ceiling a track downloading its own tail could evict its own head while
  * still playing.
  *

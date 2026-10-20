@@ -504,7 +504,7 @@ private fun Song.matchQuery(): String = buildString {
     albumName?.takeIf { it.isNotBlank() }?.let { append("&l=").append(Uri.encode(it)) }
     isExplicit?.let { append("&e=").append(if (it) "1" else "0") }
     // `m` controls source routing, not player policy. A converted catalogue
-    // track keeps [isVideoOrigin] for AutoMix, but is intentionally audio here
+    // track keeps [isVideoOrigin], but is intentionally audio here
     // so the normal source-quality upgrade path can improve it.
     if (isVideo) append("&m=1")
 }

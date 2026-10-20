@@ -208,30 +208,15 @@ class CrossfadeController(
 
     /**
      * Where the fade window ends, in the session player's position ms.
-     * Standard mode sets this to the track's own duration, which is what
-     * [driveArming] always compared against before Automix existed; a
-     * Automix plan can set it earlier, at an analyzed mix-out anchor, so
-     * [driveArming] watches this field rather than re-deriving the fade point
-     * from [ExoPlayer.getDuration] on every tick.
+     * Set to the track's own duration, so [driveArming] watches this field
+     * rather than re-deriving the fade point from [ExoPlayer.getDuration] on every tick.
      */
     private var fadeEndMs = 0L
 
     /**
-     * Which setting armed the fade in flight, so [driveFade] knows which one
-     * being switched off mid-blend means "stop now" rather than misreading the
-     * other mode's control as the fade having been turned off. Automix
-     * doesn't need [AppSettings.crossfadeSeconds] to be above zero at all —
-     * see [considerSmartTransition] — so treating that as still-zero as a
-     * reason to cut a Automix short would end every one of them on its
-     * first tick.
-     */
-    private var smartFadeActive = false
-
-    /**
      * Where the incoming track is cued when the lap hands the queue over, in
      * its own timeline ms. Standard fades always leave this at 0 — a plain
-     * track change starts from the top — and only a Automix plan sets it
-     * to an analyzed mix-in point instead.
+     * track change starts from the top.
      */
     private var incomingCueTimeMs: Long = 0L
 
@@ -403,7 +388,6 @@ class CrossfadeController(
         listeningTo?.removeListener(listener)
         listeningTo = null
         active().volume = 1f
-        AppSettings.smartMixInProgress.value = false
         filters.open()
     }
 
@@ -454,25 +438,15 @@ class CrossfadeController(
         val player = active()
         if (!player.isPlaying) return
         // Not while a version swap owns the standby player — see
-        // [versionSwapActive]. A version swap is a between-tracks affair on the
-        // same item, so the transition window and mix flag it would have
-        // armed still describe the next track correctly once the swap lets go.
+        // [versionSwapActive].
         if (versionSwapActive()) return
-        // Nothing to transition *into*, so any analysis state left over from the
-        // previous pair is stale — the last track of a queue should not still be
-        // claiming both songs are measured.
-        if (!player.hasNextMediaItem()) {
-            AppSettings.smartTransitionWindow.value = null
-            return
-        }
+        // Nothing to transition *into*.
+        if (!player.hasNextMediaItem()) return
 
         val duration = player.duration
         if (duration == C.TIME_UNSET || duration <= 0L) return
 
-        if (player.repeatMode == Player.REPEAT_MODE_ONE) {
-            AppSettings.smartTransitionWindow.value = null
-            return
-        }
+        if (player.repeatMode == Player.REPEAT_MODE_ONE) return
 
         if (configuredFadeMs() <= 0L) return
         val fade = fadeFor(duration)
@@ -493,7 +467,7 @@ class CrossfadeController(
         // is due rather than started then.
         if (remaining > fade + ARM_LEAD_MS) return
 
-        begin(fade, endMs = duration, smart = false)
+        begin(fade, endMs = duration)
     }
 
     /**
@@ -514,7 +488,6 @@ class CrossfadeController(
     private fun begin(
         fade: Long,
         endMs: Long,
-        smart: Boolean,
         cueTimeMs: Long = 0L,
         playbackRate: Double = 1.0,
         renderStyle: Render = Render(),
@@ -527,7 +500,6 @@ class CrossfadeController(
 
         fadeMs = fade
         fadeEndMs = endMs
-        smartFadeActive = smart
         incomingCueTimeMs = cueTimeMs.coerceAtLeast(0L)
         incomingPlaybackRate = playbackRate
         render = renderStyle
@@ -541,8 +513,7 @@ class CrossfadeController(
 
         Log.d(
             TAG,
-            "arm ${if (smart) "smart" else "standard"} fade=${fade}ms end=${endMs}ms " +
-                "cue=${incomingCueTimeMs}ms rate=$incomingPlaybackRate at=${out.currentPosition}ms " +
+            "arm fade=${fade}ms end=${endMs}ms cue=${incomingCueTimeMs}ms rate=$incomingPlaybackRate at=${out.currentPosition}ms " +
                 "style=${render.style} bassSwap=${render.bassSwap}@${render.bassSwapFraction} " +
                 "sweep=${render.filterSweep}",
         )
@@ -595,8 +566,7 @@ class CrossfadeController(
         if (expired && !ready) return bail()
 
         // Wait for the track to actually reach the fade point. [fadeEndMs] is
-        // the track's own duration in standard mode, or a Automix plan's
-        // analyzed mix-out anchor when it ends before the file does.
+        // the track's own duration in standard mode.
         val atFadePoint = fadeEndMs <= 0L || fadeEndMs - out.currentPosition <= fadeMs
         if (!atFadePoint) return
         if (ready) startFade()
@@ -645,10 +615,6 @@ class CrossfadeController(
             out.removeMediaItems(out.currentMediaItemIndex + 1, out.mediaItemCount)
         }
 
-        AppSettings.smartMixInProgress.value = isRealMix()
-        // The queue has just moved on, so the marker's fractions now refer to a
-        // track the session player is no longer showing a position for.
-        AppSettings.smartTransitionWindow.value = null
         phase = Phase.FADING
     }
 
@@ -694,12 +660,10 @@ class CrossfadeController(
         // the incoming track's own length, not by [configuredFadeMs] — a Smart
         // Fade plan already sized itself independently of that setting, and
         // may be running with it at zero.
-        // Measured from where the incoming track was *cued*, not from zero. A
-        // Automix plan can drop it in mid-arrangement, and reading its raw
-        // position as elapsed-fade would put a cue at 0:45 instantly past the
-        // end of an 8-second fade — finishing the blend on its first tick and
-        // landing as an abrupt cut, which is precisely the failure a cued
-        // transition is supposed to avoid.
+        // Measured from where the incoming track was *cued*, not from zero.
+        // Reading its raw position as elapsed-fade would put a cue past the
+        // end of a fade — finishing the blend on its first tick and
+        // landing as an abrupt cut.
         val remainingIncoming = player.duration
             .takeIf { it != C.TIME_UNSET && it > 0L }
             ?.minus(incomingCueTimeMs)
@@ -717,16 +681,9 @@ class CrossfadeController(
         rideFilters(progress)
 
         // Whichever comes first: the fade running its course, the old track
-        // genuinely ending, the tail failing outright, or whichever setting
-        // armed this fade being switched off mid-blend. Checked against the
-        // setting that actually started it — a Automix normally runs with
-        // [configuredFadeMs] at zero, and reading that as "turned off" would
-        // end every Automix on its first tick.
-        val settingSwitchedOff = if (smartFadeActive) {
-            !AppSettings.smartFadeEnabled.value
-        } else {
-            configuredFadeMs() <= 0L
-        }
+        // genuinely ending, the tail failing outright, or the crossfade setting
+        // being switched off mid-blend.
+        val settingSwitchedOff = configuredFadeMs() <= 0L
         val done = progress >= 1f ||
             out.playbackState == Player.STATE_ENDED ||
             out.playbackState == Player.STATE_IDLE ||
@@ -823,7 +780,6 @@ class CrossfadeController(
     private fun bail() {
         if (phase == Phase.IDLE || phase == Phase.BAILING) return
         Log.d(TAG, "bail from $phase")
-        AppSettings.smartMixInProgress.value = false
         if (!handedOff) {
             // Nothing was ever audible; no ramp to run.
             finish()
@@ -850,7 +806,6 @@ class CrossfadeController(
             // caller off for as long as the calls kept coming.
             settledAt = SystemClock.elapsedRealtime()
         }
-        AppSettings.smartMixInProgress.value = false
         // Unconditional and idempotent, like the speed reset below: correct
         // whether or not this transition ever filtered anything.
         filters.open()
@@ -883,9 +838,9 @@ class CrossfadeController(
         phase = Phase.IDLE
     }
 
-    /** Still a next track, still playing, still switched on — by whichever setting armed this one. */
+    /** Still a next track, still playing, still switched on. */
     private fun stillWorthFading(): Boolean {
-        val stillOn = if (smartFadeActive) AppSettings.smartFadeEnabled.value else configuredFadeMs() > 0L
+        val stillOn = configuredFadeMs() > 0L
         return stillOn && (outgoing ?: active()).hasNextMediaItem()
     }
 
@@ -1147,25 +1102,6 @@ class CrossfadeController(
     private fun bassCutoff(amount: Double): Float =
         glide(TransitionFilterProcessor.OFF_HZ.toDouble(), BASS_SWAP_HZ, amount).toFloat()
 
-    /**
-     * Whether the transition in flight is doing something a plain crossfade
-     * could not — which is what [AppSettings.smartMixInProgress] promises the
-     * listener when it lights the scrubber up.
-     *
-     * Any one of three things qualifies, because they are the three things
-     * analysis buys: a style that filters or swaps bass, an incoming track cued
-     * into its arrangement instead of its first frame, or a tempo stretch. The
-     * case this exists to exclude is the fallback — an unanalysed pair, cued at
-     * 0:00, fading equal-power — which is indistinguishable from what the app
-     * did before Automix existed and would be a lie to advertise.
-     */
-    private fun isRealMix(): Boolean = smartFadeActive && (
-        render.style == TransitionStyle.DJ_BLEND ||
-            render.style == TransitionStyle.DJ_FILTER ||
-            incomingCueTimeMs > 0L ||
-            incomingPlaybackRate != 1.0
-        )
-
     /** Equal-power pair: [riseGain]² + [fallGain]² = 1, so the blend never dips. */
     private fun riseGain(progress: Float): Float =
         sin(progress.coerceIn(0f, 1f) * PI.toFloat() / 2f)
@@ -1182,14 +1118,6 @@ class CrossfadeController(
 
     private companion object {
         const val TAG = "ExtrumzCrossfade"
-
-        /**
-         * Used only before a pair has been analysed, or when the evidence is
-         * too weak for more than a plain fade — see [considerSmartTransition].
-         * Once real analysis lands, the overlap is sized from tempo and
-         * structure instead and this is never read.
-         */
-        const val DEFAULT_SMART_FALLBACK_SECONDS = 6.0
 
         /** Ramp used when a fade is interrupted. */
         const val BAIL_MS = 120L

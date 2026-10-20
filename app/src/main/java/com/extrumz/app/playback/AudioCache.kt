@@ -774,7 +774,7 @@ object AudioCache {
                     cacheKey = videoId,
                     // Do not inherit a substitute/lossless StreamChoice from
                     // playback. The base key is reserved for the lightweight
-                    // YouTube Opus copy used by Automix analysis.
+                    // YouTube Opus copy used by audio alignment.
                     uri = Uri.parse("extrumz://watch?v=$videoId"),
                     position = 0,
                     length = want,
@@ -900,10 +900,10 @@ object AudioCache {
     /**
      * True once every byte of [uri]'s rendition is on disk.
      *
-     * Automix's analyzer needs this before it can safely decode a track: a
+     * The analyzer/decoder needs this before it can safely decode a track: a
      * partially fetched file may not even have a parsable container, and
-     * analysing the head of a track whose tail hasn't arrived would produce a
-     * grid for audio the listener will never reach through that transition.
+     * decoding the head of a track whose tail hasn't arrived would produce an incomplete
+     * view of the audio.
      *
      * Reads the content length Media3 already recorded against this cache key
      * (from the upstream response, the first time anything read this rendition)
@@ -964,7 +964,7 @@ object AudioCache {
     }
 
     /**
-     * One rendition of a recording, as Automix's analyzer sees it.
+     * One rendition of a recording, as the cache sees it.
      *
      * [key] is a cache key, not a URI: the point of this type is to name a
      * rendition the *player* is not using, which no URI in hand refers to.

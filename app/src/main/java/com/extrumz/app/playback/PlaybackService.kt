@@ -1266,10 +1266,10 @@ class PlaybackService : MediaLibraryService() {
         val currentIndex = activePlayer.currentMediaItemIndex
         if (currentIndex !in 0 until activePlayer.mediaItemCount) return
         val currentItem = activePlayer.currentMediaItem ?: return
-        // Never while Automix is mid-blend: both fades share the same
+        // Never while a crossfade is mid-blend: both fades share the same
         // active/standby pair, and starting a version swap here would tear
         // the standby player away from a transition already using it. The
-        // reverse — Automix arming while a version swap is running — is
+        // reverse — crossfade arming while a version swap is running — is
         // guarded symmetrically in [createCrossfadeController].
         if (crossfade?.isTransitioning() == true) {
             TrackLog.d("Extrumz", "version swap deferred: a transition is mid-flight", about = currentItem.mediaId)
@@ -1434,45 +1434,36 @@ class PlaybackService : MediaLibraryService() {
             // Smooth equal-power crossfade transition (~550ms audio morph)
             val swapCrossfadeMs = 550L
             val fadeStart = SystemClock.elapsedRealtime()
-            if (!smartAlignEnabled) {
-                AppSettings.smartMixInProgress.value = true
-            }
 
-            try {
-                while (isActive) {
-                    val elapsed = SystemClock.elapsedRealtime() - fadeStart
-                    val progress = (elapsed.toFloat() / swapCrossfadeMs).coerceIn(0f, 1f)
+            while (isActive) {
+                val elapsed = SystemClock.elapsedRealtime() - fadeStart
+                val progress = (elapsed.toFloat() / swapCrossfadeMs).coerceIn(0f, 1f)
 
-                    if (player !== activePlayer || activePlayer.currentMediaItemIndex != currentIndex) {
-                        standbyPlayer.stop()
-                        standbyPlayer.clearMediaItems()
-                        standbyPlayer.volume = 1f
-                        activePlayer.volume = 1f
-                        swappingMediaId = null
-                        return@launch
-                    }
-
-                    if (standbyPlayer.playWhenReady != activePlayer.playWhenReady) {
-                        standbyPlayer.playWhenReady = activePlayer.playWhenReady
-                    }
-
-                    val inGain = sin(progress * (PI / 2.0)).toFloat()
-                    val outGain = cos(progress * (PI / 2.0)).toFloat()
-                    standbyPlayer.volume = inGain
-                    activePlayer.volume = outGain
-
-                    if (progress >= 1f) break
-                    delay(16)
+                if (player !== activePlayer || activePlayer.currentMediaItemIndex != currentIndex) {
+                    standbyPlayer.stop()
+                    standbyPlayer.clearMediaItems()
+                    standbyPlayer.volume = 1f
+                    activePlayer.volume = 1f
+                    swappingMediaId = null
+                    return@launch
                 }
 
-                // Adopt incoming player cleanly
-                adoptPlayerForVersionSwap(outgoing = activePlayer, incoming = standbyPlayer)
-                onSwapCommitted?.invoke()
-            } finally {
-                if (!smartAlignEnabled) {
-                    AppSettings.smartMixInProgress.value = false
+                if (standbyPlayer.playWhenReady != activePlayer.playWhenReady) {
+                    standbyPlayer.playWhenReady = activePlayer.playWhenReady
                 }
+
+                val inGain = sin(progress * (PI / 2.0)).toFloat()
+                val outGain = cos(progress * (PI / 2.0)).toFloat()
+                standbyPlayer.volume = inGain
+                activePlayer.volume = outGain
+
+                if (progress >= 1f) break
+                delay(16)
             }
+
+            // Adopt incoming player cleanly
+            adoptPlayerForVersionSwap(outgoing = activePlayer, incoming = standbyPlayer)
+            onSwapCommitted?.invoke()
             } finally {
                 if (generation == versionSwapGeneration) {
                     AppSettings.versionAlignmentInProgress.value = false
@@ -3181,8 +3172,8 @@ class PlaybackService : MediaLibraryService() {
         // reads as the transition having broken rather than as a track quietly
         // getting better. This is the one delay on this path, and it is why the
         // blanket one above it could go: a hold measured from the track's own
-        // start never covered this case anyway, since an Automix hands over at a
-        // cue point that can be well past it.
+        // start never covered this case anyway, since a transition hands over at a
+        // cue point that can be past it.
         //
         // Keyed off when a transition last ended rather than off whether the
         // loop above actually waited, so the same grace covers an upgrade
@@ -3281,7 +3272,7 @@ class PlaybackService : MediaLibraryService() {
                     lookForBetterCopy(player)
                 }
             }
-            // The opening again, this time sized for Automix rather than for
+            // The opening again, this time sized for alignment analysis rather than for
             // a container header.
             //
             // An upgraded rendition is only ever fetched from the swap point
@@ -3295,7 +3286,7 @@ class PlaybackService : MediaLibraryService() {
             //
             // After the swap and off the main thread, because nothing waits on
             // it — the upgrade is already audible and this only decides whether
-            // the *next* transition can be a real mix.
+            // the *next* alignment pass has enough audio.
             //
             launch(Dispatchers.IO) {
                 AudioCache.warmRange(Uri.parse(upgradedUri), 0, ANALYSIS_HEAD_BYTES)
@@ -5705,9 +5696,8 @@ class PlaybackService : MediaLibraryService() {
         /**
          * Longest an upgrade waits on a crossfade before giving up and
          * checking once more, authoritatively, right at the swap point. Well
-         * past the longest transition either mode plans — 12s for a manual
-         * crossfade, or a Automix's own beat-bounded overlap, plus its arm
-         * lead — so this is a guard against something stuck, not a limit
+         * past the longest transition planned — 12s for a manual
+         * crossfade, plus its arm lead — so this is a guard against something stuck, not a limit
          * expected to bind in the ordinary case.
          */
         const val UPGRADE_CROSSFADE_WAIT_TIMEOUT_MS = 20_000L
@@ -5802,8 +5792,8 @@ class PlaybackService : MediaLibraryService() {
 
         /**
          * Opening fetched after an upgrade so the track stays analysable. Four
-         * megabytes is a little over twelve seconds of lossless — the shortest
-         * window Automix's head pass accepts — and many times that for a
+         * megabytes is a little over twelve seconds of lossless — sufficient
+         * window for audio alignment analysis — and many times that for a
          * compressed rendition, which simply finishes sooner.
          */
         const val ANALYSIS_HEAD_BYTES = 4L * 1024 * 1024

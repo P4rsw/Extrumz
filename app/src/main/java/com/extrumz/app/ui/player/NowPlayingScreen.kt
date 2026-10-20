@@ -1200,7 +1200,6 @@ fun NowPlayingScreen(
             label = "landscapeArtworkScale",
         )
         val versionAligning by AppSettings.versionAlignmentInProgress.collectAsStateWithLifecycle()
-        val transitionWindow by AppSettings.smartTransitionWindow.collectAsStateWithLifecycle()
         val panelOpen = lyricsOpen || queueOpen
 
         Box(modifier = modifier.fillMaxSize()) {
@@ -1290,9 +1289,6 @@ fun NowPlayingScreen(
                                 shown = shown,
                                 durationMs = durationMs,
                                 loading = versionAligning || audioVersionSwitching,
-                                transitionWindow = transitionWindow
-                                    ?.takeIf { !scrub.scrubbing && it.end > it.start }
-                                    ?.let { it.start..it.end },
                                 onScrub = onScrub,
                                 onScrubFinished = onScrubFinished,
                             ) {
@@ -2444,18 +2440,10 @@ fun NowPlayingScreen(
                         .padding(vertical = 4.dp),
                 )
             }
-            val transitionWindow by AppSettings.smartTransitionWindow.collectAsStateWithLifecycle()
             PlayerScrubber(
                 shown = shown,
                 durationMs = durationMs,
                 loading = versionSwitching,
-                // Hidden while scrubbing: the planner is still describing
-                // where the transition *would* be, and a marker sitting under
-                // a finger that is moving the playhead invites reading it as
-                // a drag target.
-                transitionWindow = transitionWindow
-                    ?.takeIf { !scrub.scrubbing && it.end > it.start }
-                    ?.let { it.start..it.end },
                 onScrub = onScrub,
                 onScrubFinished = onScrubFinished,
             ) {
