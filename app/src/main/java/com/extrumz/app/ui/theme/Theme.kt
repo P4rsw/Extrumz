@@ -48,25 +48,23 @@ private val LightColors = lightColorScheme(
 )
 
 /**
- * SF Pro Display, the face Apple Music itself is set in. Only the weights the
- * type scale actually asks for are bundled; Compose synthesises nothing, so a
- * missing weight would silently fall back to the nearest one shipped.
+ * Inter Display (Variable font, SIL OFL 1.1). Only the weights the
+ * type scale actually asks for are mapped; Compose uses the variable font
+ * to select the appropriate weight.
  */
-val SFProDisplay = FontFamily(
-    Font(R.font.sf_pro_display_regular, FontWeight.W400),
-    Font(R.font.sf_pro_display_medium, FontWeight.W500),
-    Font(R.font.sf_pro_display_semibold, FontWeight.W600),
-    Font(R.font.sf_pro_display_bold, FontWeight.W700),
-    Font(R.font.sf_pro_display_heavy, FontWeight.W800),
+val InterDisplay = FontFamily(
+    Font(R.font.inter_variable, FontWeight.W400),
+    Font(R.font.inter_variable, FontWeight.W500),
+    Font(R.font.inter_variable, FontWeight.W600),
+    Font(R.font.inter_variable, FontWeight.W700),
+    Font(R.font.inter_variable, FontWeight.W800),
 )
 
 /**
  * How tall a line is, as a multiple of its own size.
  *
- * Every style here used to omit lineHeight, so the line box came from the
- * font's own metrics — and SF Pro Display's are around 1.19x, well under the
- * 1.4 floor a readable paragraph needs. Nothing was "set wrong"; nothing was
- * set at all, so the app inherited the font's leading everywhere at once.
+ * Every style here sets lineHeight so the line box is well-proportioned for
+ * paragraphs and headings, well over the 1.4 floor a readable paragraph needs.
  *
  * Headings stay tighter than body (they are read as shapes, not sentences);
  * body copy gets the full floor, which is where the missing leading actually
@@ -79,15 +77,14 @@ private fun Float.sp(size: Float) = (this * size).sp
 /**
  * Tabular figures for anything numeric.
  *
- * SF Pro is proportional by default: '1' is 908 units and '6' is 1264, a 28%
- * spread, so a running clock, a countdown, a percentage or a column of
- * durations changes width every time a digit changes and the text around it
- * shifts. The font ships the `tnum` feature; enabling it costs nothing and
- * only affects digits, so prose is untouched.
+ * Proportional numbers spread across different widths, so a running clock,
+ * a countdown, a percentage or a column of durations would change width every
+ * time a digit changes and shift text around it. Inter ships the `tnum` feature;
+ * enabling it costs nothing and only affects digits, so prose is untouched.
  */
 private const val TABULAR = "tnum"
 
-// Heavy, tight typography — the backbone of the Apple Music look.
+// Heavy, tight typography.
 private val ExtrumzTypography = Typography(
     displayLarge = TextStyle(fontWeight = FontWeight.W800, fontSize = 34.sp, lineHeight = 41.sp, letterSpacing = (-0.8).sp),
     headlineLarge = TextStyle(fontWeight = FontWeight.W800, fontSize = 30.sp, lineHeight = 36.sp, letterSpacing = (-0.7).sp),
@@ -98,7 +95,7 @@ private val ExtrumzTypography = Typography(
     bodyMedium = TextStyle(fontWeight = FontWeight.W400, fontSize = 14.sp, lineHeight = 20.sp, fontFeatureSettings = TABULAR),
     labelMedium = TextStyle(fontWeight = FontWeight.W600, fontSize = 12.sp, lineHeight = 16.sp, fontFeatureSettings = TABULAR),
     labelSmall = TextStyle(fontWeight = FontWeight.W600, fontSize = 11.sp, lineHeight = 14.sp, fontFeatureSettings = TABULAR),
-).withFamily(SFProDisplay)
+).withFamily(InterDisplay)
 
 /** Applies [family] to every style in the scale, so nothing is left on Roboto. */
 private fun Typography.withFamily(family: FontFamily) = Typography(
