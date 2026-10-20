@@ -95,8 +95,8 @@ docs/       the lyrics translation specification
 ```
 
 One module, Material 3, edge to edge. `R8` shrinks release builds, and every
-library that reaches for a class by name — TDLib's JNI, ONNX's JNI,
-protobuf-lite — is kept whole in `proguard-rules.pro`.
+library that reaches for a class by name — TDLib's JNI and ONNX's JNI — is kept
+whole in `proguard-rules.pro`.
 
 **One thing worth knowing before you fork this.** A release build is not a
 debug build. `R8` only runs in release, and it can remove something the debug
@@ -114,6 +114,9 @@ say so than to let a reader find out:
 - **The APK is heavier than it needs to be.** The beat-matched transitions and
   the vocal separation are inherited from the original project, and they bring
   about forty megabytes of models and native runtime with them.
+- **Typography needs a free alternative.** Eleven megabytes of Apple's
+  proprietary SF Pro typeface are still bundled, awaiting replacement with an
+  open-source font such as Inter.
 - **Cover art and lyrics do not travel through an MTProto proxy.** They take
   the ordinary route, so a network that blocks those blocks them too.
 - **Translation is Persian and English only**, and the Persian is the one that

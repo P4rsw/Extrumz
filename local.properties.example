@@ -1,0 +1,24 @@
+# Extrumz — local build settings
+#
+# Copy this file to `local.properties` and fill in the values.
+# `local.properties` is gitignored: it holds this project's own credentials
+# and must never be committed.
+#
+#   cp local.properties.example local.properties
+#
+# Where to get the Telegram credentials: https://my.telegram.org/apps
+# Use your own api_id and api_hash. Using someone else's makes Telegram rate
+# limit or ban the app, and the harm lands on their account, not on yours.
+#
+# PROXY_HOST / PROXY_PORT are only seeded into debug builds; release builds
+# leave the proxy alone so each user configures their own.
+
+sdk.dir=/path/to/your/Android/sdk
+
+# Telegram application credentials -- required
+TG_API_ID=1234567
+TG_API_HASH=0123456789abcdef0123456789abcdef
+
+# Optional: a local SOCKS5 proxy, used in debug builds only
+PROXY_HOST=127.0.0.1
+PROXY_PORT=10808

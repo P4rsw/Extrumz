@@ -1,16 +1,19 @@
-/*
- * Copyright (C) 2026 Extrumz Project
+# AAudio به‌عنوان ترابرِ بومی — ارزیابیِ معماری
+
+> سندِ معماری. پیش‌تر به‌صورت یک آبجکتِ کاتلین (و در نتیجه بخشی از باینری) بود؛
+> به سندِ متنی تبدیل شد تا چیزی به اپ اضافه نکند.
+
+---
+
+* Copyright (C) 2026 Extrumz Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
- */
 
-package com.extrumz.app.playback.audio
-
-/**
+*
  * Technical Architecture Evaluation: AAudio as a Potential Native Transport for Extrumz.
  *
  * OBJECTIVE:
@@ -61,9 +64,3 @@ package com.extrumz.app.playback.audio
  *   3. Authoritative route negotiation via [OutputNegotiator].
  *   4. Rock-solid, glitch-free output via [androidx.media3.exoplayer.audio.DefaultAudioSink] and [android.media.AudioTrack].
  *   5. Isolated direct USB probe and transport via [com.extrumz.app.playback.audio.usb.UsbDirectManager].
- */
-object AAudioEvaluation {
-    const val IS_INTEGRATED: Boolean = false
-    const val RATIONALE: String =
-        "AAudio falls back to SHARED mode on USB paths without MMAP, routing to the same AudioFlinger mixer as AudioTrack. Direct AudioTrack provides equal or superior fidelity with complete platform stability."
-}
