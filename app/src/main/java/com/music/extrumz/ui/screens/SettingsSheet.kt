@@ -1106,18 +1106,18 @@ fun SettingsScreen(
                             textDecoration = TextDecoration.Underline,
                         ),
                     )
-                    withLink(LinkAnnotation.Url("https://github.com/kushagrasinghx/Extrumz", linkStyles)) {
+                    withLink(LinkAnnotation.Url("https://github.com/P4rsw/Extrumz", linkStyles)) {
                         append("GitHub")
                     }
                     append("  ")
-                    withLink(LinkAnnotation.Url("https://github.com/kushagrasinghx", linkStyles)) {
+                    withLink(LinkAnnotation.Url("https://github.com/P4rsw", linkStyles)) {
                         append("Developer")
                     }
                     append("  ")
-                    withLink(LinkAnnotation.Url("https://extrumz.kushagrasingh.in/", linkStyles)) {
+                    withLink(LinkAnnotation.Url("https://github.com/P4rsw/Extrumz/releases", linkStyles)) {
                         append("Website")
                     }
-                    append("\n~Telegram Music Backend")
+                    append("\nTelegram Music Player")
                 },
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,

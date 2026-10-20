@@ -6,7 +6,7 @@
 
 **Your Telegram, as a music library.**
 
-[فارسی](README.fa.md) · [Build it](#build-it) · [The proxy](#the-part-that-matters) · [Licence](#licence)
+[فارسی](README.fa.md) · [Features](#what-it-does) · [The Proxy](#the-part-that-matters) · [Building](#build-it) · [Architecture](#how-it-is-put-together) · [Licence](#licence)
 
 </div>
 
@@ -16,57 +16,42 @@
 
 ## The situation
 
-Telegram already holds your music. It is sitting in channels, in saved
-messages, in a group a friend sent it to years ago. It is yours, it is
-already there, and there is no way to press play on it.
+Telegram already holds your music. It is sitting in channels, in saved messages, in a group where a friend shared a rare track years ago. It is yours, it is already there, and until now there was no proper way to press play on it.
 
-Extrumz is a player for that. It indexes the audio in the chats and channels
-you point it at, and gives you a queue, playlists, liked tracks, history,
-search, lyrics, album art, and a now-playing screen worth leaving open.
+Extrumz is built for exactly that. It indexes the audio in the chats and channels you choose, turning a messy messaging stream into a full-fledged music player: queue management, custom playlists, liked tracks, playback history, instant search, word-synced lyrics, album artwork, and a now-playing screen designed to look great while playing.
 
-Nothing is uploaded. Nothing is copied. The files never move — they are just
-finally playable.
+Nothing is uploaded. Nothing is copied to external servers. The audio files never leave Telegram's servers until they stream to your phone — they are just finally playable the way music should be.
 
 ---
 
 ## What it does
 
-| | |
+| Feature | Details |
 |---|---|
-| **📥 Indexes** | Scans chats and channels for audio, with progress you can watch, resumable, and a bounded wait per page so one slow chat cannot stall the rest |
-| **▶️ Plays** | Background playback over a real media session, gapless, with crossfade |
-| **📚 Organises** | Playlists, liked tracks, history, search across everything indexed, sortable six ways |
-| **🎤 Lyrics** | Word-synced, from several providers, with a manual picker when the automatic one guesses wrong |
-| **🎨 Artwork** | Telegram's own thumbnails first, external databases as a fallback, and a palette pulled from the cover for the now-playing screen |
-| **🌍 Persian** | Real right-to-left layout, not a mirrored afterthought. English too. |
-| **🛡 Proxy** | A screen, not a buried setting — see below |
-| **🎧 Local files** | Your own music, alongside the Telegram library |
+| **📥 Fast Indexing** | Scans chats and channels for audio files with real-time visible progress, resumable state, and a bounded wait per page so one slow chat never stalls the rest. |
+| **▶️ Real Playback** | Background audio over an Android MediaSession with lock-screen controls, gapless playback, and smooth crossfade. |
+| **📚 Library Organisation** | Playlists, liked songs, listening history, and instant full-text search across your indexed library, sortable by date, title, or artist. |
+| **🎤 Synced Lyrics** | Word-by-word and line-by-line synchronized lyrics from multiple providers, with an in-app manual selector when automatic matching guesses wrong. |
+| **🎨 Dynamic Artwork** | Telegram native thumbnails first, high-resolution external databases as fallback, and a dynamic mesh color palette extracted directly from cover art. |
+| **🌍 First-Class Persian & RTL** | Authentic right-to-left layout and typography tailored for Persian, alongside standard English. |
+| **🛡 Built-in Proxy** | A dedicated, full-screen proxy manager right on the welcome screen — not hidden away in settings. |
+| **🎧 Local Audio** | Seamlessly play offline local audio files right next to your indexed Telegram tracks. |
 
 ---
 
 ## The part that matters
 
-**If Telegram is not reachable from where you are, none of the above works.**
+**If Telegram is unreachable from where you are, none of the above matters.**
 
-So the proxy is not a setting buried three menus deep. It is a screen, it is
-offered on the welcome page next to the login buttons, and it behaves the
-way a proxy should:
+In heavily filtered environments, a proxy cannot be a hidden toggle buried three submenus deep. Extrumz places proxy management directly on the welcome screen right beside the login buttons, built around how people actually connect:
 
-- **MTProto, SOCKS5 and HTTP.**
-- **A list, not a field.** Proxies are kept, named, and switchable. Adding a
-  second one does not delete the first.
-- **Tested before trusted.** A proxy is checked against Telegram itself, on
-  the datacentre your account actually uses, and the result sits next to the
-  direct connection — so *"does this help?"* has an answer instead of a
-  feeling.
-- **A shield on the home screen** while one is active, because a proxy that
-  is on and forgotten is how people get stuck.
+- **MTProto, SOCKS5, and HTTP:** Support for all three major proxy protocols used with Telegram.
+- **A managed list, not a single input:** Proxies are saved, named, and easily toggled. Adding a new proxy never overwrites your existing backup.
+- **Tested before trusted:** Every proxy is ping-tested directly against Telegram's data centers — specifically the DC your account is assigned to — displaying latency alongside the direct connection. You see concrete numbers instead of guessing.
+- **Persistent visual shield:** An active shield indicator remains visible on the home screen whenever a proxy is running, avoiding forgotten active connections.
 
-> **The honest limit:** MTProto is a Telegram protocol, so it carries
-> Telegram — sessions, chats, audio, thumbnails. Cover art fetched from
-> Deezer or iTunes, and lyrics fetched over HTTP, take the ordinary route
-> and are not tunnelled. If those matter where you are, run a system-wide
-> VPN alongside it.
+> [!NOTE]
+> **The honest limit:** MTProto is Telegram's proprietary protocol; it tunnels Telegram traffic exclusively (sessions, messages, audio streams, and channel thumbnails). Cover art fetched from external providers (like Deezer or iTunes) and lyrics queried over HTTP travel over direct network connections. If those external services are restricted on your network, run a system-wide VPN alongside Extrumz.
 
 ---
 
@@ -78,71 +63,57 @@ cd Extrumz
 JAVA_HOME=/usr/lib/jvm/java-21-temurin ./gradlew :app:assembleProdDebug
 ```
 
-**You need your own Telegram `api_id` and `api_hash` first.** Telegram
-requires every application to identify itself with credentials registered to
-*that* application. Shipping someone else's — including the well-known ones
-that are in every fork and every tutorial — gets the app rate-limited and
-then blocked, and the people who feel that are the users, not the developer.
+### Telegram API Credentials
 
-1. [my.telegram.org](https://my.telegram.org) → sign in with your phone number
-2. **API development tools** → create an application (any name, platform *Android*)
-3. Put the two values in `local.properties`:
+**You must supply your own Telegram `api_id` and `api_hash`.** Telegram requires every client application to identify itself with credentials registered specifically for that application. Shipping shared or well-known credentials — such as those copied from public tutorials or Telegram Desktop — leads to aggressive rate limits and account/app bans. When that happens, **users suffer the consequences, not the developer.**
+
+1. Visit [my.telegram.org](https://my.telegram.org) and log in with your Telegram phone number.
+2. Navigate to **API development tools** and create an application (any title, platform *Android*).
+3. Add your credentials to `local.properties` in the project root:
 
 ```properties
 TG_API_ID=1234567
 TG_API_HASH=0123456789abcdef0123456789abcdef
 ```
 
-`local.properties` is gitignored. Keep it that way.
+`local.properties` is ignored by git. Keep it private and never commit it.
 
-**Tests:** `./gradlew :app:testProdDebugUnitTest`
-**Signed release:** `./tools/make-keystore.sh` once, then `./release.sh`
+- **Run unit tests:** `./gradlew :app:testProdDebugUnitTest`
+- **Build signed release:** `./tools/make-keystore.sh` (one-time setup), then `./release.sh`
 
 ---
 
 ## How it is put together
 
 ```
-app/        the Android application — Kotlin, Compose, Room, TDLib
-backend/    the lyrics backend that LyricsPlus queries, in Go
-native/     the audio analysis the beat-matched transitions run on, in C++
-tools/      keystore creation, and the setup script for a release
+app/        The Android application — Kotlin, Jetpack Compose, Room, TDLib
+backend/    Listen Together (group listening party) WebSocket server in Go.
+            Inherited from the original project; the app no longer talks to it.
+native/     C++ DSP audio analysis engine for beat and tempo detection
+tools/      Keystore generation and release verification automation
+docs/       Architectural notes, lyrics translation specs, and screenshots
 ```
 
-Single module, Material 3, edge to edge. `R8` in release builds, and every
-library that reaches for a class by name — TDLib's JNI, ONNX's JNI,
-protobuf-lite — is kept whole in `proguard-rules.pro`.
-
-**One thing worth knowing:** the release build is not the debug build. `R8`
-only runs in release, and it can remove something the debug build never
-would. A release-only failure found its way out of this repository twice
-before it was caught by installing a release APK on a phone and using it —
-not by a test, because tests do not run `R8`. If you fork this, do that step.
+- **Architecture:** Single-module Kotlin application, Material 3 design, full edge-to-edge drawing.
+- **Release Shrinking (`R8`):** Full code shrinking and optimization are enabled for release builds. Critical reflection and JNI boundaries — including TDLib JNI, ONNX Runtime, and Protobuf Lite — are preserved in `proguard-rules.pro`.
+- **Release Verification:** R8 code optimization runs only on release builds. Always verify release builds on a physical device prior to publishing (`./gradlew installDevBenchmark` or `./release.sh`), as unit tests run against non-minified bytecode.
 
 ---
 
 ## What is not finished
 
-This is used daily and it works, but it is early, and it is more honest to
-say so than to let a reader find out:
+Extrumz is used daily and is fully functional, but it is an evolving project. Being straightforward about its present boundaries saves everyone time:
 
-- The beat-matched transitions and the vocal unmixing are inherited from the
-  original project and carry a lot of weight in the APK.
-- Cover art and lyrics do not travel through an MTProto proxy.
-- Translation is Persian and English only, and the Persian is the one that
-  gets attention.
+- **Binary footprint:** Beat-matching transitions and vocal separation models inherited from the upstream architecture increase the final APK size.
+- **Proxy scope:** High-res external album artwork and third-party lyrics do not route through MTProto proxies.
+- **Translations:** Localization currently covers Persian and English, with Persian receiving primary design attention.
 
 ---
 
 ## Licence
 
-**GPL-3.0.** See [LICENSE](LICENSE).
+**GPL-3.0.** See [LICENSE](LICENSE) for the full text.
 
-Extrumz is a fork of [**BitChord**](https://github.com/kushagrasinghx/BitChord)
-by **Kushagra Singh** and its contributors — a YouTube Music client — rebuilt
-around Telegram as the source. The playback engine, much of the UI language
-and a great deal of the code are theirs; the Telegram layer, the proxy
-handling, the library scanner and the right-to-left work belong to this fork.
-Under the GPL that lineage stays visible, and it should.
+Extrumz is a fork of [**BitChord**](https://github.com/kushagrasinghx/BitChord) by **Kushagra Singh** and contributors — originally a YouTube Music client — completely re-architected around Telegram as its audio backend. The core playback foundation, audio pipeline, and foundational visual components are their work; the Telegram integration, proxy engine, library scanner, and Persian RTL implementation were built for this fork. Under the terms of the GNU General Public License v3.0, that lineage remains preserved and acknowledged.
 
-Lyrics animation is credited to [binimum/am-lyrics](https://github.com/binimum/am-lyrics).
+Lyrics animations are credited to [binimum/am-lyrics](https://github.com/binimum/am-lyrics).

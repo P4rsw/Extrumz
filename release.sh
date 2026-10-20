@@ -78,11 +78,18 @@ CURRENT_CODE="$(grep -E '^\s*versionCode = ' app/build.gradle.kts | head -1 | gr
 CURRENT_NAME="$(grep -E '^\s*versionName = ' app/build.gradle.kts | head -1 | grep -oE '"[^"]+"' | tr -d '"')"
 echo "     current: versionName $CURRENT_NAME · versionCode $CURRENT_CODE"
 
+TAG_NAME="$CURRENT_NAME"
 if [ -n "$VERSION" ]; then
     if [ "$VERSION" = "$CURRENT_NAME" ]; then
         die "versionName is already $VERSION — bump it, or users get no update"
     fi
     NEXT_CODE=$((CURRENT_CODE + 1))
+    # The tag that gets published must be the version that was just
+    # written, not the one that was there when this script started. Reading
+    # CURRENT_NAME here would print `git tag v1.8` for a 1.9 release, and
+    # then tag the wrong commit -- a tag that points at a different build
+    # than the one that was just made and signed.
+    TAG_NAME="$VERSION"
     # In place, and only the two lines: the file is heavily commented and a
     # rewrite would lose that.
     sed -i -E "s/^(\s*versionName = )\"[^\"]+\"/\1\"$VERSION\"/" app/build.gradle.kts
@@ -133,8 +140,8 @@ for apk in "${APKS[@]}"; do
 done
 echo
 echo "     Publish on GitHub:"
-echo "         git tag v$CURRENT_NAME && git push origin v$CURRENT_NAME"
-echo "         gh release create v$CURRENT_NAME ${APKS[*]}"
+echo "         git tag v$TAG_NAME && git push origin v$TAG_NAME"
+echo "         gh release create v$TAG_NAME ${APKS[*]}"
 echo
 echo "     Give users a channel that is not GitHub as well — it is often"
 echo "     unreachable from the network this app is built for."
