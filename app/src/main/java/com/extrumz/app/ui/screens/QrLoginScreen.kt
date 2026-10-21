@@ -61,6 +61,7 @@ import com.extrumz.app.data.telegram.Telegram
 import com.extrumz.app.data.telegram.TelegramAuthController
 import com.extrumz.app.data.telegram.TelegramAuthState
 import com.extrumz.app.ui.components.QrCode
+import com.extrumz.app.ui.components.TelegramCustomCredentialsCard
 import com.extrumz.app.ui.util.ProvideLocaleDirection
 import kotlinx.coroutines.launch
 
@@ -397,6 +398,16 @@ fun QrLoginScreen(
                         }
                     }
                 }
+            }
+
+            item {
+                Spacer(Modifier.height(14.dp))
+                TelegramCustomCredentialsCard(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .widthIn(max = 400.dp)
+                        .padding(horizontal = 20.dp),
+                )
             }
 
             item {

@@ -5,11 +5,14 @@ import android.content.Intent
 import android.content.SharedPreferences
 import android.media.MediaMetadataRetriever
 import android.net.Uri
+import com.extrumz.app.R
 import com.extrumz.app.data.DebugLog as Log
 import androidx.core.content.ContextCompat
 import com.extrumz.app.data.model.Song
+import com.extrumz.app.data.model.telegramCoordsOf
 import com.extrumz.app.data.settings.AppSettings
 import com.extrumz.app.data.sources.SourceResolver
+import com.extrumz.app.data.telegram.Telegram
 import com.extrumz.app.data.sources.SourceStream
 import com.extrumz.app.data.sources.StreamFormat
 import com.extrumz.app.data.sources.TrackMatcher
@@ -865,6 +868,18 @@ object Downloads {
      * before its turn — and a preparation is not a download.
      */
     internal suspend fun prepare(context: Context, song: Song): Prepared = withContext(Dispatchers.IO) {
+        // Enforce Telegram ToS 1.3 / 1.4: protected content must not be saved to disk
+        val coords = telegramCoordsOf(song.videoId)
+        if (coords != null) {
+            val (chatId, messageId) = coords
+            val isProtected = runCatching {
+                Telegram.client.isProtectedContent(chatId, messageId)
+            }.getOrDefault(false)
+            if (isProtected) {
+                error(context.getString(R.string.tg_protected_content_refusal))
+            }
+        }
+
         // Downloads preserve the exact item the listener picked. Catalogue
         // matching is a manual playback action and must not silently change a
         // download or its filename.

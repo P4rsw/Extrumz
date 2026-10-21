@@ -787,4 +787,20 @@
     <string name="profile_logout_confirm_msg">آیا مطمئن هستید که می‌خواهید از حساب تلگرام خود خارج شوید؟</string>
     <string name="profile_logout_confirm">خروج</string>
     <string name="profile_logout_cancel">انصراف</string>
+    <string name="tg_credentials_title">اعتبارنامهٔ تلگرام</string>
+    <string name="tg_credentials_advanced">تنظیمات پیشرفته</string>
+    <string name="tg_credentials_use_custom">استفاده از اعتبارنامهٔ اختصاصیِ من</string>
+    <string name="tg_credentials_api_id">شناسه API (api_id)</string>
+    <string name="tg_credentials_api_hash">کد اعتبارسنجی (api_hash)</string>
+    <string name="tg_credentials_save">ذخیره اعتبارنامه</string>
+    <string name="tg_credentials_reset">بازگشت به پیش‌فرض</string>
+    <string name="tg_credentials_default_subtitle">پیش‌فرض برنامه</string>
+    <string name="tg_credentials_custom_subtitle">اختصاصیِ شما: %1$s</string>
+    <string name="tg_credentials_restart_notice">پس از راه‌اندازی مجدد برنامه اعمال می‌شود</string>
+    <string name="tg_credentials_invalid_id">شناسه API باید یک عدد مثبت معتبر باشد</string>
+    <string name="tg_credentials_empty_hash">کد اعتبارسنجی (api_hash) نمی‌تواند خالی باشد</string>
+    <string name="tg_credentials_saved_toast">اعتبارنامهٔ اختصاصی ذخیره شد</string>
+    <string name="tg_credentials_reset_toast">به اعتبارنامهٔ پیش‌فرض بازگشت</string>
+    <string name="tg_credentials_dialog_desc">به‌طور پیش‌فرض از کلیدهای اختصاصی برنامه استفاده می‌شود. در صورت تمایل می‌توانید api_id و api_hash اختصاصی خود را از my.telegram.org وارد کنید.</string>
+    <string name="tg_protected_content_refusal">این محتوا محافظت‌شده است و امکان ذخیره یا دانلود آن وجود ندارد</string>
 </resources>

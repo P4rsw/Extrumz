@@ -1259,4 +1259,20 @@
     <string name="profile_logout_confirm_msg">Are you sure you want to log out from your Telegram account?</string>
     <string name="profile_logout_confirm">Log Out</string>
     <string name="profile_logout_cancel">Cancel</string>
+    <string name="tg_credentials_title">Telegram credentials</string>
+    <string name="tg_credentials_advanced">Advanced settings</string>
+    <string name="tg_credentials_use_custom">Use my custom credentials</string>
+    <string name="tg_credentials_api_id">API ID</string>
+    <string name="tg_credentials_api_hash">API Hash</string>
+    <string name="tg_credentials_save">Save credentials</string>
+    <string name="tg_credentials_reset">Reset to default</string>
+    <string name="tg_credentials_default_subtitle">App default</string>
+    <string name="tg_credentials_custom_subtitle">Custom: %1$s</string>
+    <string name="tg_credentials_restart_notice">Changes will take effect after restarting the app</string>
+    <string name="tg_credentials_invalid_id">API ID must be a valid positive number</string>
+    <string name="tg_credentials_empty_hash">API Hash cannot be empty</string>
+    <string name="tg_credentials_saved_toast">Custom credentials saved</string>
+    <string name="tg_credentials_reset_toast">Reset to default credentials</string>
+    <string name="tg_credentials_dialog_desc">By default, Extrumz uses its built-in credentials. You can optionally provide your own api_id and api_hash from my.telegram.org.</string>
+    <string name="tg_protected_content_refusal">This content is protected and cannot be downloaded or saved</string>
 </resources>

@@ -1,6 +1,7 @@
 package com.extrumz.app.data.telegram
 
 import com.extrumz.app.BuildConfig
+import com.extrumz.app.data.settings.AppSettings
 
 /** Mirrors the standalone project's AppConfig for the Telegram feature. */
 object TelegramConfig {
@@ -48,9 +49,23 @@ object TelegramConfig {
     const val APPLICATION_VERSION = "1.0"
 
     /**
-     * API credentials shipped via BuildConfig (local.properties →
-     * build.gradle.kts getters). Never log the hash.
+     * API credentials: uses user-configured custom credentials from [AppSettings]
+     * if valid, otherwise falls back to the build-shipped defaults (BuildConfig).
+     * Evaluated at runtime so user credentials take precedence. Never log the hash.
      */
-    fun credentials(): TelegramCredentials =
-        TelegramCredentials(BuildConfig.TG_API_ID, BuildConfig.TG_API_HASH)
+    fun credentials(): TelegramCredentials {
+        val customId = runCatching { AppSettings.customApiId.value.trim().toIntOrNull() }.getOrNull()
+        val customHash = runCatching { AppSettings.customApiHash.value.trim() }.getOrNull().orEmpty()
+        if (customId != null && customId > 0 && customHash.isNotEmpty()) {
+            return TelegramCredentials(customId, customHash)
+        }
+        return TelegramCredentials(BuildConfig.TG_API_ID, BuildConfig.TG_API_HASH)
+    }
+
+    /** True if the user has configured custom credentials. */
+    fun isUsingCustomCredentials(): Boolean {
+        val customId = runCatching { AppSettings.customApiId.value.trim().toIntOrNull() }.getOrNull()
+        val customHash = runCatching { AppSettings.customApiHash.value.trim() }.getOrNull().orEmpty()
+        return customId != null && customId > 0 && customHash.isNotEmpty()
+    }
 }

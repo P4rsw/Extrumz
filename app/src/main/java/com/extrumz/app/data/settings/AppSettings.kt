@@ -472,6 +472,29 @@ object AppSettings {
     /** Published by PlaybackService so the UI can open the system equalizer. */
     val audioSessionId = MutableStateFlow(0)
 
+    /** User-provided Telegram API ID (empty string if using build default). Never logged. */
+    val customApiId = MutableStateFlow("")
+
+    /** User-provided Telegram API Hash (empty string if using build default). Never logged. */
+    val customApiHash = MutableStateFlow("")
+
+    fun setCustomCredentials(apiId: String, apiHash: String) {
+        val cleanId = apiId.trim()
+        val cleanHash = apiHash.trim()
+        customApiId.value = cleanId
+        customApiHash.value = cleanHash
+        if (this::prefs.isInitialized) {
+            prefs.edit()
+                .putString(KEY_CUSTOM_API_ID, cleanId)
+                .putString(KEY_CUSTOM_API_HASH, cleanHash)
+                .apply()
+        }
+    }
+
+    fun clearCustomCredentials() {
+        setCustomCredentials("", "")
+    }
+
     /**
      * True while a version switch is fetching and analysing the other cut
      * before playback actually moves. Drains into the loading bar drawn along
@@ -600,6 +623,8 @@ object AppSettings {
         detailSongSorts.value = readDetailSongSorts()
         localMusicFolderUri.value = prefs.getString(KEY_LOCAL_MUSIC_FOLDER_URI, "").orEmpty()
         pinnedPlaylists.value = readPinnedPlaylists()
+        customApiId.value = prefs.getString(KEY_CUSTOM_API_ID, "").orEmpty()
+        customApiHash.value = prefs.getString(KEY_CUSTOM_API_HASH, "").orEmpty()
     }
 
     /**
@@ -1175,6 +1200,8 @@ object AppSettings {
         "downloaded_collections",
         KEY_LOCAL_MUSIC_FOLDER_URI,
         KEY_LAST_VERSION_CODE,
+        KEY_CUSTOM_API_ID,
+        KEY_CUSTOM_API_HASH,
     )
 
     const val DEFAULT_CACHE_LIMIT_BYTES = 512L * 1024 * 1024
@@ -1250,6 +1277,9 @@ object AppSettings {
     private const val KEY_HOME_RECENTS_VIEW_TYPE = "home_recents_view_type"
     private const val KEY_LOCAL_MUSIC_FOLDER_URI = "local_music_folder_uri"
     private const val KEY_PINNED_PLAYLISTS = "pinned_playlists"
+
+    private const val KEY_CUSTOM_API_ID = "custom_api_id"
+    private const val KEY_CUSTOM_API_HASH = "custom_api_hash"
 
     private const val KEY_LAST_VERSION_CODE = "last_version_code"
 }

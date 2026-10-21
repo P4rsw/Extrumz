@@ -61,6 +61,7 @@ import androidx.compose.material.icons.rounded.Waves
 import androidx.compose.material.icons.rounded.Wifi
 import androidx.compose.material.icons.rounded.BatteryChargingFull
 import androidx.compose.material.icons.rounded.ChevronRight
+import androidx.compose.material.icons.rounded.Key
 import androidx.compose.material.icons.rounded.Speed
 import androidx.compose.material.icons.rounded.Warning
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -68,6 +69,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatDelegate
 import com.extrumz.app.data.lyrics.translationLanguageName
 import com.extrumz.app.ui.components.ExtrumzConfirmDialog
+import com.extrumz.app.ui.components.TelegramCredentialsDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -293,6 +295,7 @@ fun SettingsScreen(
         // What is left after a keystroke is a different list, and the offset the
         // last one was scrolled to means nothing in it.
         val scrollState = rememberSaveable(saver = ScrollState.Saver) { ScrollState(0) }
+        var showCredentialsDialog by remember { mutableStateOf(false) }
         var isFirstSearchComposition by remember { mutableStateOf(true) }
         LaunchedEffect(searchQuery) {
             if (isFirstSearchComposition && searchQuery.isEmpty()) {
@@ -379,6 +382,22 @@ fun SettingsScreen(
                             else -> stringResource(R.string.proxy_incomplete)
                         },
                         onClick = onProxy,
+                    )
+                }
+
+                val customApiId by AppSettings.customApiId.collectAsStateWithLifecycle()
+                val customApiHash by AppSettings.customApiHash.collectAsStateWithLifecycle()
+                val isCustomCreds = customApiId.isNotBlank() && customApiHash.isNotBlank()
+                row("telegram", "credentials", "api_id", "api_hash", "تلگرام", "اعتبارنامه", "کلید") {
+                    SettingsRow(
+                        icon = Icons.Rounded.Key,
+                        title = stringResource(R.string.tg_credentials_title),
+                        subtitle = if (isCustomCreds) {
+                            stringResource(R.string.tg_credentials_custom_subtitle, customApiId)
+                        } else {
+                            stringResource(R.string.tg_credentials_default_subtitle)
+                        },
+                        onClick = { showCredentialsDialog = true },
                     )
                 }
             }
@@ -1141,7 +1160,11 @@ fun SettingsScreen(
             )
         }
 
-
+        if (showCredentialsDialog) {
+            TelegramCredentialsDialog(
+                onDismiss = { showCredentialsDialog = false },
+            )
+        }
     }}
 
 /** "3 months of listening" — the unit a backup is actually measured in. */

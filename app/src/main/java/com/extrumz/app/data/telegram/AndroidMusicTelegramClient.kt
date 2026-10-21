@@ -431,17 +431,16 @@ class AndroidMusicTelegramClient(
     }
 
     override suspend fun restart() {
-        val creds = credentials ?: runCatching { TelegramConfig.credentials() }.getOrNull()
+        val creds = TelegramConfig.credentials()
+        this.credentials = creds
         try {
             client?.send(TdApi.Close(), null)
         } catch (_: Throwable) {}
         client = null
         parametersSent = false
         publishAuth(TelegramAuthState.Initializing)
-        if (creds != null) {
-            kotlinx.coroutines.delay(150)
-            start(creds)
-        }
+        kotlinx.coroutines.delay(150)
+        start(creds)
     }
 
     override suspend fun searchAllAudio(query: String, limit: Int): List<RemoteAudio> {
@@ -610,6 +609,15 @@ class AndroidMusicTelegramClient(
             .onFailure { failure = it.message ?: it::class.simpleName }
         return failure
     }
+
+    override suspend fun isProtectedContent(chatId: Long, messageId: Long): Boolean = runCatchingCancellable {
+        awaitReady()
+        val message = runCatching { send(TdApi.GetMessage(chatId, messageId)) }.getOrNull()
+        if (message != null && !message.canBeSaved) return@runCatchingCancellable true
+        val chat = runCatching { fetchChat(chatId) }.getOrNull()
+        if (chat != null && chat.hasProtectedContent) return@runCatchingCancellable true
+        false
+    }.getOrDefault(false)
 
     /**
      * The same id set [listTrackedCandidateChats] builds, without the per-chat
@@ -1322,7 +1330,8 @@ class AndroidMusicTelegramClient(
             caption = this.caption?.text.orEmpty(),
             dateSeconds = message.date.toLong(),
             mediaAlbumId = message.mediaAlbumId.takeIf { it != 0L },
-            coverUrl = persistInlineCover(file.id, audio.albumCoverMinithumbnail?.data)
+            coverUrl = persistInlineCover(file.id, audio.albumCoverMinithumbnail?.data),
+            canBeSaved = message.canBeSaved,
         )
     }
 }

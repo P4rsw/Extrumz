@@ -60,7 +60,9 @@ data class RemoteAudio(
     val dateSeconds: Long,
     val mediaAlbumId: Long?,
     /** Local `file://` cover written from Telegram's inline album minithumbnail, null when the message has none. */
-    val coverUrl: String? = null
+    val coverUrl: String? = null,
+    /** Whether Telegram permits saving this message content (false if protected content). */
+    val canBeSaved: Boolean = true,
 )
 
 data class RemoteAudioPage(
@@ -197,6 +199,13 @@ interface MusicTelegramClient {
      * the error text otherwise. GetFile reads metadata without downloading.
      */
     suspend fun probeFile(fileId: String): String? = "probeFile not implemented"
+
+    /**
+     * Checks whether the given message or its chat has protected content enabled
+     * (ToS 1.3/1.4 - has_protected_content or !can_be_saved).
+     * When true, permanent export or download must be blocked.
+     */
+    suspend fun isProtectedContent(chatId: Long, messageId: Long): Boolean = false
 
     /**
      * Re-reads one message's audio — the way to refresh a [RemoteAudio] whose

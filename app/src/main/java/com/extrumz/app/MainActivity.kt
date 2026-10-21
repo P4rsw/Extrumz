@@ -1298,7 +1298,29 @@ private fun ExtrumzApp(
         } else {
             song
         }
-        startDownload(listOf(withDuration), null)
+        val coords = com.extrumz.app.data.model.telegramCoordsOf(song.videoId)
+        if (coords != null) {
+            scope.launch(Dispatchers.IO) {
+                val isProtected = runCatching {
+                    com.extrumz.app.data.telegram.Telegram.client.isProtectedContent(coords.first, coords.second)
+                }.getOrDefault(false)
+                if (isProtected) {
+                    withContext(Dispatchers.Main) {
+                        android.widget.Toast.makeText(
+                            context,
+                            R.string.tg_protected_content_refusal,
+                            android.widget.Toast.LENGTH_SHORT
+                        ).show()
+                    }
+                } else {
+                    withContext(Dispatchers.Main) {
+                        startDownload(listOf(withDuration), null)
+                    }
+                }
+            }
+        } else {
+            startDownload(listOf(withDuration), null)
+        }
     }
 
     // Content padding leaves room for the frosted bar above and the tab bar
