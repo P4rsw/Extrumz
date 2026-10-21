@@ -42,7 +42,7 @@
 
     <application
         android:name=".ExtrumzApplication"
-        android:allowBackup="true"
+        android:allowBackup="false"
         android:appCategory="audio"
         android:usesCleartextTraffic="false"
         android:dataExtractionRules="@xml/data_extraction_rules"

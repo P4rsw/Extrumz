@@ -109,6 +109,8 @@ a release APK on a phone and using it. Do that step.
 
 **GPL-3.0.** See [LICENSE](LICENSE) for the full text.
 
+[Privacy Policy](PRIVACY_POLICY.md) — what leaves your device, and where it goes.
+
 Extrumz is a fork of [**BitChord**](https://github.com/kushagrasinghx/BitChord) by **Kushagra Singh** and contributors — originally a YouTube Music client — completely re-architected around Telegram as its audio backend. The core playback foundation, audio pipeline, and foundational visual components are their work; the Telegram integration, proxy engine, library scanner, and Persian RTL implementation were built for this fork. Under the terms of the GNU General Public License v3.0, that lineage remains preserved and acknowledged.
 
 Lyrics animations are credited to [binimum/am-lyrics](https://github.com/binimum/am-lyrics).
