@@ -787,6 +787,7 @@
     <string name="profile_logout_confirm_msg">آیا مطمئن هستید که می‌خواهید از حساب تلگرام خود خارج شوید؟</string>
     <string name="profile_logout_confirm">خروج</string>
     <string name="profile_logout_cancel">انصراف</string>
+    <string name="settings_telegram">تلگرام</string>
     <string name="tg_credentials_title">اعتبارنامهٔ تلگرام</string>
     <string name="tg_credentials_advanced">تنظیمات پیشرفته</string>
     <string name="tg_credentials_use_custom">استفاده از اعتبارنامهٔ اختصاصیِ من</string>

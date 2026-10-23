@@ -385,6 +385,14 @@ fun SettingsScreen(
                     )
                 }
 
+            }
+
+            // Telegram credentials: a section of its own. A user looking for
+            // where their own api_id goes is not thinking about proxies.
+            SearchableSettingsGroup(
+                search,
+                header = stringResource(R.string.settings_telegram),
+            ) {
                 val customApiId by AppSettings.customApiId.collectAsStateWithLifecycle()
                 val customApiHash by AppSettings.customApiHash.collectAsStateWithLifecycle()
                 val isCustomCreds = customApiId.isNotBlank() && customApiHash.isNotBlank()
@@ -1498,6 +1506,7 @@ internal fun SettingsSubRow(
                     color = MaterialTheme.colorScheme.onBackground,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false),
                 )
                 if (badge != null) {
                     Spacer(Modifier.width(8.dp))
@@ -1531,6 +1540,8 @@ internal fun Badge(text: String) {
         text = text.uppercase(Locale.ROOT),
         style = MaterialTheme.typography.labelSmall,
         color = MaterialTheme.colorScheme.primary,
+        maxLines = 1,
+        softWrap = false,
         modifier = Modifier
             .clip(RoundedCornerShape(5.dp))
             .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.16f))

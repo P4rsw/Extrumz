@@ -1259,6 +1259,7 @@
     <string name="profile_logout_confirm_msg">Are you sure you want to log out from your Telegram account?</string>
     <string name="profile_logout_confirm">Log Out</string>
     <string name="profile_logout_cancel">Cancel</string>
+    <string name="settings_telegram">Telegram</string>
     <string name="tg_credentials_title">Telegram credentials</string>
     <string name="tg_credentials_advanced">Advanced settings</string>
     <string name="tg_credentials_use_custom">Use my custom credentials</string>

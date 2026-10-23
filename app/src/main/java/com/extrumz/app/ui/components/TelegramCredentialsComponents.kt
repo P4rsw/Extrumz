@@ -499,7 +499,7 @@ fun TelegramCredentialsDialog(
 
                 // Restart notice
                 Text(
-                    text = "ℹ️ " + stringResource(R.string.tg_credentials_restart_notice),
+                    text = stringResource(R.string.tg_credentials_restart_notice),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.primary,
                 )
